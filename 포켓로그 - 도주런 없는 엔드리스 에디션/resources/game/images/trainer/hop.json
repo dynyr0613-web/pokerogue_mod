@@ -1,0 +1,1 @@
+{"textures":[{"image":"hop.png","format":"RGBA8888","size":{"w":80,"h":80},"scale":1,"frames":[{"filename":"0001.png","rotated":false,"trimmed":false,"sourceSize":{"w":47,"h":68},"spriteSourceSize":{"x":0,"y":0,"w":47,"h":68},"frame":{"x":16,"y":10,"w":47,"h":68}}]}],"meta":{"app":"tools/port_named_trainers/install_pokerogue.py","version":"3.0"}}
