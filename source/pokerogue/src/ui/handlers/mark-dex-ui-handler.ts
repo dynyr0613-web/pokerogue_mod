@@ -10,9 +10,16 @@
  * - The action button on a mark opens the second view: every starter line's icon, bright if the line has that mark
  *   and grey if not, with the line's own count ("증표 n/70") under the cursor.
  *
- * - The hidden Eternatus Mark (`hasEternatusMark`) is not in the list until it is earned. Then it stands after the
- *   last mark and counts as one more than the total: "종류 71/70" (the user: "도감 다 채우면 예를들어 52/51 이런 식으로
- *   하나 더 있는듯하게 표시되도록").
+ * - The hidden marks are not in the list: the Once-in-a-Lifetime Ribbon, the Mightiest Mark and the player's own
+ *   Eternatus Mark (`hasEternatusMark`). Once every listed mark has been obtained the list can be scrolled down past
+ *   its last row, and there they stand apart in the middle (the user: "무한다이노의 증표 위치는 스크롤을 해서 아래로
+ *   내리면 중앙정도 되는 위치에 조금 떨어져있게 하죠, 다른 증표들을 전부 모으면 스크롤이 가능해지게" and "히든 증표
+ *   ... 최강의 증표나 천재일우의 증표 정도"): grey and nameless until obtained, and each one counts past the total,
+ *   "종류 71/68" ("도감 다 채우면 예를들어 52/51 이런 식으로 하나 더 있는듯하게"). They do not count for anything's
+ *   golden outline. The Eternatus Mark gets its own outline when Eternatus' line has every listed mark ("무한다이노로
+ *   다른 증표를 모두 모으면 무한다이노의 증표에도 황금색이 붙게").
+ * - "Every Pokémon" for the marks' shares and outlines leaves Eternatus out ("모든 포켓몬의 기준은 무한다이노는
+ *   빼고"); it is still listed in the second view.
  *
  * The data is each starter line's collection (`StarterDataEntry.marks`, pokemon-marks.ts).
  */
@@ -20,17 +27,19 @@
 import { globalScene } from "#app/global-scene";
 import { speciesDataRegistry } from "#app/global-species-data-registry";
 import {
+  COMPLETION_EXEMPT_MARKS,
   getCollectedMarks,
   getMarkDescription,
   getMarkKey,
   getMarkName,
   hasEternatusMark,
+  isMarkCollectionComplete,
   MARKS_ATLAS_KEY,
   orderedPokemonMarks,
 } from "#data/pokemon-marks";
 import { Button } from "#enums/buttons";
 import { PokemonMark } from "#enums/pokemon-mark";
-import type { SpeciesId } from "#enums/species-id";
+import { SpeciesId } from "#enums/species-id";
 import { TextStyle } from "#enums/text-style";
 import { createMarkOutline } from "#ui/mark-tray-container";
 import { MessageUiHandler } from "#ui/message-ui-handler";
@@ -45,6 +54,25 @@ const MARK_SIZE = 40;
 const MARK_SCALE = 0.45;
 const MARK_COLS = 14;
 const MARK_PITCH = 20;
+/** The hidden marks stand apart, a little larger */
+const HIDDEN_MARK_SCALE = 0.7;
+const HIDDEN_MARK_PITCH = 44;
+
+/** The listed marks: all but the hidden ones */
+const LISTED_MARKS: readonly PokemonMark[] = orderedPokemonMarks.filter(m => !COMPLETION_EXEMPT_MARKS.includes(m));
+/** The marks of the page below the list */
+const HIDDEN_PAGE_MARKS: readonly PokemonMark[] = [...COMPLETION_EXEMPT_MARKS, PokemonMark.ETERNATUS_MARK];
+
+/** One mark of the first view: its dark base, the bright part that fills up over it, and its golden outline */
+interface MarkCell {
+  mark: PokemonMark;
+  base: Phaser.GameObjects.Image;
+  fill: Phaser.GameObjects.Image;
+  /** Made the first time it is needed */
+  outline: Phaser.GameObjects.Image[];
+  obtained: boolean;
+  golden: boolean;
+}
 /** The Pokémon icons are shown at half size (20 x 15), fifteen to a row and six rows at a time */
 const SPECIES_COLS = 15;
 const SPECIES_ROWS = 6;
@@ -63,16 +91,16 @@ export class MarkDexUiHandler extends MessageUiHandler {
   private totalText: Phaser.GameObjects.Text;
 
   private markContainer: Phaser.GameObjects.Container;
-  /** Each mark's dark base and, over it, the bright part that fills up */
-  private markBases: Phaser.GameObjects.Image[] = [];
-  private markFills: Phaser.GameObjects.Image[] = [];
-  /** Each mark's golden outline, shown once every starter line has the mark */
-  private markOutlines: Phaser.GameObjects.Image[][] = [];
-  /** The hidden Eternatus Mark, in a fifteenth column of the last row once it is earned */
-  private hiddenIcon: Phaser.GameObjects.Image;
-  private hasHiddenMark = false;
-  /** Where the marks' grid starts without the hidden mark's column */
-  private markContainerBaseX = 0;
+  /** The listed marks, then the hidden ones of the page below */
+  private listedCells: MarkCell[] = [];
+  private hiddenCells: MarkCell[] = [];
+  /** Whether every listed mark has been obtained, so that the list scrolls down to the hidden marks */
+  private canScrollToHidden = false;
+  /** Whether the first view is scrolled down to the hidden marks */
+  private onHiddenPage = false;
+  private hiddenCursor = 0;
+  /** The arrow that says the list goes on, below it or above the hidden marks */
+  private scrollHint: Phaser.GameObjects.Text;
 
   private speciesContainer: Phaser.GameObjects.Container;
   private speciesIcons: Phaser.GameObjects.Sprite[] = [];
@@ -83,7 +111,9 @@ export class MarkDexUiHandler extends MessageUiHandler {
   /** The starter lines, in Pokédex order, and what each has collected */
   private starterIds: SpeciesId[] = [];
   private collected = new Map<SpeciesId, readonly PokemonMark[]>();
-  /** How many starter lines have each mark */
+  /** The starter lines the shares are counted over: all but Eternatus */
+  private countedIds: SpeciesId[] = [];
+  /** How many of them have each mark */
   private speciesCounts = new Map<PokemonMark, number>();
 
   /** The mark whose Pokémon the second view shows; `null` in the first view */
@@ -112,33 +142,37 @@ export class MarkDexUiHandler extends MessageUiHandler {
       .setOrigin(0);
     this.message = descriptionText;
 
-    // The first view: every mark
-    const markRows = Math.ceil(orderedPokemonMarks.length / MARK_COLS);
+    // The first view: every listed mark, and the hidden ones in the middle of the page below
+    const markRows = Math.ceil(LISTED_MARKS.length / MARK_COLS);
     this.markContainer = globalScene.add.container(
       (WIDTH - 2 - MARK_COLS * MARK_PITCH) / 2,
       gridBg.y + (gridBg.height - markRows * MARK_PITCH) / 2,
     );
-    orderedPokemonMarks.forEach((mark, index) => {
-      const x = (index % MARK_COLS) * MARK_PITCH + MARK_PITCH / 2;
-      const y = Math.floor(index / MARK_COLS) * MARK_PITCH + MARK_PITCH / 2;
-      const base = globalScene.add.image(x, y, MARKS_ATLAS_KEY, getMarkKey(mark)).setScale(MARK_SCALE);
-      const fill = globalScene.add.image(x, y, MARKS_ATLAS_KEY, getMarkKey(mark)).setScale(MARK_SCALE);
-      this.markBases.push(base);
-      this.markFills.push(fill);
-      this.markOutlines.push([]);
+    const addCell = (mark: PokemonMark, x: number, y: number, scale: number): MarkCell => {
+      const base = globalScene.add.image(x, y, MARKS_ATLAS_KEY, getMarkKey(mark)).setScale(scale);
+      const fill = globalScene.add.image(x, y, MARKS_ATLAS_KEY, getMarkKey(mark)).setScale(scale);
       this.markContainer.add([base, fill]);
-    });
-    this.markContainerBaseX = this.markContainer.x;
-    this.hiddenIcon = globalScene.add
-      .image(
-        MARK_COLS * MARK_PITCH + MARK_PITCH / 2,
-        (markRows - 1) * MARK_PITCH + MARK_PITCH / 2,
-        MARKS_ATLAS_KEY,
-        getMarkKey(PokemonMark.ETERNATUS_MARK),
-      )
-      .setScale(MARK_SCALE)
+      return { mark, base, fill, outline: [], obtained: false, golden: false };
+    };
+    this.listedCells = LISTED_MARKS.map((mark, index) =>
+      addCell(
+        mark,
+        (index % MARK_COLS) * MARK_PITCH + MARK_PITCH / 2,
+        Math.floor(index / MARK_COLS) * MARK_PITCH + MARK_PITCH / 2,
+        MARK_SCALE,
+      ),
+    );
+    this.hiddenCells = HIDDEN_PAGE_MARKS.map((mark, index) =>
+      addCell(
+        mark,
+        (MARK_COLS * MARK_PITCH) / 2 + (index - (HIDDEN_PAGE_MARKS.length - 1) / 2) * HIDDEN_MARK_PITCH,
+        (markRows * MARK_PITCH) / 2,
+        HIDDEN_MARK_SCALE,
+      ),
+    );
+    this.scrollHint = addTextObject(gridBg.width / 2, 0, "", TextStyle.WINDOW, { fontSize: "40px" })
+      .setOrigin(0.5, 0)
       .setVisible(false);
-    this.markContainer.add(this.hiddenIcon);
 
     // The second view: every starter line, a few rows at a time
     this.speciesContainer = globalScene.add.container(
@@ -165,6 +199,7 @@ export class MarkDexUiHandler extends MessageUiHandler {
       this.markContainer,
       this.speciesContainer,
       this.scrollBar,
+      this.scrollHint,
       this.cursorObj,
       descriptionBg,
       descriptionText,
@@ -179,7 +214,9 @@ export class MarkDexUiHandler extends MessageUiHandler {
     this.readCollection();
     this.openMark = null;
     this.markCursor = 0;
-    this.updateMarkIcons();
+    this.hiddenCursor = 0;
+    this.onHiddenPage = false;
+    this.updateMarkCells();
     this.showMarkView();
 
     this.mainContainer.setVisible(true);
@@ -195,51 +232,53 @@ export class MarkDexUiHandler extends MessageUiHandler {
       .map(Number)
       .filter(id => speciesDataRegistry.getSpecies(id))
       .sort((a, b) => a - b);
+    // "Every Pokémon" leaves Eternatus out: its own collection is for the Eternatus Mark's outline
+    this.countedIds = this.starterIds.filter(id => id !== SpeciesId.ETERNATUS);
     this.collected.clear();
     this.speciesCounts.clear();
     for (const id of this.starterIds) {
       const marks = getCollectedMarks(starterData[id]);
       this.collected.set(id, marks);
+      if (id === SpeciesId.ETERNATUS) {
+        continue;
+      }
       for (const mark of marks) {
         this.speciesCounts.set(mark, (this.speciesCounts.get(mark) ?? 0) + 1);
       }
     }
   }
 
-  /** Grey, dark or partly bright, by how many starter lines have each mark */
-  private updateMarkIcons(): void {
-    const total = Math.max(this.starterIds.length, 1);
-    // The hidden mark's column makes the grid one icon wider, so it moves half an icon left
-    this.hasHiddenMark = hasEternatusMark();
-    this.hiddenIcon.setVisible(this.hasHiddenMark);
-    this.markContainer.setX(this.markContainerBaseX - (this.hasHiddenMark ? MARK_PITCH / 2 : 0));
-    orderedPokemonMarks.forEach((mark, index) => {
-      const count = this.speciesCounts.get(mark) ?? 0;
-      const base = this.markBases[index];
-      const fill = this.markFills[index];
+  /** Grey, dark or partly bright, by how many starter lines have each mark; golden once all of them do */
+  private updateMarkCells(): void {
+    const total = Math.max(this.countedIds.length, 1);
+    for (const cell of [...this.listedCells, ...this.hiddenCells]) {
+      // The Eternatus Mark is the player's: all or nothing, and golden by Eternatus' own collection
+      const isPlayerMark = cell.mark === PokemonMark.ETERNATUS_MARK;
+      const count = isPlayerMark ? (hasEternatusMark() ? total : 0) : (this.speciesCounts.get(cell.mark) ?? 0);
+      cell.obtained = count > 0;
+      cell.golden = isPlayerMark
+        ? cell.obtained && isMarkCollectionComplete(this.collected.get(SpeciesId.ETERNATUS) ?? [])
+        : count >= total;
       // The outline is made the first time it is needed, and goes under the icon
-      if (count >= total && this.markOutlines[index].length === 0) {
-        this.markOutlines[index] = createMarkOutline(base);
-        this.markContainer.addAt(this.markOutlines[index], this.markContainer.getIndex(base));
+      if (cell.golden && cell.outline.length === 0) {
+        cell.outline = createMarkOutline(cell.base);
+        this.markContainer.addAt(cell.outline, this.markContainer.getIndex(cell.base));
       }
-      for (const outline of this.markOutlines[index]) {
-        outline.setVisible(count >= total);
+      if (!cell.obtained) {
+        cell.base.setTint(MISSING_TINT).setTintMode(Phaser.TintModes.FILL).setAlpha(MISSING_ALPHA);
+        continue;
       }
-      if (count === 0) {
-        base.setTint(MISSING_TINT).setTintMode(Phaser.TintModes.FILL).setAlpha(MISSING_ALPHA);
-        fill.setVisible(false);
-        return;
-      }
-      base.setTint(DARK_TINT).setTintMode(Phaser.TintModes.MULTIPLY).setAlpha(1);
+      cell.base.setTint(DARK_TINT).setTintMode(Phaser.TintModes.MULTIPLY).setAlpha(1);
       // At least one screen pixel of it shows, however few have the mark
       const filled = Phaser.Math.Clamp(Math.ceil((MARK_SIZE * count) / total), 3, MARK_SIZE);
-      fill.setVisible(true).setCrop(0, MARK_SIZE - filled, MARK_SIZE, filled);
-    });
+      cell.fill.setCrop(0, MARK_SIZE - filled, MARK_SIZE, filled);
+    }
+    this.canScrollToHidden = this.listedCells.every(cell => cell.obtained);
   }
 
-  /** Whether any starter line has the mark; one nobody has is grey and nameless */
+  /** Whether any counted starter line has the mark (or the player, the Eternatus Mark); otherwise it is nameless */
   private isObtained(mark: PokemonMark): boolean {
-    return (this.speciesCounts.get(mark) ?? 0) > 0;
+    return [...this.listedCells, ...this.hiddenCells].find(cell => cell.mark === mark)?.obtained ?? false;
   }
 
   private showMarkView(): void {
@@ -248,47 +287,88 @@ export class MarkDexUiHandler extends MessageUiHandler {
     this.speciesContainer.setVisible(false);
     this.scrollBar.setVisible(false);
     this.headerText.setText(i18next.t("pokemonMarks:dex.title"));
-    const kinds =
-      orderedPokemonMarks.filter(m => (this.speciesCounts.get(m) ?? 0) > 0).length + (this.hasHiddenMark ? 1 : 0);
-    const species = this.starterIds.filter(id => (this.collected.get(id)?.length ?? 0) > 0).length;
+    // The hidden marks count past the total
+    const kinds = [...this.listedCells, ...this.hiddenCells].filter(cell => cell.obtained).length;
+    const species = this.countedIds.filter(id => (this.collected.get(id)?.length ?? 0) > 0).length;
     this.totalText.setText(
-      `${i18next.t("pokemonMarks:dex.kinds", { count: kinds, total: orderedPokemonMarks.length })}   ${i18next.t(
+      `${i18next.t("pokemonMarks:dex.kinds", { count: kinds, total: LISTED_MARKS.length })}   ${i18next.t(
         "pokemonMarks:dex.species",
-        { count: species, total: this.starterIds.length },
+        { count: species, total: this.countedIds.length },
       )}`,
     );
-    this.cursorObj.setScale(1.125);
-    this.setMarkCursor(this.markCursor);
+    this.setHiddenPage(this.onHiddenPage && this.canScrollToHidden);
+  }
+
+  /**
+   * Scroll the first view between the list and the page below it, where the hidden marks stand.
+   * @param hidden - Whether to show the hidden marks' page
+   */
+  private setHiddenPage(hidden: boolean): void {
+    this.onHiddenPage = hidden;
+    const showCells = (cells: MarkCell[], visible: boolean): void => {
+      for (const cell of cells) {
+        cell.base.setVisible(visible);
+        cell.fill.setVisible(visible && cell.obtained);
+        for (const outline of cell.outline) {
+          outline.setVisible(visible && cell.golden);
+        }
+      }
+    };
+    showCells(this.listedCells, !hidden);
+    showCells(this.hiddenCells, hidden);
+    const listHeight = Math.ceil(LISTED_MARKS.length / MARK_COLS) * MARK_PITCH;
+    this.scrollHint
+      .setVisible(this.canScrollToHidden)
+      .setText(hidden ? "▲" : "▼")
+      .setY(this.markContainer.y + (hidden ? -5 : listHeight - 1));
+    if (hidden) {
+      this.setHiddenCursor(this.hiddenCursor);
+    } else {
+      this.cursorObj.setScale(1.125);
+      this.setMarkCursor(this.markCursor);
+    }
+  }
+
+  private setHiddenCursor(cursor: number): boolean {
+    const changed = cursor !== this.hiddenCursor;
+    this.hiddenCursor = cursor;
+    const cell = this.hiddenCells[cursor];
+    const size = MARK_SIZE * HIDDEN_MARK_SCALE;
+    this.cursorObj
+      .setScale((size + 4) / 16)
+      .setPosition(
+        this.markContainer.x + cell.base.x - size / 2 - 2,
+        this.markContainer.y + cell.base.y - size / 2 - 2,
+      );
+    this.showMarkText(cell);
+    return changed;
+  }
+
+  /** The text under the cursor: a mark nobody has is nameless; the player's own mark has no count */
+  private showMarkText(cell: MarkCell): void {
+    if (!cell.obtained) {
+      this.showText(`${i18next.t("pokemonMarks:unknownName")}\n${i18next.t("pokemonMarks:neverObtained")}`);
+    } else if (cell.mark === PokemonMark.ETERNATUS_MARK) {
+      this.showText(`${getMarkName(cell.mark)}\n${getMarkDescription(cell.mark)}`);
+    } else {
+      this.showText(
+        `${i18next.t("pokemonMarks:dex.markSpecies", {
+          name: getMarkName(cell.mark),
+          count: this.speciesCounts.get(cell.mark) ?? 0,
+          total: this.countedIds.length,
+        })}\n${getMarkDescription(cell.mark)}`,
+      );
+    }
   }
 
   private setMarkCursor(cursor: number): boolean {
     const changed = cursor !== this.markCursor;
     this.markCursor = cursor;
-    // The hidden mark is the cursor's last stop, past the end of the last row
-    if (cursor >= orderedPokemonMarks.length) {
-      this.cursorObj.setPosition(
-        this.markContainer.x + this.hiddenIcon.x - MARK_PITCH / 2 + 1,
-        this.markContainer.y + this.hiddenIcon.y - MARK_PITCH / 2 + 1,
-      );
-      this.showText(`${getMarkName(PokemonMark.ETERNATUS_MARK)}\n${getMarkDescription(PokemonMark.ETERNATUS_MARK)}`);
-      return changed;
-    }
     this.cursorObj.setPosition(
       this.markContainer.x + (cursor % MARK_COLS) * MARK_PITCH + 1,
       this.markContainer.y + Math.floor(cursor / MARK_COLS) * MARK_PITCH + 1,
     );
-    const mark = orderedPokemonMarks[cursor];
-    if (!this.isObtained(mark)) {
-      this.showText(`${i18next.t("pokemonMarks:unknownName")}\n${i18next.t("pokemonMarks:neverObtained")}`);
-      return changed;
-    }
-    this.showText(
-      `${i18next.t("pokemonMarks:dex.markSpecies", {
-        name: getMarkName(mark),
-        count: this.speciesCounts.get(mark) ?? 0,
-        total: this.starterIds.length,
-      })}\n${getMarkDescription(mark)}`,
-    );
+    this.showMarkText(this.listedCells[cursor]);
     return changed;
   }
 
@@ -302,7 +382,7 @@ export class MarkDexUiHandler extends MessageUiHandler {
     this.totalText.setText(
       i18next.t("pokemonMarks:dex.species", {
         count: this.speciesCounts.get(mark) ?? 0,
-        total: this.starterIds.length,
+        total: this.countedIds.length,
       }),
     );
     this.cursorObj.setScale(1.125, 0.9375);
@@ -383,14 +463,14 @@ export class MarkDexUiHandler extends MessageUiHandler {
   processInput(button: Button): boolean {
     let success = false;
 
-    if (this.openMark === null) {
-      const count = orderedPokemonMarks.length + (this.hasHiddenMark ? 1 : 0);
-      const cursor = this.markCursor;
+    if (this.openMark === null && this.onHiddenPage) {
+      // The hidden marks' page: back up to the list, or out. The Eternatus Mark is the player's: nothing to open
+      const count = this.hiddenCells.length;
+      const cursor = this.hiddenCursor;
       switch (button) {
         case Button.ACTION:
-          // The hidden mark is the player's, not a Pokémon's: nothing to list
-          if (cursor < orderedPokemonMarks.length) {
-            this.showSpeciesView(orderedPokemonMarks[cursor]);
+          if (this.hiddenCells[cursor].mark !== PokemonMark.ETERNATUS_MARK) {
+            this.showSpeciesView(this.hiddenCells[cursor].mark);
             success = true;
           }
           break;
@@ -399,16 +479,39 @@ export class MarkDexUiHandler extends MessageUiHandler {
           globalScene.ui.revertMode();
           break;
         case Button.UP:
-          success = this.setMarkCursor(
-            cursor >= orderedPokemonMarks.length
-              ? orderedPokemonMarks.length - MARK_COLS - 1
-              : cursor >= MARK_COLS
-                ? cursor - MARK_COLS
-                : cursor,
-          );
+          success = true;
+          this.setHiddenPage(false);
+          break;
+        case Button.LEFT:
+          success = this.setHiddenCursor(cursor === 0 ? count - 1 : cursor - 1);
+          break;
+        case Button.RIGHT:
+          success = this.setHiddenCursor(cursor === count - 1 ? 0 : cursor + 1);
+          break;
+      }
+    } else if (this.openMark === null) {
+      const count = this.listedCells.length;
+      const cursor = this.markCursor;
+      switch (button) {
+        case Button.ACTION:
+          this.showSpeciesView(this.listedCells[cursor].mark);
+          success = true;
+          break;
+        case Button.CANCEL:
+          success = true;
+          globalScene.ui.revertMode();
+          break;
+        case Button.UP:
+          success = this.setMarkCursor(cursor >= MARK_COLS ? cursor - MARK_COLS : cursor);
           break;
         case Button.DOWN:
-          success = this.setMarkCursor(cursor + MARK_COLS < orderedPokemonMarks.length ? cursor + MARK_COLS : cursor);
+          if (cursor + MARK_COLS < count) {
+            success = this.setMarkCursor(cursor + MARK_COLS);
+          } else if (this.canScrollToHidden) {
+            // Past the last row, once every listed mark has been obtained
+            success = true;
+            this.setHiddenPage(true);
+          }
           break;
         case Button.LEFT:
           success = this.setMarkCursor(cursor === 0 ? count - 1 : cursor - 1);

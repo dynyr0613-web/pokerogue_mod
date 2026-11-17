@@ -11,7 +11,7 @@
  * - The Once-in-a-Lifetime Ribbon comes with 1 Hyper GTS Wonder Trade Pokémon in 10, the Partner Mark is bought for
  *   a starter with candy, and a shiny Pokémon that is caught or hatched gets its tier's shiny mark.
  * - The Eternatus Mark is the player's own hidden mark, not a Pokémon's (`hasEternatusMark`).
- * - The Mightiest Mark is defined and shown, but nothing gives it yet (see the enum).
+ * - The Mightiest Mark comes with the boss of the raid on wave 5849 of Endless (endless-raid.ts).
  * - The Best Friends Ribbon is bought after the Partner Mark; the six stat effort ribbons, the Effort Ribbon and the
  *   two footprint ribbons are earned during a run (`awardProgressRibbons`); the Endless Master Ribbon goes to the
  *   party that clears Endless (`awardPartyRibbon`).
@@ -245,8 +245,10 @@ export function getCollectedMarks(entry: StarterDataEntry | undefined): PokemonM
 }
 
 /**
- * The marks a complete collection does not need (the user: "한 포켓몬의 도감을 전부 채울경우(천재일우증표 제외)"): the
- * Once-in-a-Lifetime Ribbon, which only a traded Pokémon has, and the Mightiest Mark while nothing gives it.
+ * The hidden marks, which a complete collection does not need (the user: "한 포켓몬의 도감을 전부 채울경우(천재일우증표
+ * 제외)" and "히든 증표(이것들은 안모아도 위의 증표들이 황금 테두리를 갖는 것에 영향을 안끼치고, 다른 증표들보다 획득
+ * 난이도 높음) ... 최강의 증표나 천재일우의 증표"): the Once-in-a-Lifetime Ribbon, which only a traded Pokémon has,
+ * and the Mightiest Mark of the raid at the end of Endless. The mark Pokédex shows them on its page below the list.
  */
 export const COMPLETION_EXEMPT_MARKS: readonly PokemonMark[] = [
   PokemonMark.ONCE_IN_A_LIFETIME_RIBBON,

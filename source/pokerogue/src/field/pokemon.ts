@@ -80,6 +80,7 @@ import {
   PokemonWaveData,
 } from "#data/pokemon-data";
 import type { SpeciesFormChange } from "#data/pokemon-forms";
+import { isEndlessRaidWave } from "#data/endless-raid";
 import { applyWildMark, normalizeMarks } from "#data/pokemon-marks";
 import type { PokemonSpeciesForm } from "#data/pokemon-species";
 import { PokemonSpecies } from "#data/pokemon-species";
@@ -7169,6 +7170,11 @@ export class EnemyPokemon extends Pokemon {
       // Local fork (2026-11-17): and it may be an alpha (alpha-pokemon.ts); bosses are left as they are
       if (!boss) {
         applyWildAlpha(this);
+      }
+      // Local fork (2026-11-17): the raid's boss is Terastallized and carries the Mightiest Mark (endless-raid.ts)
+      if (boss && isEndlessRaidWave(globalScene.gameMode, globalScene.currentBattle?.waveIndex)) {
+        this.isTerastallized = true;
+        this.addMark(PokemonMark.MIGHTIEST_MARK);
       }
     }
 

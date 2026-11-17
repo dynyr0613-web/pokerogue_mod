@@ -135,6 +135,7 @@ import { initGameSpeed } from "#system/game-speed";
 import type { PokemonData } from "#system/pokemon-data";
 import type { Voucher } from "#system/voucher";
 import { vouchers } from "#system/voucher";
+import { isEndlessRaidWave } from "#data/endless-raid";
 import { drawEndlessFinalTrainerType, isEndlessFinalTrainerWave } from "#trainers/endless-final-trainer";
 import { trainerConfigs } from "#trainers/trainer-config";
 import type { Constructor } from "#types/common";
@@ -1510,6 +1511,13 @@ export class BattleScene extends SceneBase {
       return;
     }
 
+    // Local fork (2026-11-17): the raid before the final wave is always a wild battle (endless-raid.ts); a test's
+    // battle type override still wins
+    if (isEndlessRaidWave(this.gameMode, waveIndex) && !activeOverrides.BATTLE_TYPE_OVERRIDE) {
+      resolved.battleType = BattleType.WILD;
+      return;
+    }
+
     // Check for mystery encounter
     // Can only occur in place of a standard (non-boss) wild battle, waves 10-180
     // NB: battle type checks are offloaded to `isWaveMysteryEncounter`
@@ -1577,6 +1585,7 @@ export class BattleScene extends SceneBase {
     if (
       this.gameMode.isWaveFinal(waveIndex) // Endless bosses and classic mode finales are never double battles
       || this.gameMode.isEndlessBoss(waveIndex)
+      || isEndlessRaidWave(this.gameMode, waveIndex) // Local fork (2026-11-17): nor is the raid (endless-raid.ts)
       || battleType === BattleType.MYSTERY_ENCOUNTER // MEs are never double battles
     ) {
       return false;
@@ -2038,7 +2047,12 @@ export class BattleScene extends SceneBase {
     }
 
     let isBoss: boolean | undefined;
-    if (forceBoss || (species && (species.subLegendary || species.legendary || species.mythical))) {
+    // Local fork (2026-11-17): the raid's Pokémon is always a boss (endless-raid.ts)
+    if (
+      forceBoss
+      || isEndlessRaidWave(this.gameMode, waveIndex)
+      || (species && (species.subLegendary || species.legendary || species.mythical))
+    ) {
       isBoss = true;
     } else {
       this.executeWithSeedOffset(() => {

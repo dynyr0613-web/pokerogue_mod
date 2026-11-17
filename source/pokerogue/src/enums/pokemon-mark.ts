@@ -103,8 +103,8 @@ export enum PokemonMark {
   /** The Partner Mark (파트너의증표): bought for a starter with its candies (starter select) */
   PARTNER_MARK = 204,
   /**
-   * The Mightiest Mark (최강의증표). Defined and shown, but nothing gives it yet. Planned: wave 5849 of Endless set up
-   * like a 7-star Tera Raid, and the boss Pokémon met there carries this mark when it is caught.
+   * The Mightiest Mark (최강의증표): the boss of the raid on wave 5849 of Endless carries it, and keeps it when it is
+   * caught (endless-raid.ts). A hidden mark of the mark Pokédex.
    */
   MIGHTIEST_MARK = 205,
   // #region Shiny marks, this fork's own: a shiny Pokémon that is caught or hatched gets its tier's

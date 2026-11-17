@@ -24,6 +24,8 @@ export class EnemyBattleInfo extends BattleInfo {
    * mark and the Mini Mark (pokemon-marks.ts; an alpha's marks are its badge next to the name). The user: "야생 증표 표시"
    */
   protected markIcons: Phaser.GameObjects.Image[] = [];
+  /** How many of them the Pokémon has marks for; they hide while a status shows (updateStatusIcon) */
+  private shownMarkCount = 0;
   protected flyoutMenu: BattleFlyout;
 
   protected hpBarSegmentDividers: GameObjects.Rectangle[] = [];
@@ -163,9 +165,11 @@ export class EnemyBattleInfo extends BattleInfo {
     // Local fork (2026-11-17): the wild mark and the Mini Mark, after the icons above
     const shownMarks = pokemon.marks.filter(m => WILD_MARKS.includes(m) || m === PokemonMark.MINI_MARK);
     let markX = (this.ownedIcon.visible ? 8 : 0) + (this.championRibbon.visible ? 8 : 0);
+    this.shownMarkCount = Math.min(shownMarks.length, this.markIcons.length);
+    const hasStatus = !!pokemon.status?.effect;
     this.markIcons.forEach((icon, i) => {
       const mark = shownMarks[i];
-      icon.setVisible(mark !== undefined);
+      icon.setVisible(mark !== undefined && !hasStatus);
       if (mark !== undefined) {
         icon.setFrame(getMarkKey(mark)).setPositionRelative(this.nameText, markX, 11.75);
         markX += 9;
@@ -270,6 +274,13 @@ export class EnemyBattleInfo extends BattleInfo {
 
   override updateStatusIcon(pokemon: EnemyPokemon): void {
     super.updateStatusIcon(pokemon, (this.ownedIcon.visible ? 8 : 0) + (this.championRibbon.visible ? 8 : 0));
+    // Local fork (2026-11-17): the status stands where the mark icons are, and there is no room for both before the
+    // HP bar's label (the marks used to cover the left of the status' letters), so the marks give way while a status
+    // shows; the wild mark's title is still before the name
+    const hasStatus = !!pokemon.status?.effect;
+    this.markIcons.forEach((icon, i) => {
+      icon.setVisible(i < this.shownMarkCount && !hasStatus);
+    });
   }
 
   protected override updatePokemonHp(
