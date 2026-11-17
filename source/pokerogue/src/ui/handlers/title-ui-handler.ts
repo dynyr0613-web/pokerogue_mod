@@ -23,6 +23,9 @@ import i18next, { type TOptions } from "i18next";
 /** If the stats can not be retrieved, use this fallback value */
 const BATTLES_WON_FALLBACK = -1;
 
+/** Local fork (2026-11-17): the version the offline app (`vite build --mode app`) shows on the title screen */
+const FORK_APP_VERSION_LABEL = "v1.0.0 (베타)";
+
 export class TitleUiHandler extends OptionSelectUiHandler {
   private titleContainer: Phaser.GameObjects.Container;
   private usernameLabel: Phaser.GameObjects.Text;
@@ -196,8 +199,14 @@ export class TitleUiHandler extends OptionSelectUiHandler {
     this.splashMessage = randItem(getSplashMessages());
     this.splashMessageText.setText(i18next.t(this.splashMessage, this.getSplashMessageI18nParams()));
 
-    const betaText = isBeta || isDev ? " (Beta)" : "";
-    this.appVersionText.setText("v" + version + betaText);
+    // Local fork (2026-11-17): the offline app shows the edition's own version, as the shipped 2026-11-14 build does
+    // (there the text was patched into the bundle by hand); every other mode keeps the base game's
+    if (import.meta.env.MODE === "app") {
+      this.appVersionText.setText(FORK_APP_VERSION_LABEL);
+    } else {
+      const betaText = isBeta || isDev ? " (Beta)" : "";
+      this.appVersionText.setText("v" + version + betaText);
+    }
 
     const ui = this.getUi();
 
