@@ -732,6 +732,7 @@ export function initGenerationFive(): SpeciesDataMapConfig {
       [23, MoveId.WATER_PULSE],
       [25, MoveId.REVENGE],
       [27, MoveId.AERIAL_ACE],
+      [27, MoveId.ICEBREAKER], // Local fork (2026-11-14): custom moves
       [29, MoveId.AQUA_JET],
       [31, MoveId.ENCORE],
       [35, MoveId.AQUA_TAIL],
@@ -862,6 +863,7 @@ export function initGenerationFive(): SpeciesDataMapConfig {
       [21, MoveId.FURY_CUTTER],
       [26, MoveId.WATER_PULSE],
       [29, MoveId.REVENGE],
+      [30, MoveId.ICEBREAKER], // Local fork (2026-11-14): custom moves
       [31, MoveId.AERIAL_ACE],
       [34, MoveId.AQUA_JET],
       [37, MoveId.ENCORE],
@@ -914,6 +916,7 @@ export function initGenerationFive(): SpeciesDataMapConfig {
       [21, MoveId.FURY_CUTTER],
       [26, MoveId.WATER_PULSE],
       [29, MoveId.REVENGE],
+      [30, MoveId.ICEBREAKER], // Local fork (2026-11-14): custom moves
       [31, MoveId.AERIAL_ACE],
       [34, MoveId.AQUA_JET],
       [39, MoveId.ENCORE],
@@ -1359,6 +1362,7 @@ export function initGenerationFive(): SpeciesDataMapConfig {
       [19, MoveId.TORMENT],
       [21, MoveId.BITE],
       [24, MoveId.HONE_CLAWS],
+      [25, MoveId.BLINDSIDE], // Local fork (2026-11-14): custom moves
       [26, MoveId.SNARL],
       [28, MoveId.ASSURANCE],
       [30, MoveId.SLASH],
@@ -1469,6 +1473,7 @@ export function initGenerationFive(): SpeciesDataMapConfig {
       [15, MoveId.PURSUIT],
       [19, MoveId.TORMENT],
       [22, MoveId.BITE],
+      [25, MoveId.BLINDSIDE], // Local fork (2026-11-14): custom moves
       [26, MoveId.HONE_CLAWS],
       [28, MoveId.SNARL],
       [31, MoveId.ASSURANCE],
@@ -5906,6 +5911,7 @@ export function initGenerationFive(): SpeciesDataMapConfig {
       [16, MoveId.PAYBACK],
       [20, MoveId.BEAT_UP],
       [23, MoveId.CHIP_AWAY],
+      [26, MoveId.BLINDSIDE], // Local fork (2026-11-14): custom moves
       [27, MoveId.BRICK_BREAK],
       [31, MoveId.SCARY_FACE],
       [34, MoveId.FACADE],
@@ -6107,6 +6113,7 @@ export function initGenerationFive(): SpeciesDataMapConfig {
       [16, MoveId.PAYBACK],
       [20, MoveId.BEAT_UP],
       [23, MoveId.CHIP_AWAY],
+      [26, MoveId.BLINDSIDE], // Local fork (2026-11-14): custom moves
       [27, MoveId.BRICK_BREAK],
       [31, MoveId.SCARY_FACE],
       [34, MoveId.FACADE],
@@ -10845,6 +10852,7 @@ export function initGenerationFive(): SpeciesDataMapConfig {
       [21, MoveId.SLASH],
       [24, MoveId.FLAIL],
       [27, MoveId.CHARM],
+      [27, MoveId.ICEBREAKER], // Local fork (2026-11-14): custom moves
       [30, MoveId.SNOWSCAPE],
       [33, MoveId.THRASH],
       [36, MoveId.REST],
@@ -10969,6 +10977,7 @@ export function initGenerationFive(): SpeciesDataMapConfig {
       [21, MoveId.SLASH],
       [24, MoveId.FLAIL],
       [27, MoveId.SWAGGER],
+      [27, MoveId.ICEBREAKER], // Local fork (2026-11-14): custom moves
       [30, MoveId.SNOWSCAPE],
       [33, MoveId.THRASH],
       [36, MoveId.REST],

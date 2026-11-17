@@ -3,6 +3,8 @@ import { globalScene } from "#app/global-scene";
 import { speciesDataRegistry } from "#app/global-species-data-registry";
 import { getPokemonNameWithAffix } from "#app/messages";
 import type { EntryHazardTag, SuppressAbilitiesTag } from "#data/arena-tag";
+// Local fork (2026-11-14): custom moves. Turnabout (전세역전) shares Court Change's swap
+import { SWAPPABLE_SIDE_TAGS, swapSideArenaTags } from "#data/arena-tag";
 import { type BattlerTag, CritBoostTag, SemiInvulnerableTag } from "#data/battler-tags";
 import { getBerryEffectFunc } from "#data/berry";
 import { allAbilities, allMoves } from "#data/data-lists";
@@ -43,10 +45,13 @@ import { BerryUsedEvent, MoveUsedEvent } from "#events/battle-scene";
 import type { EnemyPokemon, Pokemon } from "#field/pokemon";
 // Local fork (2026-11-11), after review: Clear Amulet keeps Rattled quiet (battle-held-items.ts imports nothing back)
 import { clearAmuletBlocksDrop } from "#modifiers/battle-held-items";
-import { BerryModifier, HitHealModifier, PokemonHeldItemModifier } from "#modifiers/modifier";
+// Local fork (2026-11-14): custom moves. Mystical Rock (`FieldEffectModifier`) extends the Garden
+import { BerryModifier, FieldEffectModifier, HitHealModifier, PokemonHeldItemModifier } from "#modifiers/modifier";
 import { BerryModifierType } from "#modifiers/modifier-type";
 import { getMoveTargets } from "#moves/move-utils";
 import { PokemonMove } from "#moves/pokemon-move";
+// Local fork (2026-11-16): Z / Max moves (Lightning Rod / Storm Drain draw them; pure data module)
+import { isZMaxOnlyMove } from "#moves/zmax-data";
 import type { HitCheckEntry, MoveEffectPhase } from "#phases/move-effect-phase";
 import type { MoveReflectPhase } from "#phases/move-reflect-phase";
 import type {
@@ -61,7 +66,7 @@ import type { Move, MoveConditionFunc, StatusEffectAttr } from "#types/move-type
 import type { StatChange } from "#types/stat-change";
 import type { Closed, Exact } from "#types/type-helpers";
 import { coerceArray } from "#utils/array";
-import { BooleanHolder, type NumberHolder, randSeedFloat, randSeedInt, randSeedItem, toDmgValue } from "#utils/common";
+import { BooleanHolder, NumberHolder, randSeedFloat, randSeedInt, randSeedItem, toDmgValue } from "#utils/common";
 import { getPokemonTypeLocaleKey } from "#utils/i18n";
 import { inSpeedOrder } from "#utils/speed-order-generator";
 import { groupStatChange } from "#utils/stat-change";
@@ -2367,6 +2372,54 @@ export class PostSummonRemoveArenaTagAbAttr extends PostSummonAbAttr {
   }
 }
 
+/**
+ * Local fork (2026-11-14): passive rebalance. Clearing Gust (선풍, Essentials `CustomAbilities.clear_hazards`): blows
+ * the entry hazards (Stealth Rock, Spikes, Toxic Spikes, Sticky Web) off the holder's own side as it comes in.
+ * `PostSummonPhase` applies it right before the hazards act on that Pokémon, so they never touch it, on every entry
+ * (start of a wave, a switch, a replacement after a faint, U-turn, Baton Pass, a forced switch). It is not a
+ * {@linkcode PostSummonAbAttr}, so the ability-activation phases do not run it a second time. The opposing side keeps
+ * its hazards. Local fork (2026-11-16): G-Max Steelsurge (거다이강철진, the fifth hazard of the Essentials version) is
+ * in the fork now (Z / Max moves) and is blown away too.
+ * Messages: the ability bar, the trigger message, then each removed hazard's own removal message.
+ */
+export class ClearOwnSideEntryHazardsAbAttr extends AbAttr {
+  /** The hazards it blows away, the same list as Defog's and Rapid Spin's (`RemoveArenaTrapAttr`). */
+  private static readonly hazards = [
+    ArenaTagType.STEALTH_ROCK,
+    ArenaTagType.SPIKES,
+    ArenaTagType.TOXIC_SPIKES,
+    ArenaTagType.STICKY_WEB,
+    ArenaTagType.G_MAX_STEELSURGE, // Local fork (2026-11-16): Z / Max moves
+  ] as const;
+
+  constructor() {
+    super(true);
+  }
+
+  private getSide(pokemon: Pokemon): ArenaTagSide {
+    return pokemon.isPlayer() ? ArenaTagSide.PLAYER : ArenaTagSide.ENEMY;
+  }
+
+  public override canApply({ pokemon }: AbAttrBaseParams): boolean {
+    const side = this.getSide(pokemon);
+    return ClearOwnSideEntryHazardsAbAttr.hazards.some(tagType => globalScene.arena.getTagOnSide(tagType, side));
+  }
+
+  public override getTriggerMessage({ pokemon }: AbAttrBaseParams, abilityName: string): string {
+    return i18next.t("battle:clearingGustBlewAwayHazards", {
+      pokemonNameWithAffix: getPokemonNameWithAffix(pokemon),
+      abilityName,
+    });
+  }
+
+  public override apply({ pokemon, simulated }: AbAttrBaseParams): void {
+    if (simulated) {
+      return;
+    }
+    globalScene.arena.removeTagsOnSide(ClearOwnSideEntryHazardsAbAttr.hazards, this.getSide(pokemon));
+  }
+}
+
 /** Generic class to add an arena tag upon switching in */
 export class PostSummonAddArenaTagAbAttr extends PostSummonAbAttr {
   private readonly tagType: ArenaTagType;
@@ -2414,6 +2467,81 @@ export class PostSummonAddUserSideTagAbAttr extends PostSummonAbAttr {
   public override apply({ pokemon, simulated }: AbAttrBaseParams): void {
     if (!simulated) {
       globalScene.arena.addTag(this.tagType, this.turnCount, undefined, pokemon.id, this.getSide(pokemon));
+    }
+  }
+}
+
+/** Local fork (2026-11-14): custom moves. Base duration of the Garden (정원), the same as Grassy Terrain's. */
+export const GARDEN_BASE_TURNS = 5;
+
+/**
+ * Local fork (2026-11-14): custom moves. How many turns a Garden (정원) set by `user` lasts: 5, +2 per Mystical Rock
+ * stack it holds (at most 2 stacks, so 9 turns), the fork's rule for the weather and terrain a holder sets
+ * (`Arena.trySetTerrain`). Used by Gardener (정원사) and by Gardening (정원가꾸기, `AddGardenTagAttr` in move.ts).
+ * @param user - The Pokémon setting the Garden
+ * @returns The Garden's duration in turns, the turn it is set included
+ */
+export function getGardenTurnCount(user: Pokemon): number {
+  const turns = new NumberHolder(GARDEN_BASE_TURNS);
+  globalScene.applyModifier(FieldEffectModifier, user.isPlayer(), user, turns);
+  return turns.value;
+}
+
+/**
+ * Local fork (2026-11-14): custom moves. Gardener (정원사; design_spec.json abilities GARDENER): on every entry, sets
+ * the Garden (정원) on the holder's own side for {@linkcode getGardenTurnCount} turns. Nothing happens (no ability
+ * bar, no message, no refresh of the remaining turns) while that side already has a Garden.
+ * Like {@linkcode PostSummonAddUserSideTagAbAttr}, whose fixed duration can't take the Mystical Rock turns.
+ */
+export class PostSummonAddGardenAbAttr extends PostSummonAbAttr {
+  constructor() {
+    super(true);
+  }
+
+  private getSide(pokemon: Pokemon): ArenaTagSide {
+    return pokemon.isPlayer() ? ArenaTagSide.PLAYER : ArenaTagSide.ENEMY;
+  }
+
+  public override canApply({ pokemon }: AbAttrBaseParams): boolean {
+    return !globalScene.arena.getTagOnSide(ArenaTagType.GARDEN, this.getSide(pokemon));
+  }
+
+  public override apply({ pokemon, simulated }: AbAttrBaseParams): void {
+    if (!simulated) {
+      globalScene.arena.addTag(
+        ArenaTagType.GARDEN,
+        getGardenTurnCount(pokemon),
+        undefined,
+        pokemon.id,
+        this.getSide(pokemon),
+      );
+    }
+  }
+}
+
+/**
+ * Local fork (2026-11-14): custom moves. Turnabout (전세역전; design_spec.json abilities TURNABOUT): on entry, swaps
+ * the effects on the two sides of the field exactly as Court Change does ({@linkcode SWAPPABLE_SIDE_TAGS}, the Garden
+ * included), keeping the remaining turns and hazard layers, with Court Change's message ("서로의 필드 효과를 교체했다!").
+ * Only when there is something to swap; it runs in `PostSummonActivateAbilityPhase`, so after the holder's own entry
+ * hazards have acted (a holder knocked out by them never swaps). The ability adds the once-per-battle condition.
+ */
+export class PostSummonSwapArenaTagsAbAttr extends PostSummonAbAttr {
+  constructor() {
+    super(true);
+  }
+
+  public override canApply(_params: AbAttrBaseParams): boolean {
+    return globalScene.arena.findTags(t => SWAPPABLE_SIDE_TAGS.includes(t.tagType)).length > 0;
+  }
+
+  public override getTriggerMessage({ pokemon }: AbAttrBaseParams, _abilityName: string): string {
+    return i18next.t("moveTriggers:swapArenaTags", { pokemonName: getPokemonNameWithAffix(pokemon) });
+  }
+
+  public override apply({ simulated }: AbAttrBaseParams): void {
+    if (!simulated) {
+      swapSideArenaTags(SWAPPABLE_SIDE_TAGS);
     }
   }
 }
@@ -4619,8 +4747,17 @@ export class PostBiomeChangeWeatherChangeAbAttr extends PostBiomeChangeAbAttr {
     this.weatherType = weatherType;
   }
 
+  // Local fork (2026-11-14): the upstream check was inverted (it required the current weather to be immutable), so
+  // weather setters never re-fired when the biome changed. Same rule as PostSummonWeatherChangeAbAttr now: any weather
+  // can be replaced except the primal ones, which only another primal weather (or clearing it) can replace.
   override canApply(_params: AbAttrBaseParams): boolean {
-    return (globalScene.arena.weather?.isImmutable() ?? false) && globalScene.arena.canSetWeather(this.weatherType);
+    const weatherReplaceable =
+      this.weatherType === WeatherType.HEAVY_RAIN
+      || this.weatherType === WeatherType.HARSH_SUN
+      || this.weatherType === WeatherType.STRONG_WINDS
+      || this.weatherType === WeatherType.NONE
+      || !globalScene.arena.weather?.isImmutable();
+    return weatherReplaceable && globalScene.arena.canSetWeather(this.weatherType);
   }
 
   override apply({ simulated, pokemon }: AbAttrBaseParams): void {
@@ -5201,7 +5338,12 @@ export abstract class RedirectMoveAbAttr extends AbAttr {
 
   protected canRedirect(moveId: MoveId, _user: Pokemon): boolean {
     const move = allMoves[moveId];
-    return !![MoveTarget.NEAR_OTHER, MoveTarget.OTHER].find(t => move.moveTarget === t);
+    // Local fork (2026-11-16): Z / Max moves. A Max / G-Max / Z attack is single target (NEAR_ENEMY), and Lightning Rod
+    // / Storm Drain draw it as in the main games (Showdown treats its `adjacentFoe` target as `normal`)
+    return (
+      !![MoveTarget.NEAR_OTHER, MoveTarget.OTHER].find(t => move.moveTarget === t)
+      || (move.moveTarget === MoveTarget.NEAR_ENEMY && isZMaxOnlyMove(moveId))
+    );
   }
 }
 
@@ -5751,6 +5893,25 @@ export class IllusionPostBattleAbAttr extends PostBattleAbAttr {
 }
 
 /**
+ * Local fork (2026-11-16): Z-Moves and Max Moves. The move a turn command stands for: the command holds the slot's
+ * base id, and a converted slot acts as its derived move (Tackle -> Extreme Evoboost is a status move).
+ * @param pokemon - The Pokemon whose command it is
+ * @param moveId - The command's move id, if any
+ * @returns The slot's (possibly converted) move, else the registry move, or `null` without a move id
+ */
+function getCommandMove(pokemon: Pokemon, moveId: MoveId | undefined): Move | null {
+  if (!moveId) {
+    return null;
+  }
+  return (
+    pokemon
+      .getMoveset()
+      .find(m => m.moveId === moveId)
+      ?.getMove() ?? allMoves[moveId]
+  );
+}
+
+/**
  * If a Pokémon with this Ability selects a damaging move, it has a 30% chance of going first in its priority bracket. If the Ability activates, this is announced at the start of the turn (after move selection).
  * @sealed
  */
@@ -5769,7 +5930,8 @@ export class BypassSpeedChanceAbAttr extends AbAttr {
     // TODO: Consider whether we can move the simulated check to the `apply` method
     // May be difficult as we likely do not want to modify the randBattleSeed
     const turnCommand = globalScene.currentBattle.turnCommands[pokemon.getBattlerIndex()];
-    const move = turnCommand?.move?.move ? allMoves[turnCommand.move.move] : null;
+    // Local fork (2026-11-16): Z / Max moves. A converted slot acts as its derived move (getCommandMove)
+    const move = getCommandMove(pokemon, turnCommand?.move?.move);
     const isDamageMove = move?.category === MoveCategory.PHYSICAL || move?.category === MoveCategory.SPECIAL;
     return (
       !simulated
@@ -5816,7 +5978,8 @@ export class PreventBypassSpeedChanceAbAttr extends AbAttr {
     // TODO: Consider having these be passed as parameters instead of being retrieved here
     const turnCommand = globalScene.currentBattle.turnCommands[pokemon.getBattlerIndex()];
     const isCommandFight = turnCommand?.command === Command.FIGHT;
-    const move = turnCommand?.move?.move ? allMoves[turnCommand.move.move] : null;
+    // Local fork (2026-11-16): Z / Max moves. A converted slot acts as its derived move (getCommandMove)
+    const move = getCommandMove(pokemon, turnCommand?.move?.move);
     return isCommandFight && this.condition(pokemon, move!);
   }
 
@@ -6207,16 +6370,20 @@ export class PostDamageForceSwitchAbAttr extends PostDamageAbAttr {
     if (source) {
       const enemyLastMoveUsed = source.getLastXMoves()[0];
       if (enemyLastMoveUsed) {
+        // Local fork (2026-11-16): Z / Max moves. The move as used: a converted slot's Max / Z move (history keeps the
+        // base id in `move`); Max moves have no secondary-effect chance for Sheer Force and Dragon Tail made Max
+        // Wyrmwind does not force a switch
+        const enemyUsedMoveId = enemyLastMoveUsed.derivedMoveId ?? enemyLastMoveUsed.move;
         // Will not activate if the Pokémon's HP falls below half while it is in the air during Sky Drop.
         if (
-          forbiddenDefendingMoves.includes(enemyLastMoveUsed.move)
-          || (enemyLastMoveUsed.move === MoveId.SKY_DROP && enemyLastMoveUsed.result === MoveResult.OTHER)
+          forbiddenDefendingMoves.includes(enemyUsedMoveId)
+          || (enemyUsedMoveId === MoveId.SKY_DROP && enemyLastMoveUsed.result === MoveResult.OTHER)
         ) {
           return false;
           // Will not activate if the Pokémon's HP falls below half by a move affected by Sheer Force.
           // TODO: Make this use the sheer force disable condition
         }
-        if (allMoves[enemyLastMoveUsed.move].chance >= 0 && source.hasAbility(AbilityId.SHEER_FORCE)) {
+        if (allMoves[enemyUsedMoveId].chance >= 0 && source.hasAbility(AbilityId.SHEER_FORCE)) {
           return false;
         }
         // Activate only after the last hit of multistrike moves
@@ -6282,6 +6449,11 @@ export const AbilityAttrs = Object.freeze({
   PostDefendApplySideArenaTrapTagAbAttr,
   PostSummonAddUserSideTagAbAttr,
   PostSummonStealStatStagesAbAttr,
+  // Local fork (2026-11-14): passive rebalance. Clearing Gust, applied by `PostSummonPhase`
+  ClearOwnSideEntryHazardsAbAttr,
+  // Local fork (2026-11-14): custom moves. Gardener and Turnabout
+  PostSummonAddGardenAbAttr,
+  PostSummonSwapArenaTagsAbAttr,
   AddSecondStrikeAbAttr,
   AlliedFieldDamageReductionAbAttr,
   AllyMoveCategoryPowerBoostAbAttr,

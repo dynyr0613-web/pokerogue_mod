@@ -145,6 +145,9 @@
     "MEGA_BRACELET": { "name": "Mega Bracelet", "description": "Mega Stones become available." },
     "DYNAMAX_BAND": { "name": "Dynamax Band", "description": "Max Mushrooms become available." },
     "TERA_ORB": { "name": "Tera Orb", "description": "Allows your Pokémon to Terastallize. Recharges slowly. Tera Shards also become available." },
+    "Z_RING": { "name": "Z-Ring", "description": "Z Crystals become available. They turn your Pokémon’s moves into Z-Moves." },
+    "DYNAMAX_CANDY": { "name": "Dynamax Candy", "description": "Permanently turns one of a Pokémon’s moves into a Max Move. A Pokémon that can Gigantamax turns its signature move (without one, a move of its G-Max Move’s type) into its G-Max Move. Status moves become Max Guard, Swords Dance becomes Max Swords Dance (Attack +3), and a Z-Move becomes a Z-Max Move (200 power, hits through protection for 1/2 damage).", "chooseMove": "Choose a move to turn into a Max Move.", "confirm": "Turn {{pokemonName}}’s\n{{moveName}} into {{resultName}}?", "reason": { "maxMove": "It is already a Max Move.", "converted": "This move cannot be changed any further.", "cannot": "This move cannot become a Max Move." } },
+    "Z_CRYSTAL": { "name": "{{crystalName}}", "description": "Permanently turns one {{typeName}}-type move into a Z-Move: an attack becomes {{zMoveName}}, a status move gains its Z-Power effect. A Max Move becomes a Z-Max Move (200 power, hits through protection for 1/2 damage). Cannot be used on G-Max Moves.", "exclusiveDescription": "A Z Crystal exclusive to {{speciesName}}. Permanently turns one {{typeName}}-type move into {{zMoveName}}. Cannot be used on Max or G-Max Moves.", "chooseMove": "Choose a move to turn into a Z-Move.", "confirm": "Turn {{pokemonName}}’s\n{{moveName}} into {{resultName}}?", "reason": { "wrongType": "It is not a {{typeName}}-type move.", "gmax": "A G-Max Move cannot become a Z-Move.", "zMove": "It is already a Z-Move.", "maxMove": "A Max Move cannot become an exclusive Z-Move.", "wrongSpecies": "{{pokemonName}} cannot use it.", "cannot": "This move cannot become a Z-Move." }, "typeCrystal": { "NORMAL": "Normalium Z", "FIGHTING": "Fightinium Z", "FLYING": "Flyinium Z", "POISON": "Poisonium Z", "GROUND": "Groundium Z", "ROCK": "Rockium Z", "BUG": "Buginium Z", "GHOST": "Ghostium Z", "STEEL": "Steelium Z", "FIRE": "Firium Z", "WATER": "Waterium Z", "GRASS": "Grassium Z", "ELECTRIC": "Electrium Z", "PSYCHIC": "Psychium Z", "ICE": "Icium Z", "DRAGON": "Dragonium Z", "DARK": "Darkinium Z", "FAIRY": "Fairium Z" } },
 
     "MAP": { "name": "Map", "description": "Allows you to choose your destination at a crossroads." },
 
@@ -434,6 +437,24 @@
     "SCROLL_OF_DARKNESS": "Scroll of Darkness",
     "SCROLL_OF_WATERS": "Scroll of Waters",
     "SYRUPY_APPLE": "Syrupy Apple"
+  },
+  "ZCrystal": {
+    "PIKANIUM_Z": "Pikanium Z",
+    "ALORAICHIUM_Z": "Aloraichium Z",
+    "DECIDIUM_Z": "Decidium Z",
+    "INCINIUM_Z": "Incinium Z",
+    "PRIMARIUM_Z": "Primarium Z",
+    "EEVIUM_Z": "Eevium Z",
+    "SNORLIUM_Z": "Snorlium Z",
+    "MEWNIUM_Z": "Mewnium Z",
+    "TAPUNIUM_Z": "Tapunium Z",
+    "MARSHADIUM_Z": "Marshadium Z",
+    "KOMMONIUM_Z": "Kommonium Z",
+    "LYCANIUM_Z": "Lycanium Z",
+    "MIMIKIUM_Z": "Mimikium Z",
+    "SOLGANIUM_Z": "Solganium Z",
+    "LUNALIUM_Z": "Lunalium Z",
+    "ULTRANECROZIUM_Z_CRYSTAL": "Ultranecrozium Z Crystal"
   },
   "FormChangeItem": {
     "NONE": "None",

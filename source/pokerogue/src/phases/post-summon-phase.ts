@@ -22,6 +22,10 @@ export class PostSummonPhase extends PokemonPhase {
 
     globalScene.arena.applyTags(ArenaTagType.PENDING_HEAL, false, pokemon);
 
+    // Local fork (2026-11-14): passive rebalance. Clearing Gust (ability or passive) blows its own side's hazards away
+    // before they act on it, on every entry (this phase runs for each Pokémon that comes in)
+    applyAbAttrs("ClearOwnSideEntryHazardsAbAttr", { pokemon });
+
     globalScene.arena.applyTags(EntryHazardTag, false, pokemon);
 
     // Local fork (2026-11-11): Seed Pouch (씨앗주머니; the user: "풀타입 포켓몬이 지닐 시 씨뿌리기 효과와 동일한 효과를

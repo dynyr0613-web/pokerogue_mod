@@ -1,3 +1,4 @@
+import { globalScene } from "#app/global-scene";
 import { allMoves } from "#data/data-lists";
 import { BattlerIndex } from "#enums/battler-index";
 import { MoveCategory, type MoveDamageCategory } from "#enums/move-category";
@@ -8,6 +9,7 @@ import type { WeatherType } from "#enums/weather-type";
 import type { Pokemon } from "#field/pokemon";
 import { applyMoveAttrs } from "#moves/apply-attrs";
 import type { Move } from "#moves/move";
+import type { AttackMoveResult } from "#types/attack-move-result";
 import type { MoveTargetSet } from "#types/move-target-set";
 import { areAllies } from "#utils/pokemon-utils";
 import { ValueHolder } from "#utils/value-holder";
@@ -52,9 +54,19 @@ export function isSpreadMove(move: Move): boolean {
   return false;
 }
 
-export function getMoveTargets(user: Pokemon, move: MoveId, replaceTarget?: MoveTarget): MoveTargetSet {
-  const variableTarget = new ValueHolder(replaceTarget ?? allMoves[move].moveTarget);
-  user.getOpponents(false).forEach(p => applyMoveAttrs("VariableTargetAttr", user, p, allMoves[move], variableTarget));
+/**
+ * Get the targets `user` can choose for a move.
+ * @param user - The Pokémon using the move
+ * @param move - The move, by id (its `allMoves` entry) or as a {@linkcode Move} object. Local fork (2026-11-16): a
+ *   converted move slot's derived move (`PokemonMove.getMove()`, move-transform.ts) is passed as the object, since its
+ *   target is not the base move's (Earthquake becomes the single-target Max Quake, Taunt becomes Max Guard on the user)
+ * @param replaceTarget - A target that replaces the move's own
+ */
+export function getMoveTargets(user: Pokemon, move: MoveId | Move, replaceTarget?: MoveTarget): MoveTargetSet {
+  // Local fork (2026-11-16): Z / Max moves. Accept the Move object as well as its id
+  const moveObj = typeof move === "number" ? allMoves[move] : move;
+  const variableTarget = new ValueHolder(replaceTarget ?? moveObj.moveTarget);
+  user.getOpponents(false).forEach(p => applyMoveAttrs("VariableTargetAttr", user, p, moveObj, variableTarget));
 
   const moveTarget: MoveTarget = variableTarget.value;
   const opponents = user.getOpponents(false);
@@ -131,7 +143,8 @@ export function getMoveTargets(user: Pokemon, move: MoveId, replaceTarget?: Move
 export function getCounterAttackTarget(user: Pokemon, damageCategory?: MoveDamageCategory): BattlerIndex | null {
   for (const attackRecord of user.turnData.attacksReceived) {
     // check if the attacker was an ally
-    const moveCategory = allMoves[attackRecord.move].category;
+    // Local fork (2026-11-16): Z / Max moves. The category of the move as used (an exclusive Z move has its own)
+    const moveCategory = getReceivedAttackCategory(attackRecord);
     const sourceBattlerIndex = attackRecord.sourceBattlerIndex;
     if (
       moveCategory !== MoveCategory.STATUS
@@ -142,6 +155,28 @@ export function getCounterAttackTarget(user: Pokemon, damageCategory?: MoveDamag
     }
   }
   return null;
+}
+
+/**
+ * Local fork (2026-11-16): Z-Moves and Max Moves. The category of a received attack as it was used.
+ * `attacksReceived[].move` is the attacker's slot id; when that slot was used converted (`derivedMoveId`), the
+ * attacker's converted slot move decides (Thunderbolt made Catastropika is physical). The registry entry of
+ * `derivedMoveId` is not read: Max / G-Max entries carry a placeholder category and take the base move's.
+ * Inlined here (not `getRecordedMove` from move-transform.ts) to keep move.ts free of a move-transform import cycle.
+ * @param attackRecord - The attack record to read
+ * @returns The record's damage category, or {@linkcode MoveCategory.STATUS}
+ */
+export function getReceivedAttackCategory(attackRecord: AttackMoveResult): MoveCategory {
+  const baseMove = allMoves[attackRecord.move];
+  if (attackRecord.derivedMoveId === undefined || attackRecord.derivedMoveId === attackRecord.move) {
+    return baseMove.category;
+  }
+  const usedMove = globalScene
+    .getPokemonById(attackRecord.sourceId)
+    ?.getMoveset()
+    .find(m => m.moveId === attackRecord.move && m.transform?.moveId === attackRecord.derivedMoveId)
+    ?.getMove();
+  return (usedMove ?? baseMove).category;
 }
 
 /**

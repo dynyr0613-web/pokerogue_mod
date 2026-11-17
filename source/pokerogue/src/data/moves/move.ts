@@ -9,12 +9,17 @@ import type {
   AiMovegenMoveStatsAbAttrParams,
   PreAttackModifyPowerAbAttrParams,
 } from "#abilities/ab-attrs";
+// Local fork (2026-11-14): custom moves. The Garden's duration rule, shared with Gardener (ab-attrs.ts imports no
+// values from this file)
+// Local fork (2026-11-16): Z-Moves and Max Moves. G-Max Replenish gives berries back with Harvest's attr
+import { GARDEN_BASE_TURNS, getGardenTurnCount, PostTurnRestoreBerryAbAttr } from "#abilities/ab-attrs";
 import { applyAbAttrs } from "#abilities/apply-ab-attrs";
 import { loggedInUser } from "#app/account";
 import { globalScene } from "#app/global-scene";
 import { getPokemonNameWithAffix } from "#app/messages";
 import type { EntryHazardTag, PendingHealTag } from "#data/arena-tag";
-import { WeakenMoveTypeTag } from "#data/arena-tag";
+// Local fork (2026-11-14): custom moves. `hasGrassyEffect` (Grassy Terrain or the Garden) and the shared side-tag swap
+import { hasGrassyEffect, SWAPPABLE_SIDE_TAGS, swapSideArenaTags, WeakenMoveTypeTag } from "#data/arena-tag";
 import { MoveChargeAnim } from "#data/battle-anims";
 import {
   CommandedTag,
@@ -119,8 +124,11 @@ import {
   upperHandCondition,
   userSleptOrComatoseCondition,
 } from "#moves/move-condition";
-import { getCounterAttackTarget, getMoveTargets } from "#moves/move-utils";
+// Local fork (2026-11-16): Z / Max moves (getReceivedAttackCategory)
+import { getCounterAttackTarget, getMoveTargets, getReceivedAttackCategory } from "#moves/move-utils";
 import { PokemonMove } from "#moves/pokemon-move";
+// Local fork (2026-11-16): Z-Moves and Max Moves (zmax-data.ts imports only enums and types from the move modules)
+import { isZMaxOnlyMove, type ZBoostStat, ZMAX_RULES, type ZStatusEffect } from "#moves/zmax-data";
 import type { MovePhase } from "#phases/move-phase";
 import type { Constructor } from "#types/common";
 import type { Localizable } from "#types/locales";
@@ -1226,9 +1234,8 @@ export abstract class Move implements Localizable {
 
     power.value *= (source.getTag(BattlerTagType.SUPREME_OVERLORD) as SupremeOverlordTag | undefined)?.getBoost() ?? 1;
 
-    if (source.isGrounded()) {
-      power.value *= globalScene.arena.getTerrainPowerMultiplier(source.getMoveType(this));
-    }
+    // Local fork (2026-11-14): custom moves. Grass moves also get x1.3 from a Garden (정원), once with Grassy Terrain
+    power.value *= getUserTerrainPowerMultiplier(source, source.getMoveType(this));
 
     if (
       target.isGrounded()
@@ -1421,8 +1428,29 @@ export abstract class Move implements Localizable {
       return false;
     }
 
+    // Local fork (2026-11-16): Z / Max moves: Max, G-Max, Z and Z다이 attacks are never doubled (Parental Bond, Multi
+    // Lens); a converted slot's derived move has the Max / Z id, so this covers both (main games: one strike only)
+    if (isZMaxOnlyMove(this.id)) {
+      return false;
+    }
+
     return true;
   }
+}
+
+/**
+ * Local fork (2026-11-14): custom moves. The terrain power multiplier for a move of `moveType` used by `source`:
+ * Grass moves get x1.3 from `hasGrassyEffect` (a grounded user, and Grassy Terrain or a Garden (정원) on its side),
+ * once even when both are up; Electric / Psychic Terrain boost a grounded user's moves as before.
+ * @param source - The Pokémon using the move
+ * @param moveType - The move's type for this use
+ * @returns The multiplier to apply to the move's power
+ */
+function getUserTerrainPowerMultiplier(source: Pokemon, moveType: PokemonType): number {
+  if (moveType === PokemonType.GRASS) {
+    return hasGrassyEffect(source) ? 1.3 : 1;
+  }
+  return source.isGrounded() ? globalScene.arena.getTerrainPowerMultiplier(moveType) : 1;
 }
 
 export class AttackMove extends Move {
@@ -2138,7 +2166,8 @@ export class CounterDamageAttr extends FixedDamageAttr {
   apply(user: Pokemon, _target: Pokemon, _move: Move, args: any[]): boolean {
     const damage =
       user.turnData.attacksReceived.find(ar => {
-        const category = allMoves[ar.move].category;
+        // Local fork (2026-11-16): Z / Max moves. The category of the move as used (an exclusive Z move has its own)
+        const category = getReceivedAttackCategory(ar);
         return (
           category !== MoveCategory.STATUS
           && !areAllies(user.getBattlerIndex(), ar.sourceBattlerIndex)
@@ -6373,6 +6402,45 @@ export class NihilLightAttr extends MoveTypeChartOverrideAttr {
 }
 
 /**
+ * Local fork (2026-11-14): custom moves. Freeze-Dry's guaranteed super effectiveness for any defending type: the
+ * move's effectiveness against {@linkcode type} counts as 2x whatever the chart says, multiplied with the target's
+ * other types. Used by Blindside (뒤통수치기; design_spec.json BLINDSIDE) against Fighting: Fighting 2x,
+ * Fighting/Psychic and Fighting/Ghost 4x, Fighting/Dark and Fighting/Fairy 1x. Bound to the move, not to its type, so
+ * it holds under type-changing abilities and in Inverse Battles, and it reads the Tera type through the target's types.
+ * {@linkcode FreezeDryAttr} is left as it is (referenced by name elsewhere).
+ */
+export class SuperEffectiveAgainstTypeAttr extends MoveTypeChartOverrideAttr {
+  /** The defending type this move is always super effective against */
+  public readonly type: PokemonType;
+
+  constructor(type: PokemonType) {
+    super();
+    this.type = type;
+  }
+
+  public override apply(
+    _user: Pokemon,
+    _target: Pokemon,
+    _move: Move,
+    args: [multiplier: NumberHolder, types: readonly PokemonType[], moveType: PokemonType],
+  ): boolean {
+    const [multiplier, types, moveType] = args;
+    if (!types.includes(this.type)) {
+      return false;
+    }
+
+    // Replace the chart's effectiveness against `this.type` with a guaranteed 2x. No type is immune to a Fighting
+    // defender, but stay safe for other uses: a 0x entry can't be divided out, so the chart value is kept there
+    const normalEff = getTypeDamageMultiplier(moveType, this.type);
+    if (normalEff === 0) {
+      return false;
+    }
+    multiplier.value *= 2 / normalEff;
+    return true;
+  }
+}
+
+/**
  * Attribute used by {@link https://bulbapedia.bulbagarden.net/wiki/Thousand_Arrows_(move) | Thousand Arrows}
  * to cause it to deal a fixed 1x damage against airborne flying types that would otherwise be immune to the move.
  */
@@ -6679,6 +6747,7 @@ export class AddBattlerTagAttr extends MoveEffectAttr {
       case BattlerTagType.MAGIC_COAT:
         return 3;
       case BattlerTagType.PROTECTED:
+      case BattlerTagType.MAX_GUARD: // Local fork (2026-11-16): Max Guard (다이월)
       case BattlerTagType.FLYING:
       case BattlerTagType.CRIT_BOOST:
       case BattlerTagType.ALWAYS_CRIT:
@@ -6926,8 +6995,10 @@ export class ProtectAttr extends AddBattlerTagAttr {
       for (const turnMove of user.getLastXMoves(-1)) {
         if (
           // Quick & Wide guard increment the Protect counter without using it for fail chance
+          // Local fork (2026-11-16): Z-Moves and Max Moves. History keeps the slot's base move; a converted slot's
+          // move (Max Guard from any status move) is in `derivedMoveId`
           !(
-            allMoves[turnMove.move].hasAttr("ProtectAttr")
+            allMoves[turnMove.derivedMoveId ?? turnMove.move].hasAttr("ProtectAttr")
             || [MoveId.QUICK_GUARD, MoveId.WIDE_GUARD].includes(turnMove.move)
           )
           || turnMove.result !== MoveResult.SUCCESS
@@ -7053,6 +7124,41 @@ export class AddArenaTagAttr extends MoveEffectAttr {
 }
 
 /**
+ * Local fork (2026-11-14): custom moves. Gardening (정원가꾸기; design_spec.json GARDENING): sets the Garden (정원) on
+ * the user's own side for {@linkcode getGardenTurnCount} turns (5, +2 per Mystical Rock stack, the same rule as
+ * Gardener's), and fails ("하지만 실패했다!") while that side already has one, without refreshing its turns. Usable
+ * under Grassy Terrain (the two only count once, see `hasGrassyEffect`). The shared `turnCount` field is left at the
+ * base 5 and never changed per use.
+ */
+export class AddGardenTagAttr extends AddArenaTagAttr {
+  constructor() {
+    super(ArenaTagType.GARDEN, GARDEN_BASE_TURNS, true, true);
+  }
+
+  private getSide(user: Pokemon): ArenaTagSide {
+    return user.isPlayer() ? ArenaTagSide.PLAYER : ArenaTagSide.ENEMY;
+  }
+
+  override apply(user: Pokemon, target: Pokemon, move: Move, args: any[]): boolean {
+    if (!this.canApply(user, target, move, args) || user.getLastXMoves(1)[0]?.result !== MoveResult.SUCCESS) {
+      return false;
+    }
+    globalScene.arena.addTag(ArenaTagType.GARDEN, getGardenTurnCount(user), move.id, user.id, this.getSide(user));
+    return true;
+  }
+
+  /** Fails while the user's own side has a Garden (by the user's side, whatever target the move resolved to) */
+  override getCondition(): MoveConditionFunc {
+    return (user, _target, _move) => !globalScene.arena.getTagOnSide(ArenaTagType.GARDEN, this.getSide(user));
+  }
+
+  /** Worth setting while the user's side has none (like `TerrainChangeAttr`), worthless while it has one */
+  override getUserBenefitScore(user: Pokemon, _target: Pokemon, _move: Move): number {
+    return globalScene.arena.getTagOnSide(ArenaTagType.GARDEN, this.getSide(user)) ? 0 : 6;
+  }
+}
+
+/**
  * Attribute to remove one or more arena tags from the field.
  */
 export class RemoveArenaTagsAttr extends MoveEffectAttr {
@@ -7131,6 +7237,7 @@ const arenaTrapTags = [
   ArenaTagType.TOXIC_SPIKES,
   ArenaTagType.STEALTH_ROCK,
   ArenaTagType.STICKY_WEB,
+  ArenaTagType.G_MAX_STEELSURGE, // Local fork (2026-11-16): G-Max Steelsurge, removed like Stealth Rock
 ] as const;
 
 export class RemoveArenaTrapAttr extends RemoveArenaTagsAttr {
@@ -7154,9 +7261,9 @@ export class RemoveScreensAttr extends RemoveArenaTagsAttr {
  * Ones affecting both sides are unaffected.
  */
 export class SwapArenaTagsAttr extends MoveEffectAttr {
-  private readonly validTags: ArenaTagType[];
+  private readonly validTags: readonly ArenaTagType[];
 
-  constructor(validTags: ArenaTagType[]) {
+  constructor(validTags: readonly ArenaTagType[]) {
     super(true);
     this.validTags = validTags;
   }
@@ -7166,44 +7273,8 @@ export class SwapArenaTagsAttr extends MoveEffectAttr {
       return false;
     }
 
-    const tagPlayerTemp = globalScene.arena.findTagsOnSide(
-      t => this.validTags.includes(t.tagType),
-      ArenaTagSide.PLAYER,
-    );
-    const tagEnemyTemp = globalScene.arena.findTagsOnSide(t => this.validTags.includes(t.tagType), ArenaTagSide.ENEMY);
-
-    for (const playerTag of tagPlayerTemp) {
-      globalScene.arena.removeTagOnSide(playerTag.tagType, ArenaTagSide.PLAYER, true);
-    }
-    for (const enemyTag of tagEnemyTemp) {
-      globalScene.arena.removeTagOnSide(enemyTag.tagType, ArenaTagSide.ENEMY, true);
-    }
-    for (const playerTag of tagPlayerTemp) {
-      const layers = (playerTag as EntryHazardTag)?.layers ?? 1;
-      for (let i = 0; i < layers; i++) {
-        globalScene.arena.addTag(
-          playerTag.tagType,
-          playerTag.turnCount,
-          playerTag.sourceMove,
-          playerTag.sourceId!,
-          ArenaTagSide.ENEMY,
-          true,
-        ); // TODO: is the bang correct?
-      }
-    }
-    for (const enemyTag of tagEnemyTemp) {
-      const layers = (enemyTag as EntryHazardTag)?.layers ?? 1;
-      for (let i = 0; i < layers; i++) {
-        globalScene.arena.addTag(
-          enemyTag.tagType,
-          enemyTag.turnCount,
-          enemyTag.sourceMove,
-          enemyTag.sourceId!,
-          ArenaTagSide.PLAYER,
-          true,
-        ); // TODO: is the bang correct?
-      }
-    }
+    // Local fork (2026-11-14): custom moves. The swap itself is `swapSideArenaTags` (shared with Turnabout)
+    swapSideArenaTags(this.validTags);
 
     globalScene.phaseManager.queueMessage(
       i18next.t("moveTriggers:swapArenaTags", { pokemonName: getPokemonNameWithAffix(user) }),
@@ -8163,8 +8234,10 @@ abstract class CallMoveAttrWithBanlist extends CallMoveAttr {
    * to use a disallowed move for correct move failure interactions.
    */
   protected isMoveAllowed(move: MoveId): boolean {
+    // Local fork (2026-11-16): Z-Moves and Max Moves. The Z / Max / G-Max registry entries are implemented (they back
+    // converted slots) but are never called: Metronome, Assist, Sleep Talk, Copycat, Mirror Move
     const valid = new BooleanHolder(
-      move !== MoveId.NONE && !this.invalidMoves.has(move) && !allMoves[move].isUnimplemented,
+      move !== MoveId.NONE && !this.invalidMoves.has(move) && !allMoves[move].isUnimplemented && !isZMaxOnlyMove(move),
     );
     applyChallenges(ChallengeType.POKEMON_MOVE, move, valid);
     return valid.value;
@@ -8338,6 +8411,11 @@ export class RepeatMoveAttr extends MoveEffectAttr {
       if (!lastMove?.move || !movesetMove || movesetMove.isOutOfPp() || invalidInstructMoves.has(lastMove.move)) {
         return false;
       }
+      // Local fork (2026-11-16): Z-Moves and Max Moves. A slot converted into a Max / G-Max / Z attack or Max Guard
+      // cannot be instructed (mainline); a Z-status slot keeps its base id and can
+      if (isZMaxOnlyMove(movesetMove.getMove().id)) {
+        return false;
+      }
 
       this.movesetMove = movesetMove;
       return true;
@@ -8458,6 +8536,12 @@ export class AttackReducePpMoveAttr extends ReducePpMoveAttr {
 const targetMoveCopiableCondition: MoveConditionFunc = (_user, target, _move) => {
   const copiableMove = target.getLastNonVirtualMove();
   if (!copiableMove?.move) {
+    return false;
+  }
+
+  // Local fork (2026-11-16): Z-Moves and Max Moves. Mimic and Sketch never copy a Z / Max id (history records the
+  // slot's base move, so this only guards odd sources)
+  if (isZMaxOnlyMove(copiableMove.move)) {
     return false;
   }
 
@@ -9305,6 +9389,592 @@ export class RageAttr extends MoveEffectAttr {
   }
 }
 
+// #region Z/Max moves (2026-11-16)
+// Local fork (2026-11-16): Z-Moves and Max Moves (tools/drive/zmax_1116/design_spec.md). The attrs of the Max / G-Max /
+// Z registry entries. A converted move slot (`PokemonMove.transform`, move-transform.ts) behaves as a copy of its
+// registry entry with the base move's power / category, so every effect below runs with that derived `Move`. None of
+// them has a condition: a Max Move's side effect never makes the attack fail (spec 7b, r4 section 0).
+
+/**
+ * Local fork (2026-11-16): Z-Moves and Max Moves. Marks a move that hits through protection (Protect, Detect, King's
+ * Shield ..., Quick / Wide Guard, Mat Block) for a share of its damage. The user: "z + 다이기술: Z다이너클, Z다이스틸 같은
+ * 이름이 되며, 위력 200 고정, 방어/판별 등의 효과를 뚫고 1/2 데미지".
+ * - plain Max / G-Max / Z / exclusive Z attacks: `ZMAX_RULES.protectPierceMultiplier` (1/4, mainline), stopped by Max
+ *   Guard;
+ * - Z다이 attacks (kind `zMax`, built by move-transform.ts): 1/2, through Max Guard too;
+ * - G-Max One Blow / Rapid Flow: `1` (full damage), through Max Guard too.
+ *
+ * A pure marker read through {@linkcode getProtectPierce}: `MoveEffectPhase.protectedCheck` lets the move through
+ * (no "protected itself" message and no side effect of the protection: Spiky Shield, King's Shield ...) and
+ * `Pokemon.getAttackDamage` applies the multiplier. It never applies by itself and has no condition.
+ */
+export class ProtectPierceAttr extends MoveAttr {
+  /** Damage multiplier against a protected target (`1` = full damage) */
+  public readonly multiplier: number;
+  /** Whether Max Guard is pierced as well */
+  public readonly ignoresMaxGuard: boolean;
+
+  constructor(multiplier: number, ignoresMaxGuard: boolean) {
+    super();
+    this.multiplier = multiplier;
+    this.ignoresMaxGuard = ignoresMaxGuard;
+  }
+}
+
+/**
+ * Local fork (2026-11-16): Z-Moves and Max Moves. The protection-piercing rule of `move`, if it has one
+ * @param move - The move (a converted slot's derived move, or a registry entry)
+ * @returns The move's {@linkcode ProtectPierceAttr}, or `undefined`
+ */
+export function getProtectPierce(move: Move): ProtectPierceAttr | undefined {
+  return move.getAttrs("ProtectPierceAttr")[0];
+}
+
+/** Local fork (2026-11-16): the battle stat of each Z-Power boost key */
+const Z_BOOST_STATS: Readonly<Record<ZBoostStat, BattleStat>> = Object.freeze({
+  atk: Stat.ATK,
+  def: Stat.DEF,
+  spa: Stat.SPATK,
+  spd: Stat.SPDEF,
+  spe: Stat.SPD,
+  accuracy: Stat.ACC,
+  evasion: Stat.EVA,
+});
+
+/**
+ * Local fork (2026-11-16): Z-Moves and Max Moves. The Z-Power bonus of a status move used as a Z-Move ("Z칼춤") or of
+ * Z다이월 (`getZStatusEffect`, Showdown's `zMove` field). Not a {@linkcode MoveEffectAttr}: it never fires through the
+ * normal effect pass. The move pipeline calls {@linkcode applyZPower} once, after the "used X" message and before the
+ * move itself (mainline: the bonus applies even if the move then fails), so its phases run first.
+ *
+ * Effects: `boost` raises the user's stats; `clearnegativeboost` resets its lowered stats; `heal` restores all its HP;
+ * `crit2` gives Focus Energy's +2 critical-hit stages; `healreplacement` fully heals the next Pokémon sent into the
+ * user's place (Memento / Parting Shot); `redirect` makes the user the center of attention for the turn (doubles only);
+ * `curse` heals a Ghost-type user fully, else raises its Attack by 1.
+ */
+export class ZPowerAttr extends MoveAttr {
+  /** The bonus */
+  public readonly zEffect: ZStatusEffect;
+
+  constructor(zEffect: ZStatusEffect) {
+    super(true);
+    this.zEffect = zEffect;
+  }
+
+  /**
+   * Apply the Z-Power bonus to `user`.
+   * @param user - The Pokémon using the Z-Move
+   * @param sourceMove - The move recorded as the source of tags this adds (the slot's base move); default `MoveId.NONE`
+   */
+  public applyZPower(user: Pokemon, sourceMove: MoveId = MoveId.NONE): void {
+    const pokemonName = getPokemonNameWithAffix(user);
+    const phaseManager = globalScene.phaseManager;
+    phaseManager.queueMessage(i18next.t("moveTriggers:zPower", { pokemonName }));
+
+    if ("boost" in this.zEffect) {
+      const changes = (Object.entries(this.zEffect.boost) as [ZBoostStat, number][])
+        .filter(([, stages]) => stages !== 0)
+        .map(([key, stages]) => ({ stat: Z_BOOST_STATS[key], stages }));
+      if (changes.length > 0) {
+        phaseManager.unshiftNew("StatStageChangePhase", {
+          battlerIndex: user.getBattlerIndex(),
+          changes,
+          sourcePokemon: user,
+        });
+      }
+      return;
+    }
+
+    switch (this.zEffect.effect) {
+      case "clearnegativeboost": {
+        let reset = false;
+        for (const stat of BATTLE_STATS) {
+          if (user.getStatStage(stat) < 0) {
+            user.setStatStage(stat, 0);
+            reset = true;
+          }
+        }
+        if (reset) {
+          user.updateInfo();
+          phaseManager.queueMessage(i18next.t("moveTriggers:zPowerResetStats", { pokemonName }));
+        }
+        break;
+      }
+      case "heal":
+        this.queueFullHeal(user);
+        break;
+      case "crit2":
+        user.addTag(BattlerTagType.CRIT_BOOST, 0, sourceMove, user.id);
+        break;
+      case "healreplacement": {
+        globalScene.arena.addTag(ArenaTagType.PENDING_HEAL, 0, sourceMove, user.id);
+        const tag = globalScene.arena.getTag(ArenaTagType.PENDING_HEAL) as PendingHealTag | undefined;
+        tag?.queueHeal(user.getBattlerIndex(), {
+          sourceId: user.id,
+          moveId: sourceMove,
+          restorePP: false,
+          healMessage: i18next.t("moveTriggers:zPowerHealReplacement"),
+        });
+        break;
+      }
+      case "redirect":
+        if (globalScene.currentBattle.double) {
+          user.addTag(BattlerTagType.CENTER_OF_ATTENTION, 1, sourceMove, user.id);
+        }
+        break;
+      case "curse":
+        if (user.isOfType(PokemonType.GHOST)) {
+          this.queueFullHeal(user);
+        } else {
+          phaseManager.unshiftNew("StatStageChangePhase", {
+            battlerIndex: user.getBattlerIndex(),
+            changes: groupStatChange([Stat.ATK], 1),
+            sourcePokemon: user,
+          });
+        }
+        break;
+    }
+  }
+
+  /**
+   * Restore all of `user`'s HP, with the Z-Power message (nothing is shown at full HP).
+   * Done at once, not through a `PokemonHealPhase`: the move phase checks the base move's HP conditions (Z-Belly Drum
+   * needs more than 1/2, Z-Fillet Away 1/2, Z-Clangorous Soul 1/3) synchronously right after this, and the main games
+   * heal before those checks. Heal Block stops it, as it stops `PokemonHealPhase`.
+   */
+  private queueFullHeal(user: Pokemon): void {
+    if (user.isFullHp()) {
+      return;
+    }
+    const phaseManager = globalScene.phaseManager;
+    const healBlock = user.getTag(BattlerTagType.HEAL_BLOCK);
+    if (healBlock) {
+      phaseManager.queueMessage(healBlock.onActivation(user));
+      return;
+    }
+    const healAmount = user.getMaxHp() - user.hp;
+    user.heal(healAmount);
+    globalScene.damageNumberHandler.add(user, healAmount, HitResult.HEAL);
+    user.updateInfo();
+    phaseManager.queueMessage(i18next.t("moveTriggers:zPowerHeal", { pokemonName: getPokemonNameWithAffix(user) }));
+  }
+}
+
+/**
+ * Local fork (2026-11-16): who a Max / G-Max side effect reaches (spec 6): `"foes"` = every opposing Pokémon on the
+ * field, `"allies"` = the user and its partner.
+ */
+export type MaxEffectSide = "foes" | "allies";
+
+/**
+ * Local fork (2026-11-16): the Pokémon a Max / G-Max side effect reaches
+ * @param user - The user of the move
+ * @param side - {@linkcode MaxEffectSide}
+ */
+function getMaxEffectPokemon(user: Pokemon, side: MaxEffectSide): Pokemon[] {
+  if (side === "foes") {
+    return user.getOpponents();
+  }
+  const ally = user.getAlly();
+  return [user, ...(ally?.isActive(true) ? [ally] : [])].filter(p => !p.isFainted());
+}
+
+/**
+ * Local fork (2026-11-16): Z-Moves and Max Moves. Base of the Max / G-Max side effects that reach a whole side, not
+ * just the target (spec 6; Max Strike lowers the Speed of every foe, Max Knuckle raises the Attack of the user and its
+ * partner). Self-targeted and first-target-only, so it runs once per use after the damage, also when the target faints
+ * or sits behind a Substitute (Showdown's `self.onHit`). Never a condition.
+ */
+export abstract class MaxMoveSideEffectAttr extends MoveEffectAttr {
+  /** Which side it reaches */
+  public readonly side: MaxEffectSide;
+  /** Chance in % for each Pokémon (100 = always) */
+  public readonly chancePerPokemon: number;
+
+  constructor(side: MaxEffectSide, chancePerPokemon = 100) {
+    super(true, { firstTargetOnly: true });
+    this.side = side;
+    this.chancePerPokemon = chancePerPokemon;
+  }
+
+  override apply(user: Pokemon, target: Pokemon, move: Move, args?: any[]): boolean {
+    if (!super.apply(user, target, move, args)) {
+      return false;
+    }
+    let applied = false;
+    for (const pokemon of getMaxEffectPokemon(user, this.side)) {
+      if (this.chancePerPokemon < 100 && user.randBattleSeedInt(100) >= this.chancePerPokemon) {
+        continue;
+      }
+      applied = this.applyTo(user, pokemon, move) || applied;
+    }
+    return applied;
+  }
+
+  /**
+   * Apply the effect to one Pokémon of the side.
+   * @param user - The user of the move
+   * @param pokemon - The Pokémon it reaches
+   * @param move - The move used
+   * @returns Whether anything happened
+   */
+  protected abstract applyTo(user: Pokemon, pokemon: Pokemon, move: Move): boolean;
+}
+
+/**
+ * Local fork (2026-11-16): the stat changes of the Max Moves (Max Strike Spe -1 foes ... Max Steelspike Def +1 allies)
+ * and of G-Max Foam Burst (Spe -2 foes) / Tartness (evasion -1 foes). Mist, Clear Body and the like block a foe's drop
+ * as usual (the user is the source).
+ */
+export class MaxMoveStatStageChangeAttr extends MaxMoveSideEffectAttr {
+  public readonly stats: readonly BattleStat[];
+  public readonly stages: number;
+
+  constructor(stats: readonly BattleStat[], stages: number, side: MaxEffectSide) {
+    super(side);
+    this.stats = stats;
+    this.stages = stages;
+  }
+
+  protected override applyTo(user: Pokemon, pokemon: Pokemon): boolean {
+    globalScene.phaseManager.unshiftNew("StatStageChangePhase", {
+      battlerIndex: pokemon.getBattlerIndex(),
+      changes: groupStatChange(this.stats, this.stages),
+      sourcePokemon: user,
+    });
+    return true;
+  }
+
+  /**
+   * AI score, all of it as the user's benefit: the attr is self-targeted, so `Move.getTargetBenefitScore` would hand
+   * it the user and flip its sign. A drop on the foes (Max Strike) is as good for the user as a raise on its side.
+   */
+  override getUserBenefitScore(_user: Pokemon, _target: Pokemon, _move: Move): number {
+    return (this.side === "allies" ? 1 : -1) * this.stats.length * this.stages * 4;
+  }
+}
+
+/**
+ * Local fork (2026-11-16): the non-volatile statuses of the G-Max moves on every foe: Befuddle (sleep / paralysis /
+ * poison, picked per foe), Stun Shock (paralysis / poison), Volt Crash (paralysis), Malodor (poison). Safeguard,
+ * Misty / Electric Terrain, types and abilities stop it as usual (`Pokemon.trySetStatus`).
+ */
+export class MaxMoveStatusAttr extends MaxMoveSideEffectAttr {
+  public readonly effects: readonly StatusEffect[];
+
+  constructor(effects: readonly StatusEffect[]) {
+    super("foes");
+    this.effects = effects;
+  }
+
+  protected override applyTo(user: Pokemon, pokemon: Pokemon): boolean {
+    const effect = this.effects[user.randBattleSeedInt(this.effects.length)];
+    return pokemon.trySetStatus(effect, user, undefined, null, false, true);
+  }
+
+  /**
+   * AI score as the user's benefit, from the real foes (the attr is self-targeted, so a target score would be given
+   * the user and flipped): +10 while some foe can still get one of the statuses
+   */
+  override getUserBenefitScore(user: Pokemon, _target: Pokemon, _move: Move): number {
+    return user.getOpponents().some(p => this.effects.some(e => p.canSetStatus(e, true, false, user))) ? 10 : 0;
+  }
+}
+
+/**
+ * Local fork (2026-11-16): a battler tag on every foe from a G-Max move: Smite / Gold Rush (confusion, stopped by
+ * Safeguard), Cuddle (infatuation, opposite gender only), Terror (cannot escape while the user stays), Meltdown
+ * (Torment), Sandblast / Centiferno (Sand Tomb / Fire Spin for 4-5 turns).
+ */
+export class MaxMoveBattlerTagAttr extends MaxMoveSideEffectAttr {
+  public readonly tagType: BattlerTagType;
+  public readonly turnCountMin: number;
+  public readonly turnCountMax: number;
+
+  constructor(tagType: BattlerTagType, turnCountMin = 0, turnCountMax = turnCountMin) {
+    super("foes");
+    this.tagType = tagType;
+    this.turnCountMin = turnCountMin;
+    this.turnCountMax = turnCountMax;
+  }
+
+  protected override applyTo(user: Pokemon, pokemon: Pokemon, move: Move): boolean {
+    if (this.tagType === BattlerTagType.CONFUSED && pokemon.isSafeguarded(user)) {
+      return false;
+    }
+    return pokemon.addTag(
+      this.tagType,
+      user.randBattleSeedIntRange(this.turnCountMin, this.turnCountMax),
+      move.id,
+      user.id,
+    );
+  }
+
+  /**
+   * AI score as the user's benefit, from the real foes (the attr is self-targeted, so a target score would be given
+   * the user and flipped): +5 while some foe does not have the tag yet
+   */
+  override getUserBenefitScore(user: Pokemon, _target: Pokemon, _move: Move): number {
+    return user.getOpponents().some(p => !p.getTag(this.tagType)) ? 5 : 0;
+  }
+}
+
+/** Local fork (2026-11-16): G-Max Finale (거다이단원): the user and its partner heal 1/6 of their max HP */
+export class MaxMoveHealAttr extends MaxMoveSideEffectAttr {
+  /** Max HP / this is healed */
+  public readonly healDivisor: number;
+
+  constructor(healDivisor: number) {
+    super("allies");
+    this.healDivisor = healDivisor;
+  }
+
+  protected override applyTo(_user: Pokemon, pokemon: Pokemon): boolean {
+    if (pokemon.isFullHp()) {
+      return false;
+    }
+    globalScene.phaseManager.unshiftNew(
+      "PokemonHealPhase",
+      pokemon.getBattlerIndex(),
+      Math.round(pokemon.getMaxHp() / this.healDivisor),
+      {
+        message: i18next.t("moveTriggers:healHp", { pokemonName: getPokemonNameWithAffix(pokemon) }),
+        showFullHpMessage: false,
+        skipAnim: false,
+      },
+    );
+    return true;
+  }
+
+  override getUserBenefitScore(user: Pokemon, _target: Pokemon, _move: Move): number {
+    return Math.round((1 - user.getHpRatio()) * 10);
+  }
+}
+
+/**
+ * Local fork (2026-11-16): G-Max Depletion (거다이감쇠): every foe's last used move loses 2 PP (Eerie Spell's rule for
+ * each foe; nothing happens to a foe that has not moved or whose move is out of PP).
+ */
+export class MaxMoveReducePpAttr extends MaxMoveSideEffectAttr {
+  private readonly reducePp: AttackReducePpMoveAttr;
+
+  constructor(reduction: number) {
+    super("foes");
+    this.reducePp = new AttackReducePpMoveAttr(reduction);
+  }
+
+  protected override applyTo(user: Pokemon, pokemon: Pokemon, move: Move): boolean {
+    return this.reducePp.apply(user, pokemon, move, []);
+  }
+}
+
+/**
+ * Local fork (2026-11-16): G-Max Replenish (거다이재생): the user and its partner each have a 50% chance to get back a
+ * berry they ate this battle (Harvest's rule: a random eaten berry whose stack is under its cap).
+ */
+export class MaxMoveRestoreBerryAttr extends MaxMoveSideEffectAttr {
+  /** Harvest's attr with a sure proc: gives back a random eaten berry under its cap, with Harvest's message */
+  private readonly harvest = new PostTurnRestoreBerryAbAttr(() => 1);
+
+  constructor(chance: number) {
+    super("allies", chance);
+  }
+
+  protected override applyTo(_user: Pokemon, pokemon: Pokemon): boolean {
+    const params = { pokemon, simulated: false, passive: false };
+    if (!this.harvest.canApply(params)) {
+      return false;
+    }
+    this.harvest.apply(params);
+    return true;
+  }
+}
+
+/**
+ * Local fork (2026-11-16): G-Max Chi Strike (거다이회심격): the user and its partner get +1 critical-hit stage per hit,
+ * up to +3 (`GmaxChiStrikeTag`)
+ */
+export class MaxMoveCritBoostAttr extends MaxMoveSideEffectAttr {
+  constructor() {
+    super("allies");
+  }
+
+  protected override applyTo(user: Pokemon, pokemon: Pokemon, move: Move): boolean {
+    pokemon.addTag(BattlerTagType.G_MAX_CHI_STRIKE, 0, move.id, user.id);
+    return true;
+  }
+
+  override getUserBenefitScore(_user: Pokemon, _target: Pokemon, _move: Move): number {
+    return 3;
+  }
+}
+
+/**
+ * Local fork (2026-11-16): G-Max Sweetness (거다이감로): cures the non-volatile status of every Pokémon in the user's
+ * party, on the field or not (Aromatherapy's effect without its ability exceptions).
+ */
+export class MaxMovePartyCureAttr extends MoveEffectAttr {
+  constructor() {
+    super(true, { firstTargetOnly: true });
+  }
+
+  override apply(user: Pokemon, target: Pokemon, move: Move, args?: any[]): boolean {
+    if (!super.apply(user, target, move, args)) {
+      return false;
+    }
+    const party = user.isPlayer() ? globalScene.getPlayerParty() : globalScene.getEnemyParty();
+    let cured = false;
+    for (const pokemon of party) {
+      const effect = pokemon.status?.effect;
+      if (!effect || effect === StatusEffect.FAINT) {
+        continue;
+      }
+      pokemon.resetStatus(false);
+      pokemon.updateInfo();
+      globalScene.phaseManager.queueMessage(getStatusEffectHealText(effect, getPokemonNameWithAffix(pokemon)));
+      cured = true;
+    }
+    return cured;
+  }
+}
+
+/**
+ * Local fork (2026-11-16): the weather of a Max Move (Max Flare sun, Max Geyser rain, Max Rockfall sandstorm, Max
+ * Hailstorm hail, the Gen 8 weather). Unlike `WeatherChangeAttr` it has no condition: the attack never fails because
+ * the weather is already up or cannot change (strong winds ...); nothing happens then.
+ */
+export class MaxWeatherAttr extends MoveEffectAttr {
+  public readonly weatherType: WeatherType;
+
+  constructor(weatherType: WeatherType) {
+    super(true, { firstTargetOnly: true });
+    this.weatherType = weatherType;
+  }
+
+  override apply(user: Pokemon, target: Pokemon, move: Move, args?: any[]): boolean {
+    if (!super.apply(user, target, move, args)) {
+      return false;
+    }
+    return globalScene.arena.trySetWeather(this.weatherType, user);
+  }
+
+  override getUserBenefitScore(_user: Pokemon, _target: Pokemon, _move: Move): number {
+    return globalScene.arena.weather?.weatherType === this.weatherType ? 0 : 3;
+  }
+}
+
+/**
+ * Local fork (2026-11-16): the terrain of a Max Move (Max Lightning / Overgrowth / Mindstorm / Starfall) and of Genesis
+ * Supernova (Psychic); `TerrainType.NONE` clears the terrain (G-Max Wind Rage). No condition, like
+ * {@linkcode MaxWeatherAttr}.
+ */
+export class MaxTerrainAttr extends MoveEffectAttr {
+  public readonly terrainType: TerrainType;
+
+  constructor(terrainType: TerrainType) {
+    super(true, { firstTargetOnly: true });
+    this.terrainType = terrainType;
+  }
+
+  override apply(user: Pokemon, target: Pokemon, move: Move, args?: any[]): boolean {
+    if (!super.apply(user, target, move, args)) {
+      return false;
+    }
+    if (this.terrainType === TerrainType.NONE && globalScene.arena.terrainType === TerrainType.NONE) {
+      return false;
+    }
+    return globalScene.arena.trySetTerrain(this.terrainType, true, user);
+  }
+
+  override getUserBenefitScore(_user: Pokemon, _target: Pokemon, _move: Move): number {
+    return globalScene.arena.terrainType === this.terrainType ? 0 : 3;
+  }
+}
+
+/**
+ * Local fork (2026-11-16): G-Max Snooze (거다이수마): 50% to make the target drowsy (Yawn), unless it already has a
+ * status or is behind Safeguard
+ */
+export class GmaxSnoozeAttr extends AddBattlerTagAttr {
+  constructor() {
+    super(BattlerTagType.DROWSY);
+    this.options = { ...this.options, effectChanceOverride: ZMAX_RULES.gmaxSnoozeChance };
+  }
+
+  override apply(user: Pokemon, target: Pokemon, move: Move, args: any[]): boolean {
+    if (target.status || target.isSafeguarded(user)) {
+      return false;
+    }
+    return super.apply(user, target, move, args);
+  }
+}
+
+/**
+ * Local fork (2026-11-16): an arena tag from a Max / G-Max move, once per use and whatever the move's effect chance:
+ * the G-Max fields (Wildfire / Vine Lash / Cannonade / Volcalith) and hazards (Stonesurge: Stealth Rock, Steelsurge) on
+ * the target's side, Aurora Veil on the user's side (Resonance), Gravity on the whole field (Gravitas). Overlaps as the
+ * tag does (a hazard gains a layer if it can, a field already up keeps its turns); never fails the move.
+ */
+export class MaxMoveArenaTagAttr extends MoveEffectAttr {
+  public readonly tagType: ArenaTagType;
+  public readonly turnCount: number;
+  /** Where the tag goes: the target's side, the user's side, or both sides */
+  public readonly tagSide: "target" | "user" | "both";
+
+  constructor(tagType: ArenaTagType, turnCount: number, tagSide: "target" | "user" | "both") {
+    super(true, { firstTargetOnly: true });
+    this.tagType = tagType;
+    this.turnCount = turnCount;
+    this.tagSide = tagSide;
+  }
+
+  override apply(user: Pokemon, target: Pokemon, move: Move, args?: any[]): boolean {
+    if (!super.apply(user, target, move, args)) {
+      return false;
+    }
+    let side = ArenaTagSide.BOTH;
+    if (this.tagSide !== "both") {
+      side = (this.tagSide === "user" ? user : target).isPlayer() ? ArenaTagSide.PLAYER : ArenaTagSide.ENEMY;
+    }
+    return globalScene.arena.addTag(this.tagType, this.turnCount, move.id, user.id, side);
+  }
+
+  override getUserBenefitScore(_user: Pokemon, _target: Pokemon, _move: Move): number {
+    return 3;
+  }
+}
+
+/** Local fork (2026-11-16): Guardian of Alola (알로라의수호자): damage = 3/4 of the target's current HP */
+export class GuardianOfAlolaDamageAttr extends FixedDamageAttr {
+  constructor() {
+    super(0);
+  }
+
+  override getDamage(_user: Pokemon, target: Pokemon, _move: Move): number {
+    return toDmgValue(target.hp * ZMAX_RULES.guardianOfAlolaHpRatio);
+  }
+}
+
+/**
+ * Local fork (2026-11-16): finish a Max / G-Max / Z registry attack: no contact (a physical `AttackMove` gets it from
+ * the constructor; `makesContact(false)` toggles the flag, so only call it when it is set) and the protection piercing.
+ * @param move - The registry entry
+ * @param multiplier - Damage share through protection; default `ZMAX_RULES.protectPierceMultiplier`
+ * @param ignoresMaxGuard - Whether Max Guard is pierced too; default `false`
+ */
+function zMaxAttack<T extends Move>(
+  move: T,
+  multiplier: number = ZMAX_RULES.protectPierceMultiplier,
+  ignoresMaxGuard = false,
+): T {
+  if (move.hasFlag(MoveFlags.MAKES_CONTACT)) {
+    move.makesContact(false);
+  }
+  return move.attr(ProtectPierceAttr, multiplier, ignoresMaxGuard);
+}
+
+// #endregion Z/Max moves (2026-11-16)
+
 /** Map of Move attributes to their respective classes. Used for instanceof checks. */
 const MoveAttrs = Object.freeze({
   MoveEffectAttr,
@@ -9448,6 +10118,7 @@ const MoveAttrs = Object.freeze({
   MoveTypeChartOverrideAttr,
   FreezeDryAttr,
   NihilLightAttr,
+  SuperEffectiveAgainstTypeAttr, // Local fork (2026-11-14): custom moves (Blindside)
   OneHitKOAccuracyAttr,
   HitsSameTypeAttr,
   SheerColdAccuracyAttr,
@@ -9472,6 +10143,7 @@ const MoveAttrs = Object.freeze({
   HitsTagAttr,
   HitsTagForDoubleDamageAttr,
   AddArenaTagAttr,
+  AddGardenTagAttr, // Local fork (2026-11-14): custom moves (Gardening)
   RemoveArenaTagsAttr,
   AddArenaTrapTagAttr,
   AddArenaTrapTagHitAttr,
@@ -9518,6 +10190,23 @@ const MoveAttrs = Object.freeze({
   ExposedMoveAttr,
   PartingShotAttr,
   RageAttr,
+  // Local fork (2026-11-16): Z-Moves and Max Moves
+  ProtectPierceAttr,
+  ZPowerAttr,
+  MaxMoveSideEffectAttr,
+  MaxMoveStatStageChangeAttr,
+  MaxMoveStatusAttr,
+  MaxMoveBattlerTagAttr,
+  MaxMoveHealAttr,
+  MaxMoveReducePpAttr,
+  MaxMoveRestoreBerryAttr,
+  MaxMoveCritBoostAttr,
+  MaxMovePartyCureAttr,
+  MaxWeatherAttr,
+  MaxTerrainAttr,
+  MaxMoveArenaTagAttr,
+  GmaxSnoozeAttr,
+  GuardianOfAlolaDamageAttr,
 });
 
 /** Map of of move attribute names to their constructors */
@@ -9781,9 +10470,9 @@ export function initMoves() {
       .makesContact(false),
     new AttackMove(MoveId.EARTHQUAKE, PokemonType.GROUND, MoveCategory.PHYSICAL, 100, 100, 10, -1, 0, 1)
       .attr(HitsTagForDoubleDamageAttr, BattlerTagType.UNDERGROUND)
-      .attr(MovePowerMultiplierAttr, (_user, target, _move) =>
-        globalScene.arena.terrainType === TerrainType.GRASSY && target.isGrounded() ? 0.5 : 1,
-      )
+      // Local fork (2026-11-14): custom moves. Halved against a grounded target under Grassy Terrain or with a Garden
+      // (정원) on its side (`hasGrassyEffect`), once either way
+      .attr(MovePowerMultiplierAttr, (_user, target, _move) => (hasGrassyEffect(target) ? 0.5 : 1))
       .makesContact(false)
       .target(MoveTarget.ALL_NEAR_OTHERS),
     new AttackMove(MoveId.FISSURE, PokemonType.GROUND, MoveCategory.PHYSICAL, 250, 30, 5, -1, 0, 1)
@@ -10222,9 +10911,9 @@ export function initMoves() {
     new AttackMove(MoveId.MAGNITUDE, PokemonType.GROUND, MoveCategory.PHYSICAL, -1, 100, 30, -1, 0, 2)
       .attr(PreMoveMessageAttr, magnitudeMessageFunc)
       .attr(MagnitudePowerAttr)
-      .attr(MovePowerMultiplierAttr, (_user, target, _move) =>
-        globalScene.arena.terrainType === TerrainType.GRASSY && target.isGrounded() ? 0.5 : 1,
-      )
+      // Local fork (2026-11-14): custom moves. Halved against a grounded target under Grassy Terrain or with a Garden
+      // (정원) on its side (`hasGrassyEffect`), once either way
+      .attr(MovePowerMultiplierAttr, (_user, target, _move) => (hasGrassyEffect(target) ? 0.5 : 1))
       .attr(HitsTagForDoubleDamageAttr, BattlerTagType.UNDERGROUND)
       .makesContact(false)
       .target(MoveTarget.ALL_NEAR_OTHERS),
@@ -10949,6 +11638,9 @@ export function initMoves() {
       .attr(RemoveArenaTagsAttr, [ArenaTagType.MIST, ArenaTagType.SAFEGUARD], (_user, target) =>
         target.isPlayer() ? ArenaTagSide.PLAYER : ArenaTagSide.ENEMY,
       )
+      // Local fork (2026-11-14): custom moves. Clears the Garden (정원) on both sides, the user's included, as it
+      // clears terrain (the user: "안개제거·아이언롤러·아이스스피너가 양쪽 정원을 지웁니다")
+      .attr(RemoveArenaTagsAttr, [ArenaTagType.GARDEN], () => ArenaTagSide.BOTH)
       .reflectable(),
     new StatusMove(MoveId.TRICK_ROOM, PokemonType.PSYCHIC, -1, 5, -1, -7, 4)
       .attr(AddArenaTagAttr, ArenaTagType.TRICK_ROOM, 5)
@@ -11284,9 +11976,9 @@ export function initMoves() {
       .target(MoveTarget.ALL_NEAR_ENEMIES),
     new AttackMove(MoveId.BULLDOZE, PokemonType.GROUND, MoveCategory.PHYSICAL, 60, 100, 20, 100, 0, 5)
       .attr(StatStageChangeAttr, [Stat.SPD], -1)
-      .attr(MovePowerMultiplierAttr, (_user, target, _move) =>
-        globalScene.arena.terrainType === TerrainType.GRASSY && target.isGrounded() ? 0.5 : 1,
-      )
+      // Local fork (2026-11-14): custom moves. Halved against a grounded target under Grassy Terrain or with a Garden
+      // (정원) on its side (`hasGrassyEffect`), once either way
+      .attr(MovePowerMultiplierAttr, (_user, target, _move) => (hasGrassyEffect(target) ? 0.5 : 1))
       .makesContact(false)
       .target(MoveTarget.ALL_NEAR_OTHERS),
     new AttackMove(MoveId.FROST_BREATH, PokemonType.ICE, MoveCategory.SPECIAL, 60, 90, 10, -1, 0, 5) //
@@ -11632,84 +12324,221 @@ export function initMoves() {
       .ignoresSubstitute()
       .makesContact(false)
       .ignoresProtect(),
-    /* Unused */
-    new AttackMove(MoveId.BREAKNECK_BLITZ__PHYSICAL, PokemonType.NORMAL, MoveCategory.PHYSICAL, -1, -1, 1, -1, 0, 7) //
-      .unimplemented(),
-    new AttackMove(MoveId.BREAKNECK_BLITZ__SPECIAL, PokemonType.NORMAL, MoveCategory.SPECIAL, -1, -1, 1, -1, 0, 7) //
-      .unimplemented(),
-    new AttackMove(MoveId.ALL_OUT_PUMMELING__PHYSICAL, PokemonType.FIGHTING, MoveCategory.PHYSICAL, -1, -1, 1, -1, 0, 7) //
-      .unimplemented(),
-    new AttackMove(MoveId.ALL_OUT_PUMMELING__SPECIAL, PokemonType.FIGHTING, MoveCategory.SPECIAL, -1, -1, 1, -1, 0, 7) //
-      .unimplemented(),
-    // biome-ignore format: slightly too long
-    new AttackMove(MoveId.SUPERSONIC_SKYSTRIKE__PHYSICAL, PokemonType.FLYING, MoveCategory.PHYSICAL, -1, -1, 1, -1, 0, 7)
-      .unimplemented(),
-    new AttackMove(MoveId.SUPERSONIC_SKYSTRIKE__SPECIAL, PokemonType.FLYING, MoveCategory.SPECIAL, -1, -1, 1, -1, 0, 7) //
-      .unimplemented(),
-    new AttackMove(MoveId.ACID_DOWNPOUR__PHYSICAL, PokemonType.POISON, MoveCategory.PHYSICAL, -1, -1, 1, -1, 0, 7) //
-      .unimplemented(),
-    new AttackMove(MoveId.ACID_DOWNPOUR__SPECIAL, PokemonType.POISON, MoveCategory.SPECIAL, -1, -1, 1, -1, 0, 7) //
-      .unimplemented(),
-    new AttackMove(MoveId.TECTONIC_RAGE__PHYSICAL, PokemonType.GROUND, MoveCategory.PHYSICAL, -1, -1, 1, -1, 0, 7) //
-      .unimplemented(),
-    new AttackMove(MoveId.TECTONIC_RAGE__SPECIAL, PokemonType.GROUND, MoveCategory.SPECIAL, -1, -1, 1, -1, 0, 7) //
-      .unimplemented(),
-    new AttackMove(MoveId.CONTINENTAL_CRUSH__PHYSICAL, PokemonType.ROCK, MoveCategory.PHYSICAL, -1, -1, 1, -1, 0, 7) //
-      .unimplemented(),
-    new AttackMove(MoveId.CONTINENTAL_CRUSH__SPECIAL, PokemonType.ROCK, MoveCategory.SPECIAL, -1, -1, 1, -1, 0, 7) //
-      .unimplemented(),
-    new AttackMove(MoveId.SAVAGE_SPIN_OUT__PHYSICAL, PokemonType.BUG, MoveCategory.PHYSICAL, -1, -1, 1, -1, 0, 7) //
-      .unimplemented(),
-    new AttackMove(MoveId.SAVAGE_SPIN_OUT__SPECIAL, PokemonType.BUG, MoveCategory.SPECIAL, -1, -1, 1, -1, 0, 7) //
-      .unimplemented(),
-    // biome-ignore format: slightly too long
-    new AttackMove(MoveId.NEVER_ENDING_NIGHTMARE__PHYSICAL, PokemonType.GHOST, MoveCategory.PHYSICAL, -1, -1, 1, -1, 0, 7)
-      .unimplemented(),
-    new AttackMove(MoveId.NEVER_ENDING_NIGHTMARE__SPECIAL, PokemonType.GHOST, MoveCategory.SPECIAL, -1, -1, 1, -1, 0, 7) //
-      .unimplemented(),
-    new AttackMove(MoveId.CORKSCREW_CRASH__PHYSICAL, PokemonType.STEEL, MoveCategory.PHYSICAL, -1, -1, 1, -1, 0, 7) //
-      .unimplemented(),
-    new AttackMove(MoveId.CORKSCREW_CRASH__SPECIAL, PokemonType.STEEL, MoveCategory.SPECIAL, -1, -1, 1, -1, 0, 7) //
-      .unimplemented(),
-    new AttackMove(MoveId.INFERNO_OVERDRIVE__PHYSICAL, PokemonType.FIRE, MoveCategory.PHYSICAL, -1, -1, 1, -1, 0, 7) //
-      .unimplemented(),
-    new AttackMove(MoveId.INFERNO_OVERDRIVE__SPECIAL, PokemonType.FIRE, MoveCategory.SPECIAL, -1, -1, 1, -1, 0, 7) //
-      .unimplemented(),
-    new AttackMove(MoveId.HYDRO_VORTEX__PHYSICAL, PokemonType.WATER, MoveCategory.PHYSICAL, -1, -1, 1, -1, 0, 7) //
-      .unimplemented(),
-    new AttackMove(MoveId.HYDRO_VORTEX__SPECIAL, PokemonType.WATER, MoveCategory.SPECIAL, -1, -1, 1, -1, 0, 7) //
-      .unimplemented(),
-    new AttackMove(MoveId.BLOOM_DOOM__PHYSICAL, PokemonType.GRASS, MoveCategory.PHYSICAL, -1, -1, 1, -1, 0, 7) //
-      .unimplemented(),
-    new AttackMove(MoveId.BLOOM_DOOM__SPECIAL, PokemonType.GRASS, MoveCategory.SPECIAL, -1, -1, 1, -1, 0, 7) //
-      .unimplemented(),
-    new AttackMove(MoveId.GIGAVOLT_HAVOC__PHYSICAL, PokemonType.ELECTRIC, MoveCategory.PHYSICAL, -1, -1, 1, -1, 0, 7) //
-      .unimplemented(),
-    new AttackMove(MoveId.GIGAVOLT_HAVOC__SPECIAL, PokemonType.ELECTRIC, MoveCategory.SPECIAL, -1, -1, 1, -1, 0, 7) //
-      .unimplemented(),
-    new AttackMove(MoveId.SHATTERED_PSYCHE__PHYSICAL, PokemonType.PSYCHIC, MoveCategory.PHYSICAL, -1, -1, 1, -1, 0, 7) //
-      .unimplemented(),
-    new AttackMove(MoveId.SHATTERED_PSYCHE__SPECIAL, PokemonType.PSYCHIC, MoveCategory.SPECIAL, -1, -1, 1, -1, 0, 7) //
-      .unimplemented(),
-    new AttackMove(MoveId.SUBZERO_SLAMMER__PHYSICAL, PokemonType.ICE, MoveCategory.PHYSICAL, -1, -1, 1, -1, 0, 7) //
-      .unimplemented(),
-    new AttackMove(MoveId.SUBZERO_SLAMMER__SPECIAL, PokemonType.ICE, MoveCategory.SPECIAL, -1, -1, 1, -1, 0, 7) //
-      .unimplemented(),
-    new AttackMove(MoveId.DEVASTATING_DRAKE__PHYSICAL, PokemonType.DRAGON, MoveCategory.PHYSICAL, -1, -1, 1, -1, 0, 7) //
-      .unimplemented(),
-    new AttackMove(MoveId.DEVASTATING_DRAKE__SPECIAL, PokemonType.DRAGON, MoveCategory.SPECIAL, -1, -1, 1, -1, 0, 7) //
-      .unimplemented(),
-    new AttackMove(MoveId.BLACK_HOLE_ECLIPSE__PHYSICAL, PokemonType.DARK, MoveCategory.PHYSICAL, -1, -1, 1, -1, 0, 7) //
-      .unimplemented(),
-    new AttackMove(MoveId.BLACK_HOLE_ECLIPSE__SPECIAL, PokemonType.DARK, MoveCategory.SPECIAL, -1, -1, 1, -1, 0, 7) //
-      .unimplemented(),
-    new AttackMove(MoveId.TWINKLE_TACKLE__PHYSICAL, PokemonType.FAIRY, MoveCategory.PHYSICAL, -1, -1, 1, -1, 0, 7) //
-      .unimplemented(),
-    new AttackMove(MoveId.TWINKLE_TACKLE__SPECIAL, PokemonType.FAIRY, MoveCategory.SPECIAL, -1, -1, 1, -1, 0, 7) //
-      .unimplemented(),
-    new AttackMove(MoveId.CATASTROPIKA, PokemonType.ELECTRIC, MoveCategory.PHYSICAL, 210, -1, 1, -1, 0, 7) //
-      .unimplemented(),
-    /* End Unused */
+    // Local fork (2026-11-16): Z-Moves and Max Moves. The type Z-Moves are implemented: they back the slots a type
+    // Z-Crystal converts (move-transform.ts takes the power from `getZMovePower` and the category from the base move;
+    // 100 here is a placeholder). Never miss, single target, no contact, 1/4 damage through protection; ZMAX_ONLY_MOVES
+    // keeps them out of Metronome & co., the Master TM, the randomizer and the AI. Catastropika (Pikanium Z) too.
+    zMaxAttack(
+      new AttackMove(MoveId.BREAKNECK_BLITZ__PHYSICAL, PokemonType.NORMAL, MoveCategory.PHYSICAL, 100, -1, 1, -1, 0, 7),
+    ).target(MoveTarget.NEAR_ENEMY),
+    zMaxAttack(
+      new AttackMove(MoveId.BREAKNECK_BLITZ__SPECIAL, PokemonType.NORMAL, MoveCategory.SPECIAL, 100, -1, 1, -1, 0, 7),
+    ).target(MoveTarget.NEAR_ENEMY),
+    zMaxAttack(
+      new AttackMove(
+        MoveId.ALL_OUT_PUMMELING__PHYSICAL,
+        PokemonType.FIGHTING,
+        MoveCategory.PHYSICAL,
+        100,
+        -1,
+        1,
+        -1,
+        0,
+        7,
+      ),
+    ).target(MoveTarget.NEAR_ENEMY),
+    zMaxAttack(
+      new AttackMove(
+        MoveId.ALL_OUT_PUMMELING__SPECIAL,
+        PokemonType.FIGHTING,
+        MoveCategory.SPECIAL,
+        100,
+        -1,
+        1,
+        -1,
+        0,
+        7,
+      ),
+    ).target(MoveTarget.NEAR_ENEMY),
+    zMaxAttack(
+      new AttackMove(
+        MoveId.SUPERSONIC_SKYSTRIKE__PHYSICAL,
+        PokemonType.FLYING,
+        MoveCategory.PHYSICAL,
+        100,
+        -1,
+        1,
+        -1,
+        0,
+        7,
+      ),
+    ).target(MoveTarget.NEAR_ENEMY),
+    zMaxAttack(
+      new AttackMove(
+        MoveId.SUPERSONIC_SKYSTRIKE__SPECIAL,
+        PokemonType.FLYING,
+        MoveCategory.SPECIAL,
+        100,
+        -1,
+        1,
+        -1,
+        0,
+        7,
+      ),
+    ).target(MoveTarget.NEAR_ENEMY),
+    zMaxAttack(
+      new AttackMove(MoveId.ACID_DOWNPOUR__PHYSICAL, PokemonType.POISON, MoveCategory.PHYSICAL, 100, -1, 1, -1, 0, 7),
+    ).target(MoveTarget.NEAR_ENEMY),
+    zMaxAttack(
+      new AttackMove(MoveId.ACID_DOWNPOUR__SPECIAL, PokemonType.POISON, MoveCategory.SPECIAL, 100, -1, 1, -1, 0, 7),
+    ).target(MoveTarget.NEAR_ENEMY),
+    zMaxAttack(
+      new AttackMove(MoveId.TECTONIC_RAGE__PHYSICAL, PokemonType.GROUND, MoveCategory.PHYSICAL, 100, -1, 1, -1, 0, 7),
+    ).target(MoveTarget.NEAR_ENEMY),
+    zMaxAttack(
+      new AttackMove(MoveId.TECTONIC_RAGE__SPECIAL, PokemonType.GROUND, MoveCategory.SPECIAL, 100, -1, 1, -1, 0, 7),
+    ).target(MoveTarget.NEAR_ENEMY),
+    zMaxAttack(
+      new AttackMove(MoveId.CONTINENTAL_CRUSH__PHYSICAL, PokemonType.ROCK, MoveCategory.PHYSICAL, 100, -1, 1, -1, 0, 7),
+    ).target(MoveTarget.NEAR_ENEMY),
+    zMaxAttack(
+      new AttackMove(MoveId.CONTINENTAL_CRUSH__SPECIAL, PokemonType.ROCK, MoveCategory.SPECIAL, 100, -1, 1, -1, 0, 7),
+    ).target(MoveTarget.NEAR_ENEMY),
+    zMaxAttack(
+      new AttackMove(MoveId.SAVAGE_SPIN_OUT__PHYSICAL, PokemonType.BUG, MoveCategory.PHYSICAL, 100, -1, 1, -1, 0, 7),
+    ).target(MoveTarget.NEAR_ENEMY),
+    zMaxAttack(
+      new AttackMove(MoveId.SAVAGE_SPIN_OUT__SPECIAL, PokemonType.BUG, MoveCategory.SPECIAL, 100, -1, 1, -1, 0, 7),
+    ).target(MoveTarget.NEAR_ENEMY),
+    zMaxAttack(
+      new AttackMove(
+        MoveId.NEVER_ENDING_NIGHTMARE__PHYSICAL,
+        PokemonType.GHOST,
+        MoveCategory.PHYSICAL,
+        100,
+        -1,
+        1,
+        -1,
+        0,
+        7,
+      ),
+    ).target(MoveTarget.NEAR_ENEMY),
+    zMaxAttack(
+      new AttackMove(
+        MoveId.NEVER_ENDING_NIGHTMARE__SPECIAL,
+        PokemonType.GHOST,
+        MoveCategory.SPECIAL,
+        100,
+        -1,
+        1,
+        -1,
+        0,
+        7,
+      ),
+    ).target(MoveTarget.NEAR_ENEMY),
+    zMaxAttack(
+      new AttackMove(MoveId.CORKSCREW_CRASH__PHYSICAL, PokemonType.STEEL, MoveCategory.PHYSICAL, 100, -1, 1, -1, 0, 7),
+    ).target(MoveTarget.NEAR_ENEMY),
+    zMaxAttack(
+      new AttackMove(MoveId.CORKSCREW_CRASH__SPECIAL, PokemonType.STEEL, MoveCategory.SPECIAL, 100, -1, 1, -1, 0, 7),
+    ).target(MoveTarget.NEAR_ENEMY),
+    zMaxAttack(
+      new AttackMove(MoveId.INFERNO_OVERDRIVE__PHYSICAL, PokemonType.FIRE, MoveCategory.PHYSICAL, 100, -1, 1, -1, 0, 7),
+    ).target(MoveTarget.NEAR_ENEMY),
+    zMaxAttack(
+      new AttackMove(MoveId.INFERNO_OVERDRIVE__SPECIAL, PokemonType.FIRE, MoveCategory.SPECIAL, 100, -1, 1, -1, 0, 7),
+    ).target(MoveTarget.NEAR_ENEMY),
+    zMaxAttack(
+      new AttackMove(MoveId.HYDRO_VORTEX__PHYSICAL, PokemonType.WATER, MoveCategory.PHYSICAL, 100, -1, 1, -1, 0, 7),
+    ).target(MoveTarget.NEAR_ENEMY),
+    zMaxAttack(
+      new AttackMove(MoveId.HYDRO_VORTEX__SPECIAL, PokemonType.WATER, MoveCategory.SPECIAL, 100, -1, 1, -1, 0, 7),
+    ).target(MoveTarget.NEAR_ENEMY),
+    zMaxAttack(
+      new AttackMove(MoveId.BLOOM_DOOM__PHYSICAL, PokemonType.GRASS, MoveCategory.PHYSICAL, 100, -1, 1, -1, 0, 7),
+    ).target(MoveTarget.NEAR_ENEMY),
+    zMaxAttack(
+      new AttackMove(MoveId.BLOOM_DOOM__SPECIAL, PokemonType.GRASS, MoveCategory.SPECIAL, 100, -1, 1, -1, 0, 7),
+    ).target(MoveTarget.NEAR_ENEMY),
+    zMaxAttack(
+      new AttackMove(
+        MoveId.GIGAVOLT_HAVOC__PHYSICAL,
+        PokemonType.ELECTRIC,
+        MoveCategory.PHYSICAL,
+        100,
+        -1,
+        1,
+        -1,
+        0,
+        7,
+      ),
+    ).target(MoveTarget.NEAR_ENEMY),
+    zMaxAttack(
+      new AttackMove(MoveId.GIGAVOLT_HAVOC__SPECIAL, PokemonType.ELECTRIC, MoveCategory.SPECIAL, 100, -1, 1, -1, 0, 7),
+    ).target(MoveTarget.NEAR_ENEMY),
+    zMaxAttack(
+      new AttackMove(
+        MoveId.SHATTERED_PSYCHE__PHYSICAL,
+        PokemonType.PSYCHIC,
+        MoveCategory.PHYSICAL,
+        100,
+        -1,
+        1,
+        -1,
+        0,
+        7,
+      ),
+    ).target(MoveTarget.NEAR_ENEMY),
+    zMaxAttack(
+      new AttackMove(MoveId.SHATTERED_PSYCHE__SPECIAL, PokemonType.PSYCHIC, MoveCategory.SPECIAL, 100, -1, 1, -1, 0, 7),
+    ).target(MoveTarget.NEAR_ENEMY),
+    zMaxAttack(
+      new AttackMove(MoveId.SUBZERO_SLAMMER__PHYSICAL, PokemonType.ICE, MoveCategory.PHYSICAL, 100, -1, 1, -1, 0, 7),
+    ).target(MoveTarget.NEAR_ENEMY),
+    zMaxAttack(
+      new AttackMove(MoveId.SUBZERO_SLAMMER__SPECIAL, PokemonType.ICE, MoveCategory.SPECIAL, 100, -1, 1, -1, 0, 7),
+    ).target(MoveTarget.NEAR_ENEMY),
+    zMaxAttack(
+      new AttackMove(
+        MoveId.DEVASTATING_DRAKE__PHYSICAL,
+        PokemonType.DRAGON,
+        MoveCategory.PHYSICAL,
+        100,
+        -1,
+        1,
+        -1,
+        0,
+        7,
+      ),
+    ).target(MoveTarget.NEAR_ENEMY),
+    zMaxAttack(
+      new AttackMove(MoveId.DEVASTATING_DRAKE__SPECIAL, PokemonType.DRAGON, MoveCategory.SPECIAL, 100, -1, 1, -1, 0, 7),
+    ).target(MoveTarget.NEAR_ENEMY),
+    zMaxAttack(
+      new AttackMove(
+        MoveId.BLACK_HOLE_ECLIPSE__PHYSICAL,
+        PokemonType.DARK,
+        MoveCategory.PHYSICAL,
+        100,
+        -1,
+        1,
+        -1,
+        0,
+        7,
+      ),
+    ).target(MoveTarget.NEAR_ENEMY),
+    zMaxAttack(
+      new AttackMove(MoveId.BLACK_HOLE_ECLIPSE__SPECIAL, PokemonType.DARK, MoveCategory.SPECIAL, 100, -1, 1, -1, 0, 7),
+    ).target(MoveTarget.NEAR_ENEMY),
+    zMaxAttack(
+      new AttackMove(MoveId.TWINKLE_TACKLE__PHYSICAL, PokemonType.FAIRY, MoveCategory.PHYSICAL, 100, -1, 1, -1, 0, 7),
+    ).target(MoveTarget.NEAR_ENEMY),
+    zMaxAttack(
+      new AttackMove(MoveId.TWINKLE_TACKLE__SPECIAL, PokemonType.FAIRY, MoveCategory.SPECIAL, 100, -1, 1, -1, 0, 7),
+    ).target(MoveTarget.NEAR_ENEMY),
+    zMaxAttack(
+      new AttackMove(MoveId.CATASTROPIKA, PokemonType.ELECTRIC, MoveCategory.PHYSICAL, 210, -1, 1, -1, 0, 7),
+    ).target(MoveTarget.NEAR_ENEMY),
     new SelfStatusMove(MoveId.SHORE_UP, PokemonType.GROUND, -1, 5, -1, 0, 7) //
       .attr(VariableHealAttr, shoreUpHealRatioFunc)
       .healingMove(),
@@ -11864,36 +12693,57 @@ export function initMoves() {
       }, 3)
       .attr(AddArenaTagAttr, ArenaTagType.AURORA_VEIL, 5, true)
       .target(MoveTarget.USER_SIDE),
-    /* Unused */
-    new AttackMove(MoveId.SINISTER_ARROW_RAID, PokemonType.GHOST, MoveCategory.PHYSICAL, 180, -1, 1, -1, 0, 7)
-      .unimplemented()
-      .makesContact(false)
-      .edgeCase(), // I assume it's because the user needs spirit shackle and decidueye
-    new AttackMove(MoveId.MALICIOUS_MOONSAULT, PokemonType.DARK, MoveCategory.PHYSICAL, 180, -1, 1, -1, 0, 7)
-      .unimplemented()
+    // Local fork (2026-11-16): Z-Moves and Max Moves. The exclusive Z-Moves are implemented: they back the slots an
+    // exclusive Z-Crystal converts (zmax-data.ts EXCLUSIVE_Z; any move of the crystal's type on the right species).
+    // Mainline power and effects; never miss, single target, no contact, 1/4 damage through protection.
+    zMaxAttack(
+      new AttackMove(MoveId.SINISTER_ARROW_RAID, PokemonType.GHOST, MoveCategory.PHYSICAL, 180, -1, 1, -1, 0, 7),
+    ) //
+      .target(MoveTarget.NEAR_ENEMY),
+    zMaxAttack(
+      new AttackMove(MoveId.MALICIOUS_MOONSAULT, PokemonType.DARK, MoveCategory.PHYSICAL, 180, -1, 1, -1, 0, 7),
+    )
       .attr(AlwaysHitMinimizeAttr)
       .attr(HitsTagForDoubleDamageAttr, BattlerTagType.MINIMIZED)
-      .edgeCase(), // I assume it's because it needs darkest lariat and incineroar
-    new AttackMove(MoveId.OCEANIC_OPERETTA, PokemonType.WATER, MoveCategory.SPECIAL, 195, -1, 1, -1, 0, 7)
-      .unimplemented()
-      .edgeCase(), // I assume it's because it needs sparkling aria and primarina
-    new AttackMove(MoveId.GUARDIAN_OF_ALOLA, PokemonType.FAIRY, MoveCategory.SPECIAL, -1, -1, 1, -1, 0, 7) //
-      .unimplemented(),
-    new AttackMove(MoveId.SOUL_STEALING_7_STAR_STRIKE, PokemonType.GHOST, MoveCategory.PHYSICAL, 195, -1, 1, -1, 0, 7) //
-      .unimplemented(),
-    new AttackMove(MoveId.STOKED_SPARKSURFER, PokemonType.ELECTRIC, MoveCategory.SPECIAL, 175, -1, 1, 100, 0, 7)
-      .unimplemented()
-      .edgeCase(), // I assume it's because it needs thunderbolt and Alola Raichu
-    new AttackMove(MoveId.PULVERIZING_PANCAKE, PokemonType.NORMAL, MoveCategory.PHYSICAL, 210, -1, 1, -1, 0, 7)
-      .unimplemented()
-      .edgeCase(), // I assume it's because it needs giga impact and snorlax
-    new SelfStatusMove(MoveId.EXTREME_EVOBOOST, PokemonType.NORMAL, -1, 1, -1, 0, 7)
-      .unimplemented()
+      .target(MoveTarget.NEAR_ENEMY),
+    zMaxAttack(new AttackMove(MoveId.OCEANIC_OPERETTA, PokemonType.WATER, MoveCategory.SPECIAL, 195, -1, 1, -1, 0, 7)) //
+      .target(MoveTarget.NEAR_ENEMY),
+    // Guardian of Alola: 3/4 of the target's current HP (fixed damage, like Super Fang's 1/2)
+    zMaxAttack(new AttackMove(MoveId.GUARDIAN_OF_ALOLA, PokemonType.FAIRY, MoveCategory.SPECIAL, -1, -1, 1, -1, 0, 7))
+      .attr(GuardianOfAlolaDamageAttr)
+      .target(MoveTarget.NEAR_ENEMY),
+    zMaxAttack(
+      new AttackMove(
+        MoveId.SOUL_STEALING_7_STAR_STRIKE,
+        PokemonType.GHOST,
+        MoveCategory.PHYSICAL,
+        195,
+        -1,
+        1,
+        -1,
+        0,
+        7,
+      ),
+    ) //
+      .target(MoveTarget.NEAR_ENEMY),
+    // Stoked Sparksurfer: paralyzes the target (100%)
+    zMaxAttack(
+      new AttackMove(MoveId.STOKED_SPARKSURFER, PokemonType.ELECTRIC, MoveCategory.SPECIAL, 175, -1, 1, 100, 0, 7),
+    )
+      .attr(StatusEffectAttr, StatusEffect.PARALYSIS)
+      .target(MoveTarget.NEAR_ENEMY),
+    zMaxAttack(
+      new AttackMove(MoveId.PULVERIZING_PANCAKE, PokemonType.NORMAL, MoveCategory.PHYSICAL, 210, -1, 1, -1, 0, 7),
+    ) //
+      .target(MoveTarget.NEAR_ENEMY),
+    new SelfStatusMove(MoveId.EXTREME_EVOBOOST, PokemonType.NORMAL, -1, 1, -1, 0, 7) //
       .attr(StatStageChangeAttr, [Stat.ATK, Stat.DEF, Stat.SPATK, Stat.SPDEF, Stat.SPD], 2, true),
-    new AttackMove(MoveId.GENESIS_SUPERNOVA, PokemonType.PSYCHIC, MoveCategory.SPECIAL, 185, -1, 1, 100, 0, 7)
-      .unimplemented()
-      .attr(TerrainChangeAttr, TerrainType.PSYCHIC),
-    /* End Unused */
+    // Genesis Supernova: Psychic Terrain, also when it is already up (no failure)
+    zMaxAttack(
+      new AttackMove(MoveId.GENESIS_SUPERNOVA, PokemonType.PSYCHIC, MoveCategory.SPECIAL, 185, -1, 1, 100, 0, 7),
+    )
+      .attr(MaxTerrainAttr, TerrainType.PSYCHIC)
+      .target(MoveTarget.NEAR_ENEMY),
     new AttackMove(MoveId.SHELL_TRAP, PokemonType.FIRE, MoveCategory.SPECIAL, 150, 100, 10, -1, -3, 7)
       .attr(AddBattlerTagHeaderAttr, BattlerTagType.SHELL_TRAP)
       .target(MoveTarget.ALL_NEAR_ENEMIES)
@@ -11939,12 +12789,24 @@ export function initMoves() {
       .attr(TargetHalfHpDamageAttr),
     new AttackMove(MoveId.MULTI_ATTACK, PokemonType.NORMAL, MoveCategory.PHYSICAL, 120, 100, 10, -1, 0, 7) //
       .attr(FormChangeItemTypeAttr),
-    /* Unused */
-    // biome-ignore format: slightly too long
-    new AttackMove(MoveId.TEN_MILLION_VOLT_THUNDERBOLT, PokemonType.ELECTRIC, MoveCategory.SPECIAL, 195, -1, 1, -1, 0, 7)
-      .unimplemented()
-      .edgeCase(), // I assume it's because it needs thunderbolt and pikachu in a cap
-    /* End Unused */
+    // Local fork (2026-11-16): Z-Moves and Max Moves. Implemented with its +2 critical-hit stages (two HighCritAttr), though
+    // no crystal makes it (the fork has no Cap Pikachu, so no Pikashunium Z)
+    zMaxAttack(
+      new AttackMove(
+        MoveId.TEN_MILLION_VOLT_THUNDERBOLT,
+        PokemonType.ELECTRIC,
+        MoveCategory.SPECIAL,
+        195,
+        -1,
+        1,
+        -1,
+        0,
+        7,
+      ),
+    )
+      .attr(HighCritAttr)
+      .attr(HighCritAttr)
+      .target(MoveTarget.NEAR_ENEMY),
     new AttackMove(MoveId.MIND_BLOWN, PokemonType.FIRE, MoveCategory.SPECIAL, 150, 100, 5, -1, 0, 7)
       .condition(failIfDampCondition, 3)
       .attr(HalfSacrificialAttr)
@@ -11955,33 +12817,42 @@ export function initMoves() {
     new AttackMove(MoveId.PHOTON_GEYSER, PokemonType.PSYCHIC, MoveCategory.SPECIAL, 100, 100, 5, -1, 0, 7)
       .attr(PhotonGeyserCategoryAttr)
       .ignoresAbilities(),
-    /* Unused */
-    new AttackMove(MoveId.LIGHT_THAT_BURNS_THE_SKY, PokemonType.PSYCHIC, MoveCategory.SPECIAL, 200, -1, 1, -1, 0, 7)
-      .unimplemented()
+    // Local fork (2026-11-16): Z-Moves and Max Moves. Exclusive Z-Moves (see Sinister Arrow Raid above)
+    zMaxAttack(
+      new AttackMove(MoveId.LIGHT_THAT_BURNS_THE_SKY, PokemonType.PSYCHIC, MoveCategory.SPECIAL, 200, -1, 1, -1, 0, 7),
+    )
       .attr(PhotonGeyserCategoryAttr)
-      .ignoresAbilities(),
-    new AttackMove(MoveId.SEARING_SUNRAZE_SMASH, PokemonType.STEEL, MoveCategory.PHYSICAL, 200, -1, 1, -1, 0, 7)
-      .unimplemented()
-      .ignoresAbilities(),
-    new AttackMove(MoveId.MENACING_MOONRAZE_MAELSTROM, PokemonType.GHOST, MoveCategory.SPECIAL, 200, -1, 1, -1, 0, 7)
-      .unimplemented()
-      .ignoresAbilities(),
-    new AttackMove(MoveId.LETS_SNUGGLE_FOREVER, PokemonType.FAIRY, MoveCategory.PHYSICAL, 190, -1, 1, -1, 0, 7)
-      .unimplemented()
-      .edgeCase(), // I assume it needs play rough and mimikyu
-    new AttackMove(MoveId.SPLINTERED_STORMSHARDS, PokemonType.ROCK, MoveCategory.PHYSICAL, 190, -1, 1, -1, 0, 7)
-      .unimplemented()
-      .attr(ClearTerrainAttr)
-      .makesContact(false),
-    new AttackMove(MoveId.CLANGOROUS_SOULBLAZE, PokemonType.DRAGON, MoveCategory.SPECIAL, 185, -1, 1, 100, 0, 7)
-      .unimplemented()
+      .ignoresAbilities()
+      .target(MoveTarget.NEAR_ENEMY),
+    zMaxAttack(
+      new AttackMove(MoveId.SEARING_SUNRAZE_SMASH, PokemonType.STEEL, MoveCategory.PHYSICAL, 200, -1, 1, -1, 0, 7),
+    )
+      .ignoresAbilities()
+      .target(MoveTarget.NEAR_ENEMY),
+    zMaxAttack(
+      new AttackMove(MoveId.MENACING_MOONRAZE_MAELSTROM, PokemonType.GHOST, MoveCategory.SPECIAL, 200, -1, 1, -1, 0, 7),
+    )
+      .ignoresAbilities()
+      .target(MoveTarget.NEAR_ENEMY),
+    zMaxAttack(
+      new AttackMove(MoveId.LETS_SNUGGLE_FOREVER, PokemonType.FAIRY, MoveCategory.PHYSICAL, 190, -1, 1, -1, 0, 7),
+    ) //
+      .target(MoveTarget.NEAR_ENEMY),
+    // Splintered Stormshards: clears the terrain, also behind a Substitute
+    zMaxAttack(
+      new AttackMove(MoveId.SPLINTERED_STORMSHARDS, PokemonType.ROCK, MoveCategory.PHYSICAL, 190, -1, 1, -1, 0, 7),
+    )
+      .attr(MaxTerrainAttr, TerrainType.NONE)
+      .target(MoveTarget.NEAR_ENEMY),
+    // Clangorous Soulblaze: all the user's stats +1 (single target here, like every converted attack)
+    zMaxAttack(
+      new AttackMove(MoveId.CLANGOROUS_SOULBLAZE, PokemonType.DRAGON, MoveCategory.SPECIAL, 185, -1, 1, 100, 0, 7),
+    )
       .attr(StatStageChangeAttr, [Stat.ATK, Stat.DEF, Stat.SPATK, Stat.SPDEF, Stat.SPD], 1, true, {
         firstTargetOnly: true,
       })
       .soundBased()
-      .target(MoveTarget.ALL_NEAR_ENEMIES)
-      .edgeCase(), // I assume it needs clanging scales and Kommo-O
-    /* End Unused */
+      .target(MoveTarget.NEAR_ENEMY),
     new AttackMove(MoveId.ZIPPY_ZAP, PokemonType.ELECTRIC, MoveCategory.PHYSICAL, 50, 100, 15, -1, 2, 7) // LGPE Implementation
       .attr(CritOnlyAttr),
     new AttackMove(MoveId.SPLISHY_SPLASH, PokemonType.WATER, MoveCategory.SPECIAL, 90, 100, 15, 30, 0, 7)
@@ -12016,12 +12887,11 @@ export function initMoves() {
       .attr(MultiHitAttr, MultiHitType.TWO)
       .attr(FlinchAttr)
       .punchingMove(),
-    /* Unused */
+    // Local fork (2026-11-16): Z-Moves and Max Moves. Max Guard (다이월), the Max Move of every status move: Protect's
+    // chain and messages, +4, also stops moves that ignore protection (`MaxGuardTag`)
     new SelfStatusMove(MoveId.MAX_GUARD, PokemonType.NORMAL, -1, 10, -1, 4, 8)
-      .unimplemented()
-      .attr(ProtectAttr)
-      .condition(failIfLastCondition),
-    /* End Unused */
+      .attr(ProtectAttr, BattlerTagType.MAX_GUARD)
+      .condition(failIfLastCondition, 3),
     new AttackMove(MoveId.DYNAMAX_CANNON, PokemonType.DRAGON, MoveCategory.SPECIAL, 100, 100, 5, -1, 0, 8) //
       .attr(MovePowerMultiplierAttr, (_user, target, _move) => {
         // Move is only stronger against overleveled foes.
@@ -12081,78 +12951,69 @@ export function initMoves() {
     new AttackMove(MoveId.FISHIOUS_REND, PokemonType.WATER, MoveCategory.PHYSICAL, 80, 100, 10, -1, 0, 8)
       .attr(MovePowerMultiplierAttr, (_user, target) => (target.turnData.acted ? 1 : 2))
       .bitingMove(),
+    // Local fork (2026-11-14): custom moves. The list moved to `SWAPPABLE_SIDE_TAGS` (+ the Garden), shared with
+    // Turnabout (전세역전)
     new StatusMove(MoveId.COURT_CHANGE, PokemonType.NORMAL, 100, 10, -1, 0, 8) //
-      .attr(SwapArenaTagsAttr, [
-        ArenaTagType.AURORA_VEIL,
-        ArenaTagType.LIGHT_SCREEN,
-        ArenaTagType.MIST,
-        ArenaTagType.REFLECT,
-        ArenaTagType.SPIKES,
-        ArenaTagType.STEALTH_ROCK,
-        ArenaTagType.STICKY_WEB,
-        ArenaTagType.TAILWIND,
-        ArenaTagType.TOXIC_SPIKES,
-        ArenaTagType.SAFEGUARD,
-        ArenaTagType.FIRE_GRASS_PLEDGE,
-        ArenaTagType.WATER_FIRE_PLEDGE,
-        ArenaTagType.GRASS_WATER_PLEDGE,
-      ]),
-    /* Unused */
-    new AttackMove(MoveId.MAX_FLARE, PokemonType.FIRE, MoveCategory.PHYSICAL, 10, -1, 10, -1, 0, 8)
-      .target(MoveTarget.NEAR_ENEMY)
-      .unimplemented(),
-    new AttackMove(MoveId.MAX_FLUTTERBY, PokemonType.BUG, MoveCategory.PHYSICAL, 10, -1, 10, -1, 0, 8)
-      .target(MoveTarget.NEAR_ENEMY)
-      .unimplemented(),
-    new AttackMove(MoveId.MAX_LIGHTNING, PokemonType.ELECTRIC, MoveCategory.PHYSICAL, 10, -1, 10, -1, 0, 8)
-      .target(MoveTarget.NEAR_ENEMY)
-      .unimplemented(),
-    new AttackMove(MoveId.MAX_STRIKE, PokemonType.NORMAL, MoveCategory.PHYSICAL, 10, -1, 10, -1, 0, 8)
-      .target(MoveTarget.NEAR_ENEMY)
-      .unimplemented(),
-    new AttackMove(MoveId.MAX_KNUCKLE, PokemonType.FIGHTING, MoveCategory.PHYSICAL, 10, -1, 10, -1, 0, 8)
-      .target(MoveTarget.NEAR_ENEMY)
-      .unimplemented(),
-    new AttackMove(MoveId.MAX_PHANTASM, PokemonType.GHOST, MoveCategory.PHYSICAL, 10, -1, 10, -1, 0, 8)
-      .target(MoveTarget.NEAR_ENEMY)
-      .unimplemented(),
-    new AttackMove(MoveId.MAX_HAILSTORM, PokemonType.ICE, MoveCategory.PHYSICAL, 10, -1, 10, -1, 0, 8)
-      .target(MoveTarget.NEAR_ENEMY)
-      .unimplemented(),
-    new AttackMove(MoveId.MAX_OOZE, PokemonType.POISON, MoveCategory.PHYSICAL, 10, -1, 10, -1, 0, 8)
-      .target(MoveTarget.NEAR_ENEMY)
-      .unimplemented(),
-    new AttackMove(MoveId.MAX_GEYSER, PokemonType.WATER, MoveCategory.PHYSICAL, 10, -1, 10, -1, 0, 8)
-      .target(MoveTarget.NEAR_ENEMY)
-      .unimplemented(),
-    new AttackMove(MoveId.MAX_AIRSTREAM, PokemonType.FLYING, MoveCategory.PHYSICAL, 10, -1, 10, -1, 0, 8)
-      .target(MoveTarget.NEAR_ENEMY)
-      .unimplemented(),
-    new AttackMove(MoveId.MAX_STARFALL, PokemonType.FAIRY, MoveCategory.PHYSICAL, 10, -1, 10, -1, 0, 8)
-      .target(MoveTarget.NEAR_ENEMY)
-      .unimplemented(),
-    new AttackMove(MoveId.MAX_WYRMWIND, PokemonType.DRAGON, MoveCategory.PHYSICAL, 10, -1, 10, -1, 0, 8)
-      .target(MoveTarget.NEAR_ENEMY)
-      .unimplemented(),
-    new AttackMove(MoveId.MAX_MINDSTORM, PokemonType.PSYCHIC, MoveCategory.PHYSICAL, 10, -1, 10, -1, 0, 8)
-      .target(MoveTarget.NEAR_ENEMY)
-      .unimplemented(),
-    new AttackMove(MoveId.MAX_ROCKFALL, PokemonType.ROCK, MoveCategory.PHYSICAL, 10, -1, 10, -1, 0, 8)
-      .target(MoveTarget.NEAR_ENEMY)
-      .unimplemented(),
-    new AttackMove(MoveId.MAX_QUAKE, PokemonType.GROUND, MoveCategory.PHYSICAL, 10, -1, 10, -1, 0, 8)
-      .target(MoveTarget.NEAR_ENEMY)
-      .unimplemented(),
-    new AttackMove(MoveId.MAX_DARKNESS, PokemonType.DARK, MoveCategory.PHYSICAL, 10, -1, 10, -1, 0, 8)
-      .target(MoveTarget.NEAR_ENEMY)
-      .unimplemented(),
-    new AttackMove(MoveId.MAX_OVERGROWTH, PokemonType.GRASS, MoveCategory.PHYSICAL, 10, -1, 10, -1, 0, 8)
-      .target(MoveTarget.NEAR_ENEMY)
-      .unimplemented(),
-    new AttackMove(MoveId.MAX_STEELSPIKE, PokemonType.STEEL, MoveCategory.PHYSICAL, 10, -1, 10, -1, 0, 8)
-      .target(MoveTarget.NEAR_ENEMY)
-      .unimplemented(),
-    /* End Unused */
+      .attr(SwapArenaTagsAttr, SWAPPABLE_SIDE_TAGS),
+    // Local fork (2026-11-16): Z-Moves and Max Moves. The Max Moves are implemented: they back the slots a Dynamax Candy
+    // converts (move-transform.ts takes the power from `getMaxMovePower` and the category from the base move; 100 here is
+    // a placeholder). Never miss, single target, no contact, 1/4 damage through protection (not through Max Guard), and
+    // the side effect after the damage on every use (spec 7b: no Dynamax gate). "foes" = every opposing Pokémon on the
+    // field, "allies" = the user and its partner; weather and terrain never make the move fail. Hail, not Snow (Gen 8).
+    zMaxAttack(new AttackMove(MoveId.MAX_FLARE, PokemonType.FIRE, MoveCategory.PHYSICAL, 100, -1, 10, -1, 0, 8))
+      .attr(MaxWeatherAttr, WeatherType.SUNNY)
+      .target(MoveTarget.NEAR_ENEMY),
+    zMaxAttack(new AttackMove(MoveId.MAX_FLUTTERBY, PokemonType.BUG, MoveCategory.PHYSICAL, 100, -1, 10, -1, 0, 8))
+      .attr(MaxMoveStatStageChangeAttr, [Stat.SPATK], -1, "foes")
+      .target(MoveTarget.NEAR_ENEMY),
+    zMaxAttack(new AttackMove(MoveId.MAX_LIGHTNING, PokemonType.ELECTRIC, MoveCategory.PHYSICAL, 100, -1, 10, -1, 0, 8))
+      .attr(MaxTerrainAttr, TerrainType.ELECTRIC)
+      .target(MoveTarget.NEAR_ENEMY),
+    zMaxAttack(new AttackMove(MoveId.MAX_STRIKE, PokemonType.NORMAL, MoveCategory.PHYSICAL, 100, -1, 10, -1, 0, 8))
+      .attr(MaxMoveStatStageChangeAttr, [Stat.SPD], -1, "foes")
+      .target(MoveTarget.NEAR_ENEMY),
+    zMaxAttack(new AttackMove(MoveId.MAX_KNUCKLE, PokemonType.FIGHTING, MoveCategory.PHYSICAL, 100, -1, 10, -1, 0, 8))
+      .attr(MaxMoveStatStageChangeAttr, [Stat.ATK], 1, "allies")
+      .target(MoveTarget.NEAR_ENEMY),
+    zMaxAttack(new AttackMove(MoveId.MAX_PHANTASM, PokemonType.GHOST, MoveCategory.PHYSICAL, 100, -1, 10, -1, 0, 8))
+      .attr(MaxMoveStatStageChangeAttr, [Stat.DEF], -1, "foes")
+      .target(MoveTarget.NEAR_ENEMY),
+    zMaxAttack(new AttackMove(MoveId.MAX_HAILSTORM, PokemonType.ICE, MoveCategory.PHYSICAL, 100, -1, 10, -1, 0, 8))
+      .attr(MaxWeatherAttr, WeatherType.HAIL)
+      .target(MoveTarget.NEAR_ENEMY),
+    zMaxAttack(new AttackMove(MoveId.MAX_OOZE, PokemonType.POISON, MoveCategory.PHYSICAL, 100, -1, 10, -1, 0, 8))
+      .attr(MaxMoveStatStageChangeAttr, [Stat.SPATK], 1, "allies")
+      .target(MoveTarget.NEAR_ENEMY),
+    zMaxAttack(new AttackMove(MoveId.MAX_GEYSER, PokemonType.WATER, MoveCategory.PHYSICAL, 100, -1, 10, -1, 0, 8))
+      .attr(MaxWeatherAttr, WeatherType.RAIN)
+      .target(MoveTarget.NEAR_ENEMY),
+    zMaxAttack(new AttackMove(MoveId.MAX_AIRSTREAM, PokemonType.FLYING, MoveCategory.PHYSICAL, 100, -1, 10, -1, 0, 8))
+      .attr(MaxMoveStatStageChangeAttr, [Stat.SPD], 1, "allies")
+      .target(MoveTarget.NEAR_ENEMY),
+    zMaxAttack(new AttackMove(MoveId.MAX_STARFALL, PokemonType.FAIRY, MoveCategory.PHYSICAL, 100, -1, 10, -1, 0, 8))
+      .attr(MaxTerrainAttr, TerrainType.MISTY)
+      .target(MoveTarget.NEAR_ENEMY),
+    zMaxAttack(new AttackMove(MoveId.MAX_WYRMWIND, PokemonType.DRAGON, MoveCategory.PHYSICAL, 100, -1, 10, -1, 0, 8))
+      .attr(MaxMoveStatStageChangeAttr, [Stat.ATK], -1, "foes")
+      .target(MoveTarget.NEAR_ENEMY),
+    zMaxAttack(new AttackMove(MoveId.MAX_MINDSTORM, PokemonType.PSYCHIC, MoveCategory.PHYSICAL, 100, -1, 10, -1, 0, 8))
+      .attr(MaxTerrainAttr, TerrainType.PSYCHIC)
+      .target(MoveTarget.NEAR_ENEMY),
+    zMaxAttack(new AttackMove(MoveId.MAX_ROCKFALL, PokemonType.ROCK, MoveCategory.PHYSICAL, 100, -1, 10, -1, 0, 8))
+      .attr(MaxWeatherAttr, WeatherType.SANDSTORM)
+      .target(MoveTarget.NEAR_ENEMY),
+    zMaxAttack(new AttackMove(MoveId.MAX_QUAKE, PokemonType.GROUND, MoveCategory.PHYSICAL, 100, -1, 10, -1, 0, 8))
+      .attr(MaxMoveStatStageChangeAttr, [Stat.SPDEF], 1, "allies")
+      .target(MoveTarget.NEAR_ENEMY),
+    zMaxAttack(new AttackMove(MoveId.MAX_DARKNESS, PokemonType.DARK, MoveCategory.PHYSICAL, 100, -1, 10, -1, 0, 8))
+      .attr(MaxMoveStatStageChangeAttr, [Stat.SPDEF], -1, "foes")
+      .target(MoveTarget.NEAR_ENEMY),
+    zMaxAttack(new AttackMove(MoveId.MAX_OVERGROWTH, PokemonType.GRASS, MoveCategory.PHYSICAL, 100, -1, 10, -1, 0, 8))
+      .attr(MaxTerrainAttr, TerrainType.GRASSY)
+      .target(MoveTarget.NEAR_ENEMY),
+    zMaxAttack(new AttackMove(MoveId.MAX_STEELSPIKE, PokemonType.STEEL, MoveCategory.PHYSICAL, 100, -1, 10, -1, 0, 8))
+      .attr(MaxMoveStatStageChangeAttr, [Stat.DEF], 1, "allies")
+      .target(MoveTarget.NEAR_ENEMY),
     new SelfStatusMove(MoveId.CLANGOROUS_SOUL, PokemonType.DRAGON, -1, 5, -1, 0, 8)
       .attr(CutHpStatStageBoostAttr, [Stat.ATK, Stat.DEF, Stat.SPATK, Stat.SPDEF, Stat.SPD], 1, 3)
       .soundBased()
@@ -12229,7 +13090,10 @@ export function initMoves() {
       ),
     new AttackMove(MoveId.STEEL_ROLLER, PokemonType.STEEL, MoveCategory.PHYSICAL, 130, 100, 5, -1, 0, 8)
       .attr(ClearTerrainAttr)
-      .condition(() => !!globalScene.arena.terrain, 3),
+      // Local fork (2026-11-14): custom moves. Also clears the Garden (정원) on both sides, and works with only a
+      // Garden up (on either side) and no terrain
+      .attr(RemoveArenaTagsAttr, [ArenaTagType.GARDEN], () => ArenaTagSide.BOTH)
+      .condition(() => !!globalScene.arena.terrain || globalScene.arena.hasTag(ArenaTagType.GARDEN), 3),
     new AttackMove(MoveId.SCALE_SHOT, PokemonType.DRAGON, MoveCategory.PHYSICAL, 25, 90, 20, -1, 0, 8)
       .attr(StatStageChangeAttr, [Stat.SPD], 1, true, { lastHitOnly: true })
       .attr(StatStageChangeAttr, [Stat.DEF], -1, true, { lastHitOnly: true })
@@ -12420,107 +13284,8 @@ export function initMoves() {
         StatusEffect.BURN,
         StatusEffect.SLEEP,
       ]),
-    /* Unused
-    new AttackMove(MoveId.G_MAX_WILDFIRE, PokemonType.FIRE, MoveCategory.PHYSICAL, 10, -1, 10, -1, 0, 8)
-      .target(MoveTarget.ALL_NEAR_ENEMIES)
-      .unimplemented(),
-    new AttackMove(MoveId.G_MAX_BEFUDDLE, PokemonType.BUG, MoveCategory.PHYSICAL, 10, -1, 10, -1, 0, 8)
-      .target(MoveTarget.ALL_NEAR_ENEMIES)
-      .unimplemented(),
-    new AttackMove(MoveId.G_MAX_VOLT_CRASH, PokemonType.ELECTRIC, MoveCategory.PHYSICAL, 10, -1, 10, -1, 0, 8)
-      .target(MoveTarget.ALL_NEAR_ENEMIES)
-      .unimplemented(),
-    new AttackMove(MoveId.G_MAX_GOLD_RUSH, PokemonType.NORMAL, MoveCategory.PHYSICAL, 10, -1, 10, -1, 0, 8)
-      .target(MoveTarget.ALL_NEAR_ENEMIES)
-      .unimplemented(),
-    new AttackMove(MoveId.G_MAX_CHI_STRIKE, PokemonType.FIGHTING, MoveCategory.PHYSICAL, 10, -1, 10, -1, 0, 8)
-      .target(MoveTarget.ALL_NEAR_ENEMIES)
-      .unimplemented(),
-    new AttackMove(MoveId.G_MAX_TERROR, PokemonType.GHOST, MoveCategory.PHYSICAL, 10, -1, 10, -1, 0, 8)
-      .target(MoveTarget.ALL_NEAR_ENEMIES)
-      .unimplemented(),
-    new AttackMove(MoveId.G_MAX_RESONANCE, PokemonType.ICE, MoveCategory.PHYSICAL, 10, -1, 10, -1, 0, 8)
-      .target(MoveTarget.ALL_NEAR_ENEMIES)
-      .unimplemented(),
-    new AttackMove(MoveId.G_MAX_CUDDLE, PokemonType.NORMAL, MoveCategory.PHYSICAL, 10, -1, 10, -1, 0, 8)
-      .target(MoveTarget.ALL_NEAR_ENEMIES)
-      .unimplemented(),
-    new AttackMove(MoveId.G_MAX_REPLENISH, PokemonType.NORMAL, MoveCategory.PHYSICAL, 10, -1, 10, -1, 0, 8)
-      .target(MoveTarget.ALL_NEAR_ENEMIES)
-      .unimplemented(),
-    new AttackMove(MoveId.G_MAX_MALODOR, PokemonType.POISON, MoveCategory.PHYSICAL, 10, -1, 10, -1, 0, 8)
-      .target(MoveTarget.ALL_NEAR_ENEMIES)
-      .unimplemented(),
-    new AttackMove(MoveId.G_MAX_STONESURGE, PokemonType.WATER, MoveCategory.PHYSICAL, 10, -1, 10, -1, 0, 8)
-      .target(MoveTarget.ALL_NEAR_ENEMIES)
-      .unimplemented(),
-    new AttackMove(MoveId.G_MAX_WIND_RAGE, PokemonType.FLYING, MoveCategory.PHYSICAL, 10, -1, 10, -1, 0, 8)
-      .target(MoveTarget.ALL_NEAR_ENEMIES)
-      .unimplemented(),
-    new AttackMove(MoveId.G_MAX_STUN_SHOCK, PokemonType.ELECTRIC, MoveCategory.PHYSICAL, 10, -1, 10, -1, 0, 8)
-      .target(MoveTarget.ALL_NEAR_ENEMIES)
-      .unimplemented(),
-    new AttackMove(MoveId.G_MAX_FINALE, PokemonType.FAIRY, MoveCategory.PHYSICAL, 10, -1, 10, -1, 0, 8)
-      .target(MoveTarget.ALL_NEAR_ENEMIES)
-      .unimplemented(),
-    new AttackMove(MoveId.G_MAX_DEPLETION, PokemonType.DRAGON, MoveCategory.PHYSICAL, 10, -1, 10, -1, 0, 8)
-      .target(MoveTarget.ALL_NEAR_ENEMIES)
-      .unimplemented(),
-    new AttackMove(MoveId.G_MAX_GRAVITAS, PokemonType.PSYCHIC, MoveCategory.PHYSICAL, 10, -1, 10, -1, 0, 8)
-      .target(MoveTarget.ALL_NEAR_ENEMIES)
-      .unimplemented(),
-    new AttackMove(MoveId.G_MAX_VOLCALITH, PokemonType.ROCK, MoveCategory.PHYSICAL, 10, -1, 10, -1, 0, 8)
-      .target(MoveTarget.ALL_NEAR_ENEMIES)
-      .unimplemented(),
-    new AttackMove(MoveId.G_MAX_SANDBLAST, PokemonType.GROUND, MoveCategory.PHYSICAL, 10, -1, 10, -1, 0, 8)
-      .target(MoveTarget.ALL_NEAR_ENEMIES)
-      .unimplemented(),
-    new AttackMove(MoveId.G_MAX_SNOOZE, PokemonType.DARK, MoveCategory.PHYSICAL, 10, -1, 10, -1, 0, 8)
-      .target(MoveTarget.ALL_NEAR_ENEMIES)
-      .unimplemented(),
-    new AttackMove(MoveId.G_MAX_TARTNESS, PokemonType.GRASS, MoveCategory.PHYSICAL, 10, -1, 10, -1, 0, 8)
-      .target(MoveTarget.ALL_NEAR_ENEMIES)
-      .unimplemented(),
-    new AttackMove(MoveId.G_MAX_SWEETNESS, PokemonType.GRASS, MoveCategory.PHYSICAL, 10, -1, 10, -1, 0, 8)
-      .target(MoveTarget.ALL_NEAR_ENEMIES)
-      .unimplemented(),
-    new AttackMove(MoveId.G_MAX_SMITE, PokemonType.FAIRY, MoveCategory.PHYSICAL, 10, -1, 10, -1, 0, 8)
-      .target(MoveTarget.ALL_NEAR_ENEMIES)
-      .unimplemented(),
-    new AttackMove(MoveId.G_MAX_STEELSURGE, PokemonType.STEEL, MoveCategory.PHYSICAL, 10, -1, 10, -1, 0, 8)
-      .target(MoveTarget.ALL_NEAR_ENEMIES)
-      .unimplemented(),
-    new AttackMove(MoveId.G_MAX_MELTDOWN, PokemonType.STEEL, MoveCategory.PHYSICAL, 10, -1, 10, -1, 0, 8)
-      .target(MoveTarget.ALL_NEAR_ENEMIES)
-      .unimplemented(),
-    new AttackMove(MoveId.G_MAX_FOAM_BURST, PokemonType.WATER, MoveCategory.PHYSICAL, 10, -1, 10, -1, 0, 8)
-      .target(MoveTarget.ALL_NEAR_ENEMIES)
-      .unimplemented(),
-    new AttackMove(MoveId.G_MAX_CENTIFERNO, PokemonType.FIRE, MoveCategory.PHYSICAL, 10, -1, 10, -1, 0, 8)
-      .target(MoveTarget.ALL_NEAR_ENEMIES)
-      .unimplemented(),
-    new AttackMove(MoveId.G_MAX_VINE_LASH, PokemonType.GRASS, MoveCategory.PHYSICAL, 10, -1, 10, -1, 0, 8)
-      .target(MoveTarget.ALL_NEAR_ENEMIES)
-      .unimplemented(),
-    new AttackMove(MoveId.G_MAX_CANNONADE, PokemonType.WATER, MoveCategory.PHYSICAL, 10, -1, 10, -1, 0, 8)
-      .target(MoveTarget.ALL_NEAR_ENEMIES)
-      .unimplemented(),
-    new AttackMove(MoveId.G_MAX_DRUM_SOLO, PokemonType.GRASS, MoveCategory.PHYSICAL, 10, -1, 10, -1, 0, 8)
-      .target(MoveTarget.ALL_NEAR_ENEMIES)
-      .unimplemented(),
-    new AttackMove(MoveId.G_MAX_FIREBALL, PokemonType.FIRE, MoveCategory.PHYSICAL, 10, -1, 10, -1, 0, 8)
-      .target(MoveTarget.ALL_NEAR_ENEMIES)
-      .unimplemented(),
-    new AttackMove(MoveId.G_MAX_HYDROSNIPE, PokemonType.WATER, MoveCategory.PHYSICAL, 10, -1, 10, -1, 0, 8)
-      .target(MoveTarget.ALL_NEAR_ENEMIES)
-      .unimplemented(),
-    new AttackMove(MoveId.G_MAX_ONE_BLOW, PokemonType.DARK, MoveCategory.PHYSICAL, 10, -1, 10, -1, 0, 8)
-      .target(MoveTarget.ALL_NEAR_ENEMIES)
-      .unimplemented(),
-    new AttackMove(MoveId.G_MAX_RAPID_FLOW, PokemonType.WATER, MoveCategory.PHYSICAL, 10, -1, 10, -1, 0, 8)
-      .target(MoveTarget.ALL_NEAR_ENEMIES)
-      .unimplemented(),
-    End Unused */
+    // Local fork (2026-11-16): Z-Moves and Max Moves. The 33 G-Max moves that were commented out here are pushed at
+    // the end of the list (#region Z/Max moves), in the order of their ids appended after BLINDSIDE.
     new AttackMove(MoveId.TERA_BLAST, PokemonType.NORMAL, MoveCategory.SPECIAL, 80, 100, 10, -1, 0, 9)
       .attr(TeraMoveCategoryAttr)
       .attr(TeraBlastTypeAttr)
@@ -12560,7 +13325,9 @@ export function initMoves() {
       .slicingMove()
       .checkAllHits(),
     new AttackMove(MoveId.ICE_SPINNER, PokemonType.ICE, MoveCategory.PHYSICAL, 80, 100, 15, -1, 0, 9) //
-      .attr(ClearTerrainAttr),
+      .attr(ClearTerrainAttr)
+      // Local fork (2026-11-14): custom moves. Also clears the Garden (정원) on both sides
+      .attr(RemoveArenaTagsAttr, [ArenaTagType.GARDEN], () => ArenaTagSide.BOTH),
     new AttackMove(MoveId.GLAIVE_RUSH, PokemonType.DRAGON, MoveCategory.PHYSICAL, 120, 100, 5, -1, 0, 9)
       .attr(AddBattlerTagAttr, BattlerTagType.ALWAYS_GET_HIT, true, false, 0, 0, true)
       .attr(AddBattlerTagAttr, BattlerTagType.RECEIVE_DOUBLE_DAMAGE, true, false, 0, 0, true),
@@ -12790,5 +13557,250 @@ export function initMoves() {
       .attr(NihilLightAttr)
       .target(MoveTarget.ALL_NEAR_ENEMIES)
       .edgeCase(), // Needs to replace the user's Core Enforcer if mega evolved (Zygarde-Complete to Mega Zygarde)
+    // #region Custom moves
+    // Local fork (2026-11-14): custom moves (tools/drive/custom_moves_1114/design_spec.json). Pushed in `MoveId`
+    // order right after NIHIL_LIGHT. Level-up learners only (species data `levelMoves`); no TM (`tmPoolTiers`) or egg
+    // move entries. Metronome, Sleep Talk and the Master TM can call / teach them like any implemented move.
+    // 승화 (Sublimation): Fire special 80 / 100 / PP 15, no contact, Hydro Steam reversed: x1.5 in Rain instead of
+    // x0.5 (whatever its type, e.g. Ice under Frostfire), fails in Heavy Rain like any Fire attack (an Ice-type one does
+    // not and gets x1 there), x1.5 in Sun, x1 under Cloud Nine / Air Lock; Mega Sol / Sunbathe users count as Sun
+    // (x1.5, never x4.5) through `getEffectiveWeatherForMove`. Fire attacks thaw a frozen target on their own (the
+    // `AttackMove` constructor adds that), not the user.
+    new AttackMove(MoveId.SUBLIMATION, PokemonType.FIRE, MoveCategory.SPECIAL, 80, 100, 15, -1, 0, 9) //
+      .attr(OverrideWeatherMultiplierAttr, WeatherType.RAIN),
+    // 정원가꾸기 (Gardening): Grass status, PP 10, the user's side; sets the Garden (정원) for 5 turns (+2 per Mystical
+    // Rock stack, `getGardenTurnCount`), fails if that side already has one.
+    new StatusMove(MoveId.GARDENING, PokemonType.GRASS, -1, 10, -1, 0, 9) //
+      .attr(AddGardenTagAttr)
+      .target(MoveTarget.USER_SIDE),
+    // 쇄빙참 (Icebreaker): Ice physical 70 / 100 / PP 10, contact, slicing. x2 power (140) against a frozen target
+    // not behind a substitute; after the last hit, thaws a target that is still standing and was not shielded by a
+    // substitute (Pokérogue's usual thaw message). Every hit of a multi-hit use is doubled (the thaw waits for the last
+    // one). No self-thaw: a frozen user is not thawed by choosing it.
+    new AttackMove(MoveId.ICEBREAKER, PokemonType.ICE, MoveCategory.PHYSICAL, 70, 100, 10, -1, 0, 9)
+      .attr(MovePowerMultiplierAttr, (user, target, move) =>
+        target.status?.effect === StatusEffect.FREEZE && !move.hitsSubstitute(user, target) ? 2 : 1,
+      )
+      .attr(HealStatusEffectAttr, false, StatusEffect.FREEZE)
+      .slicingMove(),
+    // 뒤통수치기 (Blindside): Dark physical 70 / 100 / PP 20, contact; super effective on Fighting types (Freeze-Dry's
+    // rule for Dark vs Fighting, multiplied with the other type: Fighting/Psychic and Fighting/Ghost x4).
+    new AttackMove(MoveId.BLINDSIDE, PokemonType.DARK, MoveCategory.PHYSICAL, 70, 100, 20, -1, 0, 9) //
+      .attr(SuperEffectiveAgainstTypeAttr, PokemonType.FIGHTING),
+    // #endregion Custom moves
+    // #region Z/Max moves (2026-11-16)
+    // Local fork (2026-11-16): Z-Moves and Max Moves (tools/drive/zmax_1116/design_spec.md), pushed in `MoveId` order
+    // right after BLINDSIDE. The 33 G-Max moves back the slots a Dynamax Candy converts on a G-Max species (its
+    // signature move, or a move of the G-Max move's type; zmax-data.ts GMAX_MOVES). Placeholder power 100 (the base
+    // move's Max power is used), Drum Solo / Fireball / Hydrosnipe a fixed 160. Never miss, single target, no contact,
+    // 1/4 damage through protection; One Blow / Rapid Flow full damage through every protection incl. Max Guard.
+    // 4 turns of 1/6 damage to non-Fire Pokémon on the target's side
+    zMaxAttack(new AttackMove(MoveId.G_MAX_WILDFIRE, PokemonType.FIRE, MoveCategory.PHYSICAL, 100, -1, 10, -1, 0, 8))
+      .attr(MaxMoveArenaTagAttr, ArenaTagType.G_MAX_WILDFIRE, ZMAX_RULES.gmaxResidualTurns, "target")
+      .target(MoveTarget.NEAR_ENEMY),
+    // sleep, paralysis or poison on each foe
+    zMaxAttack(new AttackMove(MoveId.G_MAX_BEFUDDLE, PokemonType.BUG, MoveCategory.PHYSICAL, 100, -1, 10, -1, 0, 8))
+      .attr(MaxMoveStatusAttr, [StatusEffect.SLEEP, StatusEffect.PARALYSIS, StatusEffect.POISON])
+      .target(MoveTarget.NEAR_ENEMY),
+    // paralyzes every foe
+    zMaxAttack(
+      new AttackMove(MoveId.G_MAX_VOLT_CRASH, PokemonType.ELECTRIC, MoveCategory.PHYSICAL, 100, -1, 10, -1, 0, 8),
+    )
+      .attr(MaxMoveStatusAttr, [StatusEffect.PARALYSIS])
+      .target(MoveTarget.NEAR_ENEMY),
+    // confuses every foe and scatters coins (Pay Day's money)
+    zMaxAttack(new AttackMove(MoveId.G_MAX_GOLD_RUSH, PokemonType.NORMAL, MoveCategory.PHYSICAL, 100, -1, 10, -1, 0, 8))
+      .attr(MaxMoveBattlerTagAttr, BattlerTagType.CONFUSED, 2, 5)
+      .attr(MoneyAttr)
+      .target(MoveTarget.NEAR_ENEMY),
+    // critical-hit stage +1 for the user and its partner, up to +3
+    zMaxAttack(
+      new AttackMove(MoveId.G_MAX_CHI_STRIKE, PokemonType.FIGHTING, MoveCategory.PHYSICAL, 100, -1, 10, -1, 0, 8),
+    )
+      .attr(MaxMoveCritBoostAttr)
+      .target(MoveTarget.NEAR_ENEMY),
+    // foes cannot escape while the user stays (Spirit Shackle's tag)
+    zMaxAttack(new AttackMove(MoveId.G_MAX_TERROR, PokemonType.GHOST, MoveCategory.PHYSICAL, 100, -1, 10, -1, 0, 8))
+      .attr(MaxMoveBattlerTagAttr, BattlerTagType.TRAPPED, 1, 1)
+      .target(MoveTarget.NEAR_ENEMY),
+    // Aurora Veil for 5 turns on the user's side, without hail
+    zMaxAttack(new AttackMove(MoveId.G_MAX_RESONANCE, PokemonType.ICE, MoveCategory.PHYSICAL, 100, -1, 10, -1, 0, 8))
+      .attr(MaxMoveArenaTagAttr, ArenaTagType.AURORA_VEIL, ZMAX_RULES.gmaxResonanceTurns, "user")
+      .target(MoveTarget.NEAR_ENEMY),
+    // infatuates every foe of the opposite gender
+    zMaxAttack(new AttackMove(MoveId.G_MAX_CUDDLE, PokemonType.NORMAL, MoveCategory.PHYSICAL, 100, -1, 10, -1, 0, 8))
+      .attr(MaxMoveBattlerTagAttr, BattlerTagType.INFATUATED)
+      .target(MoveTarget.NEAR_ENEMY),
+    // 50% each for the user and its partner to get back an eaten berry
+    zMaxAttack(new AttackMove(MoveId.G_MAX_REPLENISH, PokemonType.NORMAL, MoveCategory.PHYSICAL, 100, -1, 10, -1, 0, 8))
+      .attr(MaxMoveRestoreBerryAttr, ZMAX_RULES.gmaxReplenishChance)
+      .target(MoveTarget.NEAR_ENEMY),
+    // poisons every foe
+    zMaxAttack(new AttackMove(MoveId.G_MAX_MALODOR, PokemonType.POISON, MoveCategory.PHYSICAL, 100, -1, 10, -1, 0, 8))
+      .attr(MaxMoveStatusAttr, [StatusEffect.POISON])
+      .target(MoveTarget.NEAR_ENEMY),
+    // Stealth Rock on the target's side
+    zMaxAttack(new AttackMove(MoveId.G_MAX_STONESURGE, PokemonType.WATER, MoveCategory.PHYSICAL, 100, -1, 10, -1, 0, 8))
+      .attr(MaxMoveArenaTagAttr, ArenaTagType.STEALTH_ROCK, 0, "target")
+      .target(MoveTarget.NEAR_ENEMY),
+    // Defog after the damage: screens, Safeguard and Mist on the target's side, every hazard and the Garden on both
+    // sides, and the terrain
+    zMaxAttack(new AttackMove(MoveId.G_MAX_WIND_RAGE, PokemonType.FLYING, MoveCategory.PHYSICAL, 100, -1, 10, -1, 0, 8))
+      .attr(
+        RemoveArenaTagsAttr,
+        [
+          ArenaTagType.REFLECT,
+          ArenaTagType.LIGHT_SCREEN,
+          ArenaTagType.AURORA_VEIL,
+          ArenaTagType.SAFEGUARD,
+          ArenaTagType.MIST,
+        ],
+        (_user, target) => (target.isPlayer() ? ArenaTagSide.PLAYER : ArenaTagSide.ENEMY),
+        { firstTargetOnly: true },
+      )
+      .attr(RemoveArenaTagsAttr, [...arenaTrapTags, ArenaTagType.GARDEN], () => ArenaTagSide.BOTH, {
+        firstTargetOnly: true,
+      })
+      .attr(MaxTerrainAttr, TerrainType.NONE)
+      .target(MoveTarget.NEAR_ENEMY),
+    // poison or paralysis on each foe
+    zMaxAttack(
+      new AttackMove(MoveId.G_MAX_STUN_SHOCK, PokemonType.ELECTRIC, MoveCategory.PHYSICAL, 100, -1, 10, -1, 0, 8),
+    )
+      .attr(MaxMoveStatusAttr, [StatusEffect.POISON, StatusEffect.PARALYSIS])
+      .target(MoveTarget.NEAR_ENEMY),
+    // the user and its partner heal 1/6 of their max HP
+    zMaxAttack(new AttackMove(MoveId.G_MAX_FINALE, PokemonType.FAIRY, MoveCategory.PHYSICAL, 100, -1, 10, -1, 0, 8))
+      .attr(MaxMoveHealAttr, ZMAX_RULES.gmaxFinaleHealDivisor)
+      .target(MoveTarget.NEAR_ENEMY),
+    // each foe's last used move loses 2 PP
+    zMaxAttack(new AttackMove(MoveId.G_MAX_DEPLETION, PokemonType.DRAGON, MoveCategory.PHYSICAL, 100, -1, 10, -1, 0, 8))
+      .attr(MaxMoveReducePpAttr, ZMAX_RULES.gmaxDepletionPp)
+      .target(MoveTarget.NEAR_ENEMY),
+    // Gravity for 5 turns
+    zMaxAttack(new AttackMove(MoveId.G_MAX_GRAVITAS, PokemonType.PSYCHIC, MoveCategory.PHYSICAL, 100, -1, 10, -1, 0, 8))
+      .attr(MaxMoveArenaTagAttr, ArenaTagType.GRAVITY, ZMAX_RULES.gmaxGravitasTurns, "both")
+      .target(MoveTarget.NEAR_ENEMY),
+    // 4 turns of 1/6 damage to non-Rock Pokémon on the target's side
+    zMaxAttack(new AttackMove(MoveId.G_MAX_VOLCALITH, PokemonType.ROCK, MoveCategory.PHYSICAL, 100, -1, 10, -1, 0, 8))
+      .attr(MaxMoveArenaTagAttr, ArenaTagType.G_MAX_VOLCALITH, ZMAX_RULES.gmaxResidualTurns, "target")
+      .target(MoveTarget.NEAR_ENEMY),
+    // Sand Tomb on every foe for 4-5 turns
+    zMaxAttack(new AttackMove(MoveId.G_MAX_SANDBLAST, PokemonType.GROUND, MoveCategory.PHYSICAL, 100, -1, 10, -1, 0, 8))
+      .attr(MaxMoveBattlerTagAttr, BattlerTagType.SAND_TOMB, 4, 5)
+      .target(MoveTarget.NEAR_ENEMY),
+    // 50% Yawn on the target
+    zMaxAttack(new AttackMove(MoveId.G_MAX_SNOOZE, PokemonType.DARK, MoveCategory.PHYSICAL, 100, -1, 10, -1, 0, 8))
+      .attr(GmaxSnoozeAttr)
+      .target(MoveTarget.NEAR_ENEMY),
+    // evasion -1 on every foe
+    zMaxAttack(new AttackMove(MoveId.G_MAX_TARTNESS, PokemonType.GRASS, MoveCategory.PHYSICAL, 100, -1, 10, -1, 0, 8))
+      .attr(MaxMoveStatStageChangeAttr, [Stat.EVA], -1, "foes")
+      .target(MoveTarget.NEAR_ENEMY),
+    // cures the status of the user's whole party
+    zMaxAttack(new AttackMove(MoveId.G_MAX_SWEETNESS, PokemonType.GRASS, MoveCategory.PHYSICAL, 100, -1, 10, -1, 0, 8))
+      .attr(MaxMovePartyCureAttr)
+      .target(MoveTarget.NEAR_ENEMY),
+    // confuses every foe
+    zMaxAttack(new AttackMove(MoveId.G_MAX_SMITE, PokemonType.FAIRY, MoveCategory.PHYSICAL, 100, -1, 10, -1, 0, 8))
+      .attr(MaxMoveBattlerTagAttr, BattlerTagType.CONFUSED, 2, 5)
+      .target(MoveTarget.NEAR_ENEMY),
+    // a Steel-type Stealth Rock on the target's side
+    zMaxAttack(new AttackMove(MoveId.G_MAX_STEELSURGE, PokemonType.STEEL, MoveCategory.PHYSICAL, 100, -1, 10, -1, 0, 8))
+      .attr(MaxMoveArenaTagAttr, ArenaTagType.G_MAX_STEELSURGE, 0, "target")
+      .target(MoveTarget.NEAR_ENEMY),
+    // Torment on every foe (the user: 멜메탈 더블펀처 -> 거다이융격)
+    zMaxAttack(new AttackMove(MoveId.G_MAX_MELTDOWN, PokemonType.STEEL, MoveCategory.PHYSICAL, 100, -1, 10, -1, 0, 8))
+      .attr(MaxMoveBattlerTagAttr, BattlerTagType.TORMENT)
+      .target(MoveTarget.NEAR_ENEMY),
+    // Speed -2 on every foe
+    zMaxAttack(new AttackMove(MoveId.G_MAX_FOAM_BURST, PokemonType.WATER, MoveCategory.PHYSICAL, 100, -1, 10, -1, 0, 8))
+      .attr(MaxMoveStatStageChangeAttr, [Stat.SPD], -2, "foes")
+      .target(MoveTarget.NEAR_ENEMY),
+    // Fire Spin on every foe for 4-5 turns
+    zMaxAttack(new AttackMove(MoveId.G_MAX_CENTIFERNO, PokemonType.FIRE, MoveCategory.PHYSICAL, 100, -1, 10, -1, 0, 8))
+      .attr(MaxMoveBattlerTagAttr, BattlerTagType.FIRE_SPIN, 4, 5)
+      .target(MoveTarget.NEAR_ENEMY),
+    // 4 turns of 1/6 damage to non-Grass Pokémon on the target's side
+    zMaxAttack(new AttackMove(MoveId.G_MAX_VINE_LASH, PokemonType.GRASS, MoveCategory.PHYSICAL, 100, -1, 10, -1, 0, 8))
+      .attr(MaxMoveArenaTagAttr, ArenaTagType.G_MAX_VINE_LASH, ZMAX_RULES.gmaxResidualTurns, "target")
+      .target(MoveTarget.NEAR_ENEMY),
+    // 4 turns of 1/6 damage to non-Water Pokémon on the target's side
+    zMaxAttack(new AttackMove(MoveId.G_MAX_CANNONADE, PokemonType.WATER, MoveCategory.PHYSICAL, 100, -1, 10, -1, 0, 8))
+      .attr(MaxMoveArenaTagAttr, ArenaTagType.G_MAX_CANNONADE, ZMAX_RULES.gmaxResidualTurns, "target")
+      .target(MoveTarget.NEAR_ENEMY),
+    // fixed 160 power, ignores the target's ability
+    zMaxAttack(
+      new AttackMove(
+        MoveId.G_MAX_DRUM_SOLO,
+        PokemonType.GRASS,
+        MoveCategory.PHYSICAL,
+        ZMAX_RULES.gmaxFixedPower,
+        -1,
+        10,
+        -1,
+        0,
+        8,
+      ),
+    )
+      .ignoresAbilities()
+      .target(MoveTarget.NEAR_ENEMY),
+    // fixed 160 power, ignores the target's ability
+    zMaxAttack(
+      new AttackMove(
+        MoveId.G_MAX_FIREBALL,
+        PokemonType.FIRE,
+        MoveCategory.PHYSICAL,
+        ZMAX_RULES.gmaxFixedPower,
+        -1,
+        10,
+        -1,
+        0,
+        8,
+      ),
+    )
+      .ignoresAbilities()
+      .target(MoveTarget.NEAR_ENEMY),
+    // fixed 160 power, ignores the target's ability
+    zMaxAttack(
+      new AttackMove(
+        MoveId.G_MAX_HYDROSNIPE,
+        PokemonType.WATER,
+        MoveCategory.PHYSICAL,
+        ZMAX_RULES.gmaxFixedPower,
+        -1,
+        10,
+        -1,
+        0,
+        8,
+      ),
+    )
+      .ignoresAbilities()
+      .target(MoveTarget.NEAR_ENEMY),
+    // hits through every protection, Max Guard included, at full damage
+    zMaxAttack(
+      new AttackMove(MoveId.G_MAX_ONE_BLOW, PokemonType.DARK, MoveCategory.PHYSICAL, 100, -1, 10, -1, 0, 8),
+      1,
+      true,
+    ).target(MoveTarget.NEAR_ENEMY),
+    // hits through every protection, Max Guard included, at full damage
+    zMaxAttack(
+      new AttackMove(MoveId.G_MAX_RAPID_FLOW, PokemonType.WATER, MoveCategory.PHYSICAL, 100, -1, 10, -1, 0, 8),
+      1,
+      true,
+    ).target(MoveTarget.NEAR_ENEMY),
+    // 다이검무 (Max Swords Dance), the Max Move of Swords Dance: the user: "칼춤의 다이기술, 공격 랭크 3업". Not a dance
+    // (Dancer does not copy it); Swords Dance's PP through the slot.
+    new SelfStatusMove(MoveId.MAX_SWORDS_DANCE, PokemonType.NORMAL, -1, 20, -1, 0, 8) //
+      .attr(StatStageChangeAttr, [Stat.ATK], ZMAX_RULES.maxSwordsDanceStages, true),
+    // #endregion Z/Max moves (2026-11-16)
   );
+  // Local fork (2026-11-14): custom moves. `allMoves` is indexed by `MoveId`, so an entry out of order would silently
+  // shift every move after it (same guard as `initAbilities`)
+  const misplaced = allMoves.findIndex((move, index) => move.id !== index);
+  if (misplaced !== -1) {
+    throw new Error(
+      `initMoves: allMoves[${misplaced}] is ${MoveId[allMoves[misplaced].id]}, expected ${MoveId[misplaced]}`,
+    );
+  }
 }

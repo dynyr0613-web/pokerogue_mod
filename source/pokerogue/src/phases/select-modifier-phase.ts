@@ -20,6 +20,7 @@ import {
   getPlayerModifierTypeOptions,
   getPlayerShopModifierTypeOptionsForWave,
   MasterTmModifierType, // Local fork (2026-11-11)
+  MoveConversionModifierType, // Local fork (2026-11-16): Dynamax Candy / Z crystals
   PokemonModifierType,
   PokemonMoveModifierType,
   PokemonPpRestoreModifierType,
@@ -36,6 +37,8 @@ import type { ConfirmModeConfig } from "#types/ui-types";
 import { MasterTmPicker } from "#ui/master-tm-picker";
 import type { ModifierSelectUiHandler } from "#ui/modifier-select-ui-handler";
 import { SHOP_OPTIONS_ROW_LIMIT } from "#ui/modifier-select-ui-handler";
+// Local fork (2026-11-16): the Dynamax Candy's / Z crystals' move -> yes / no picker
+import { MoveConversionPicker } from "#ui/move-conversion-picker";
 import { PartyOption, PartyUiHandler } from "#ui/party-ui-handler";
 import { NumberHolder } from "#utils/common";
 import i18next from "i18next";
@@ -186,6 +189,9 @@ export class SelectModifierPhase extends BattlePhase {
       } else if (modifierType instanceof MasterTmModifierType) {
         // Local fork (2026-11-11): the Master TM asks for a move after the Pokémon
         this.openMasterTmMenu(modifierType, cost, modifierSelectCallback);
+      } else if (modifierType instanceof MoveConversionModifierType) {
+        // Local fork (2026-11-16): the Dynamax Candy and the Z crystals ask for a move and a yes after the Pokémon
+        this.openMoveConversionMenu(modifierType, cost, modifierSelectCallback);
       } else {
         this.openModifierMenu(modifierType, cost, modifierSelectCallback);
       }
@@ -440,6 +446,58 @@ export class SelectModifierPhase extends BattlePhase {
               // the party screen is still up but has spent its callback: rebuild it
               partyHandler.clear();
               this.openMasterTmMenu(modifierType, cost, modifierSelectCallback, slot);
+            },
+          }).open();
+        },
+        modifierType.selectFilter,
+      )
+      .then(() => {
+        const handler = globalScene.ui.getHandler();
+        if (slotIndex !== undefined && handler instanceof PartyUiHandler) {
+          handler.setCursor(slotIndex);
+        }
+      });
+  }
+
+  /**
+   * Local fork (2026-11-16): the Dynamax Candy (다이사탕) and the Z crystals (Z크리스탈), which convert one move for good
+   * (the user: "다이사탕 사용 시 원하는 기술을 다이 기술로 바꿈", "z 크리스탈 사용 시 해당 타입 기술을 z기술로 변환").
+   * The Master TM's flow: the party screen ("use" mode; a Pokémon with no move the item can convert says it would have
+   * no effect) picks the Pokémon, then {@linkcode MoveConversionPicker} a move ("<now> → <result>") and yes / no over
+   * it. Yes makes the modifier and applies it at once. Backing out of the move list returns to the party screen on the
+   * same Pokémon, and cancelling the party screen returns to the reward screen: nothing is made, added or saved before
+   * yes, so a reload in between cannot duplicate the reward.
+   * @param slotIndex - The party slot to put the cursor on (when coming back from the move list)
+   */
+  private openMoveConversionMenu(
+    modifierType: MoveConversionModifierType,
+    cost: number,
+    modifierSelectCallback: ModifierSelectCallback,
+    slotIndex?: number,
+  ): void {
+    const party = globalScene.getPlayerParty();
+    globalScene.ui
+      .setModeWithoutClear(
+        UiMode.PARTY,
+        PartyUiMode.MODIFIER,
+        -1,
+        (slot: number) => {
+          if (slot >= party.length) {
+            this.resetModifierSelect(modifierSelectCallback);
+            return;
+          }
+          const pokemon = party[slot];
+          const partyHandler = globalScene.ui.getHandler() as PartyUiHandler;
+          new MoveConversionPicker(pokemon, partyHandler, modifierType.conversionItem, modifierType.localeKey, {
+            onConvert: moveIndex => {
+              globalScene.ui.setMode(UiMode.MODIFIER_SELECT, this.isPlayer()).then(() => {
+                this.applyModifier(modifierType.newModifier(pokemon, moveIndex)!, cost, true);
+              });
+            },
+            onBack: () => {
+              // the party screen is still up but has spent its callback: rebuild it
+              partyHandler.clear();
+              this.openMoveConversionMenu(modifierType, cost, modifierSelectCallback, slot);
             },
           }).open();
         },

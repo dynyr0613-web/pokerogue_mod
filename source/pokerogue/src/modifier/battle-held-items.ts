@@ -298,7 +298,9 @@ export function getMetronomeSteps(user: Pokemon, move: Move): number {
   let steps = 0;
   for (let i = history.length - 2; i >= waveStart; i--) {
     const turnMove = history[i];
-    if (turnMove.move !== move.id) {
+    // Local fork (2026-11-16): Z / Max moves. Compare the move as used: a converted slot's history entry keeps its
+    // original move with the Max / Z id in `derivedMoveId` (a Z status move keeps the base id itself)
+    if ((turnMove.derivedMoveId ?? turnMove.move) !== move.id) {
       if (turnMove.result === MoveResult.SUCCESS && allMoves[turnMove.move]?.hasAttr("CallMoveAttr")) {
         continue;
       }

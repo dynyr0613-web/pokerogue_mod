@@ -50,6 +50,8 @@ import { getPokemonNameWithAffix } from "#app/messages";
 import { CommonBattleAnim } from "#data/battle-anims";
 import type { BattlerTag } from "#data/battler-tags";
 import { allMoves } from "#data/data-lists";
+// Local fork (2026-11-14): custom moves. `hasGrassyEffect` (terrain.ts imports nothing back at run time)
+import { TerrainType } from "#data/terrain";
 import { AbilityId } from "#enums/ability-id";
 import { ArenaTagSide } from "#enums/arena-tag-side";
 import { ArenaTagType } from "#enums/arena-tag-type";
@@ -68,6 +70,7 @@ import { ArenaTagAddedEvent } from "#events/arena";
 import type { Arena } from "#field/arena";
 import type { Pokemon } from "#field/pokemon";
 import { isSpreadMove } from "#moves/move-utils";
+import { ZMAX_RULES } from "#moves/zmax-data"; // Local fork (2026-11-16): Z-Moves and Max Moves
 import type {
   ArenaScreenTagType,
   ArenaTagData,
@@ -991,6 +994,48 @@ class StealthRockTag extends DamagingTrapTag {
 }
 
 /**
+ * Local fork (2026-11-16): Z-Moves and Max Moves. G-Max Steelsurge (거다이강철진, Gigantamax Copperajah): a Steel-type
+ * Stealth Rock on the target's side. One layer; hits every Pokémon that switches in (airborne ones too) for 1/8 of its
+ * max HP times the Steel type's effectiveness. Removed by whatever removes Stealth Rock (Defog, Rapid Spin, Mortal Spin,
+ * Tidy Up, G-Max Wind Rage: `arenaTrapTags` in move.ts) and swapped by Court Change.
+ */
+class GmaxSteelsurgeTag extends DamagingTrapTag {
+  public readonly tagType = ArenaTagType.G_MAX_STEELSURGE;
+  public override get maxLayers() {
+    return 1 as const;
+  }
+  protected override get groundedOnly() {
+    return false;
+  }
+
+  constructor(sourceId: number | undefined, side: ArenaTagSide) {
+    super(MoveId.G_MAX_STEELSURGE, sourceId, side);
+  }
+
+  protected override get onAddMessageKey(): string {
+    return "arenaTag:gMaxSteelsurgeOnAdd" + this.i18nSideKey;
+  }
+
+  protected override get onRemoveMessageKey(): string {
+    return "arenaTag:gMaxSteelsurgeOnRemove" + this.i18nSideKey;
+  }
+
+  protected override get triggerMessageKey(): string {
+    return "arenaTag:gMaxSteelsurgeActivateTrap";
+  }
+
+  protected override getDamageHpRatio(pokemon: Pokemon): number {
+    const effectiveness = pokemon.getAttackTypeEffectiveness(PokemonType.STEEL, { ignoreStrongWinds: true });
+    return ZMAX_RULES.steelsurgeHpRatio * effectiveness;
+  }
+
+  getMatchupScoreMultiplier(pokemon: Pokemon): number {
+    const damageHpRatio = this.getDamageHpRatio(pokemon);
+    return Phaser.Math.Linear(super.getMatchupScoreMultiplier(pokemon), 1, 1 - Math.pow(damageHpRatio, damageHpRatio));
+  }
+}
+
+/**
  * Arena Tag class for {@link https://bulbapedia.bulbagarden.net/wiki/Toxic_Spikes_(move) | Toxic Spikes}.
  * Applies up to 2 layers of Toxic Spikes, poisoning or badly poisoning any Pokémon switched in
  * based on the current layer count. \
@@ -1282,16 +1327,18 @@ class TailwindTag extends SerializableArenaTag {
 
   onAdd(quiet = false): void {
     super.onAdd(quiet);
-    const source = this.getSourcePokemon();
 
-    if (source == null) {
-      return;
-    }
-
-    for (const pokemon of source.getAlliesGenerator()) {
+    // Local fork (2026-11-14): custom moves. The Pokémon on the side the Tailwind now blows for react to it, not the
+    // setter's allies: when Court Change or Turnabout (전세역전) moves a Tailwind across, Wind Power, Thundercloud and
+    // Wind Rider fire on the receiving side (a normal Tailwind or Gale Herald gives the same result as before)
+    for (const pokemon of inSpeedOrder(this.side)) {
       // Apply the CHARGED tag to party members with the WIND_POWER ability
       // TODO: This should not be handled here
-      if (pokemon.hasAbility(AbilityId.WIND_POWER) && !pokemon.getTag(BattlerTagType.CHARGED)) {
+      // Local fork (2026-11-14): passive rebalance. Thundercloud (번개구름) has Wind Power's Tailwind reaction too
+      if (
+        (pokemon.hasAbility(AbilityId.WIND_POWER) || pokemon.hasAbility(AbilityId.THUNDERCLOUD))
+        && !pokemon.getTag(BattlerTagType.CHARGED)
+      ) {
         pokemon.addTag(BattlerTagType.CHARGED);
         globalScene.phaseManager.queueMessage(
           i18next.t("abilityTriggers:windPowerCharged", {
@@ -1413,6 +1460,137 @@ class FireGrassPledgeTag extends SerializableArenaTag {
     }
 
     return super.lapse();
+  }
+}
+
+/**
+ * Local fork (2026-11-16): Z-Moves and Max Moves. The 4-turn G-Max fields (G-Max Wildfire / Vine Lash / Cannonade /
+ * Volcalith, mainline): set on the target's side when the move hits; at the end of each turn, the turn it is used
+ * included, every Pokémon on that side that is not of the move's type loses 1/6 of its max HP
+ * (`ZMAX_RULES.gmaxResidualHpDivisor`). Magic Guard prevents it. A second hit while it is up changes nothing; Court Change
+ * swaps it with its remaining turns. Like the Fire/Grass Pledge sea of fire, which it is modelled on.
+ */
+abstract class GmaxResidualDamageTag extends SerializableArenaTag {
+  declare public abstract readonly tagType:
+    | ArenaTagType.G_MAX_WILDFIRE
+    | ArenaTagType.G_MAX_VINE_LASH
+    | ArenaTagType.G_MAX_CANNONADE
+    | ArenaTagType.G_MAX_VOLCALITH;
+  /** The type that is not hurt */
+  protected abstract get immuneType(): PokemonType;
+  /** The locales key prefix (`arenaTag:<prefix>OnAdd…`, `…OnRemove…`, `…Lapse`) */
+  protected abstract get i18nPrefix(): string;
+  /** The common animation played on each Pokémon hurt */
+  protected abstract get lapseAnim(): CommonAnim;
+
+  constructor(turnCount: number, sourceMove: MoveId, sourceId: number | undefined, side: ArenaTagSide) {
+    super(turnCount > 0 ? turnCount : ZMAX_RULES.gmaxResidualTurns, sourceMove, sourceId, side);
+  }
+
+  protected override get onAddMessageKey(): string {
+    return `arenaTag:${this.i18nPrefix}OnAdd${this.i18nSideKey}`;
+  }
+
+  protected override get onRemoveMessageKey(): string {
+    return `arenaTag:${this.i18nPrefix}OnRemove${this.i18nSideKey}`;
+  }
+
+  override lapse(): boolean {
+    for (const pokemon of inSpeedOrder(this.side)) {
+      if (pokemon.isOfType(this.immuneType) || pokemon.switchOutStatus) {
+        continue;
+      }
+      const cancelled = new BooleanHolder(false);
+      applyAbAttrs("BlockNonDirectDamageAbAttr", { pokemon, cancelled });
+      if (cancelled.value) {
+        continue;
+      }
+
+      globalScene.phaseManager.queueMessage(
+        i18next.t(`arenaTag:${this.i18nPrefix}Lapse`, {
+          pokemonNameWithAffix: getPokemonNameWithAffix(pokemon),
+        }),
+      );
+      globalScene.phaseManager.unshiftNew(
+        "CommonAnimPhase",
+        pokemon.getBattlerIndex(),
+        pokemon.getBattlerIndex(),
+        this.lapseAnim,
+      );
+      pokemon.damageAndUpdate(toDmgValue(pokemon.getMaxHp() / ZMAX_RULES.gmaxResidualHpDivisor), {
+        result: HitResult.INDIRECT,
+      });
+    }
+
+    return super.lapse();
+  }
+}
+
+/** Local fork (2026-11-16): G-Max Wildfire (거다이옥염, Gigantamax Charizard): non-Fire Pokémon burn for 4 turns */
+class GmaxWildfireTag extends GmaxResidualDamageTag {
+  public readonly tagType = ArenaTagType.G_MAX_WILDFIRE;
+  protected override get immuneType() {
+    return PokemonType.FIRE;
+  }
+  protected override get i18nPrefix() {
+    return "gMaxWildfire";
+  }
+  protected override get lapseAnim() {
+    return CommonAnim.MAGMA_STORM;
+  }
+  constructor(turnCount: number, sourceId: number | undefined, side: ArenaTagSide) {
+    super(turnCount, MoveId.G_MAX_WILDFIRE, sourceId, side);
+  }
+}
+
+/** Local fork (2026-11-16): G-Max Vine Lash (거다이편달, Gigantamax Venusaur): non-Grass Pokémon are lashed for 4 turns */
+class GmaxVineLashTag extends GmaxResidualDamageTag {
+  public readonly tagType = ArenaTagType.G_MAX_VINE_LASH;
+  protected override get immuneType() {
+    return PokemonType.GRASS;
+  }
+  protected override get i18nPrefix() {
+    return "gMaxVineLash";
+  }
+  protected override get lapseAnim() {
+    return CommonAnim.SNAP_TRAP;
+  }
+  constructor(turnCount: number, sourceId: number | undefined, side: ArenaTagSide) {
+    super(turnCount, MoveId.G_MAX_VINE_LASH, sourceId, side);
+  }
+}
+
+/** Local fork (2026-11-16): G-Max Cannonade (거다이포격, Gigantamax Blastoise): non-Water Pokémon are hit for 4 turns */
+class GmaxCannonadeTag extends GmaxResidualDamageTag {
+  public readonly tagType = ArenaTagType.G_MAX_CANNONADE;
+  protected override get immuneType() {
+    return PokemonType.WATER;
+  }
+  protected override get i18nPrefix() {
+    return "gMaxCannonade";
+  }
+  protected override get lapseAnim() {
+    return CommonAnim.WHIRLPOOL;
+  }
+  constructor(turnCount: number, sourceId: number | undefined, side: ArenaTagSide) {
+    super(turnCount, MoveId.G_MAX_CANNONADE, sourceId, side);
+  }
+}
+
+/** Local fork (2026-11-16): G-Max Volcalith (거다이분석, Gigantamax Coalossal): non-Rock Pokémon are hit for 4 turns */
+class GmaxVolcalithTag extends GmaxResidualDamageTag {
+  public readonly tagType = ArenaTagType.G_MAX_VOLCALITH;
+  protected override get immuneType() {
+    return PokemonType.ROCK;
+  }
+  protected override get i18nPrefix() {
+    return "gMaxVolcalith";
+  }
+  protected override get lapseAnim() {
+    return CommonAnim.SAND_TOMB;
+  }
+  constructor(turnCount: number, sourceId: number | undefined, side: ArenaTagSide) {
+    super(turnCount, MoveId.G_MAX_VOLCALITH, sourceId, side);
   }
 }
 
@@ -1742,6 +1920,131 @@ export class PendingHealTag extends SerializableArenaTag {
   }
 }
 
+/**
+ * Local fork (2026-11-14): custom moves. Garden (정원; tools/drive/custom_moves_1114/design_spec.json, effects GARDEN):
+ * Grassy Terrain's three direct effects for the grounded Pokémon on one side only, like a one-sided Grassy Surge:
+ * - Grass moves used by them x1.3 (`Move.calculateBattlePower`)
+ * - 1/16 of their max HP at the end of each turn (`TurnEndPhase`, with Grassy Terrain's heal message)
+ * - Earthquake, Bulldoze and Magnitude used against them x0.5 (the moves' `MovePowerMultiplierAttr`s)
+ *
+ * The tag itself only carries the side and the duration; all three effects go through {@linkcode hasGrassyEffect},
+ * so a Garden under real Grassy Terrain gives each effect once. It is not a terrain: Grassy Glide, Terrain Pulse,
+ * Nature Power, Secret Power, Camouflage, Mimicry, Grass Pelt, the Grassy Seed and Floral Healing ignore it.
+ * Set by Gardening (정원가꾸기) and Gardener (정원사) for 5 turns (+2 per Mystical Rock stack held by the setter, see
+ * `getGardenTurnCount`); removed from both sides by Defog, Steel Roller and Ice Spinner (not by Brick Break or
+ * Psychic Fangs); swapped by Court Change and Turnabout (전세역전) with its remaining turns (`SWAPPABLE_SIDE_TAGS`).
+ */
+class GardenTag extends SerializableArenaTag {
+  public readonly tagType = ArenaTagType.GARDEN;
+  constructor(turnCount: number, sourceMove: MoveId | undefined, sourceId: number | undefined, side: ArenaTagSide) {
+    super(turnCount, sourceMove, sourceId, side);
+  }
+
+  // "우리 편 발밑에\n정원이 펼쳐졌다!" / "상대 발밑에\n정원이 펼쳐졌다!" (the BOTH key only shows up in tests)
+  protected override get onAddMessageKey(): string {
+    return "arenaTag:gardenOnAdd" + this.i18nSideKey;
+  }
+
+  // "우리 편 발밑의\n정원이 사라졌다!" / "상대 발밑의\n정원이 사라졌다!", also when Defog & co. clear it
+  protected override get onRemoveMessageKey(): string {
+    return "arenaTag:gardenOnRemove" + this.i18nSideKey;
+  }
+}
+
+/**
+ * Local fork (2026-11-14): custom moves. Whether `pokemon` gets Grassy Terrain's direct effects (Grass moves x1.3, the
+ * end-of-turn 1/16 heal, Earthquake / Bulldoze / Magnitude halved): it is grounded, and either Grassy Terrain is up
+ * or its own side has a Garden (정원, {@linkcode ArenaTagType.GARDEN}). One check for both, so overlapping Grassy
+ * Terrain and a Garden still give each effect only once.
+ * @param pokemon - The Pokémon to check
+ * @returns Whether Grassy Terrain's direct effects apply to `pokemon`
+ */
+export function hasGrassyEffect(pokemon: Pokemon): boolean {
+  if (!pokemon.isGrounded()) {
+    return false;
+  }
+  if (globalScene.arena.terrainType === TerrainType.GRASSY) {
+    return true;
+  }
+  const side = pokemon.isPlayer() ? ArenaTagSide.PLAYER : ArenaTagSide.ENEMY;
+  return globalScene.arena.getTagOnSide(ArenaTagType.GARDEN, side) != null;
+}
+
+/**
+ * Local fork (2026-11-14): custom moves. The one-side {@linkcode ArenaTag}s that Court Change and the ability
+ * Turnabout (전세역전) swap between the two sides: Court Change's list, plus the Garden (정원).
+ * Not swapped: tags affecting both sides (weather, terrain, Trick Room, ...), Lucky Chant, Imprison, the one-turn guards.
+ */
+export const SWAPPABLE_SIDE_TAGS: readonly ArenaTagType[] = Object.freeze([
+  ArenaTagType.AURORA_VEIL,
+  ArenaTagType.LIGHT_SCREEN,
+  ArenaTagType.MIST,
+  ArenaTagType.REFLECT,
+  ArenaTagType.SPIKES,
+  ArenaTagType.STEALTH_ROCK,
+  ArenaTagType.STICKY_WEB,
+  ArenaTagType.TAILWIND,
+  ArenaTagType.TOXIC_SPIKES,
+  ArenaTagType.SAFEGUARD,
+  ArenaTagType.FIRE_GRASS_PLEDGE,
+  ArenaTagType.WATER_FIRE_PLEDGE,
+  ArenaTagType.GRASS_WATER_PLEDGE,
+  ArenaTagType.GARDEN,
+  // Local fork (2026-11-16): Z-Moves and Max Moves. The G-Max fields and G-Max Steelsurge (mainline Court Change swaps them)
+  ArenaTagType.G_MAX_WILDFIRE,
+  ArenaTagType.G_MAX_VINE_LASH,
+  ArenaTagType.G_MAX_CANNONADE,
+  ArenaTagType.G_MAX_VOLCALITH,
+  ArenaTagType.G_MAX_STEELSURGE,
+]);
+
+/**
+ * Local fork (2026-11-14): custom moves. The body of Court Change's `SwapArenaTagsAttr`, shared with Turnabout (전세역전):
+ * moves every tag of `validTags` on the player's side to the enemy's side and back, quietly, keeping each tag's
+ * remaining turns and its number of hazard layers. The caller shows its own message.
+ * @param validTags - The tag types to swap
+ * @returns Whether any tag was swapped
+ */
+export function swapSideArenaTags(validTags: readonly ArenaTagType[]): boolean {
+  const tagPlayerTemp = globalScene.arena.findTagsOnSide(t => validTags.includes(t.tagType), ArenaTagSide.PLAYER);
+  const tagEnemyTemp = globalScene.arena.findTagsOnSide(t => validTags.includes(t.tagType), ArenaTagSide.ENEMY);
+
+  for (const playerTag of tagPlayerTemp) {
+    globalScene.arena.removeTagOnSide(playerTag.tagType, ArenaTagSide.PLAYER, true);
+  }
+  for (const enemyTag of tagEnemyTemp) {
+    globalScene.arena.removeTagOnSide(enemyTag.tagType, ArenaTagSide.ENEMY, true);
+  }
+  for (const playerTag of tagPlayerTemp) {
+    const layers = (playerTag as EntryHazardTag)?.layers ?? 1;
+    for (let i = 0; i < layers; i++) {
+      globalScene.arena.addTag(
+        playerTag.tagType,
+        playerTag.turnCount,
+        playerTag.sourceMove,
+        playerTag.sourceId!,
+        ArenaTagSide.ENEMY,
+        true,
+      ); // TODO: is the bang correct?
+    }
+  }
+  for (const enemyTag of tagEnemyTemp) {
+    const layers = (enemyTag as EntryHazardTag)?.layers ?? 1;
+    for (let i = 0; i < layers; i++) {
+      globalScene.arena.addTag(
+        enemyTag.tagType,
+        enemyTag.turnCount,
+        enemyTag.sourceMove,
+        enemyTag.sourceId!,
+        ArenaTagSide.PLAYER,
+        true,
+      ); // TODO: is the bang correct?
+    }
+  }
+
+  return tagPlayerTemp.length > 0 || tagEnemyTemp.length > 0;
+}
+
 // TODO: swap `sourceMove` and `sourceId` and make `sourceMove` an optional parameter
 export function getArenaTag(
   tagType: ArenaTagType,
@@ -1807,6 +2110,20 @@ export function getArenaTag(
       return new SuppressAbilitiesTag(sourceId);
     case ArenaTagType.PENDING_HEAL:
       return new PendingHealTag();
+    // Local fork (2026-11-14): custom moves. Garden (정원)
+    case ArenaTagType.GARDEN:
+      return new GardenTag(turnCount, sourceMove, sourceId, side);
+    // Local fork (2026-11-16): Z-Moves and Max Moves. The G-Max fields and G-Max Steelsurge
+    case ArenaTagType.G_MAX_WILDFIRE:
+      return new GmaxWildfireTag(turnCount, sourceId, side);
+    case ArenaTagType.G_MAX_VINE_LASH:
+      return new GmaxVineLashTag(turnCount, sourceId, side);
+    case ArenaTagType.G_MAX_CANNONADE:
+      return new GmaxCannonadeTag(turnCount, sourceId, side);
+    case ArenaTagType.G_MAX_VOLCALITH:
+      return new GmaxVolcalithTag(turnCount, sourceId, side);
+    case ArenaTagType.G_MAX_STEELSURGE:
+      return new GmaxSteelsurgeTag(sourceId, side);
     default:
       return null;
   }
@@ -1856,5 +2173,13 @@ export type ArenaTagTypeMap = {
   [ArenaTagType.FAIRY_LOCK]: FairyLockTag;
   [ArenaTagType.NEUTRALIZING_GAS]: SuppressAbilitiesTag;
   [ArenaTagType.PENDING_HEAL]: PendingHealTag;
+  // Local fork (2026-11-14): custom moves. Garden (정원)
+  [ArenaTagType.GARDEN]: GardenTag;
+  // Local fork (2026-11-16): Z-Moves and Max Moves. The G-Max fields and G-Max Steelsurge
+  [ArenaTagType.G_MAX_WILDFIRE]: GmaxWildfireTag;
+  [ArenaTagType.G_MAX_VINE_LASH]: GmaxVineLashTag;
+  [ArenaTagType.G_MAX_CANNONADE]: GmaxCannonadeTag;
+  [ArenaTagType.G_MAX_VOLCALITH]: GmaxVolcalithTag;
+  [ArenaTagType.G_MAX_STEELSURGE]: GmaxSteelsurgeTag;
   [ArenaTagType.NONE]: NoneTag;
 };

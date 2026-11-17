@@ -659,5 +659,61 @@ export enum AbilityId {
   FROSTFIRE,
   HILT_CANNON,
   MIND_BLADE,
+  // Local fork (2026-11-14): passive rebalance. 42 new custom abilities in the order of
+  // tools/drive/passive_adjust_1114/impl_batches.json "order"; registered in the same order by
+  // `initAbilities` (custom-abilities-1114-a.ts .. -d.ts). Removing underscores gives the Essentials ID.
+  // Batch A
+  FROST_FUR,
+  CAT_BURGLAR,
+  SUNBATHE,
+  SHOCK_ABSORBER,
+  BEAM_CANNON,
+  GLOW_VEIL,
+  HAND_TO_HAND,
+  FLAMEWORKER,
+  AURA_MASTER,
+  TOXIC_SPRAY,
+  CURRENT_HERALD,
+  HIGH_SPIRITS,
+  // Batch B
+  VENOM_HUNT,
+  FLAME_FUR,
+  VOCAL_SAC,
+  IRON_SAND,
+  DREAM_WEAVER,
+  SOLAR_PULSE,
+  COLD_SNAP,
+  IRON_LEGS,
+  GAS_LEAK,
+  FARSIGHT,
+  THORN_ARMOR,
+  // Batch C
+  HEADSTRONG,
+  FULL_BLOOM,
+  SAND_SPRINT,
+  LOOKOUT,
+  THUNDERCLOUD,
+  ROCK_FANGS,
+  SHOCK_BARBS,
+  SAND_TEMPEST,
+  HUNTING_INSTINCT,
+  RAMPAGE,
+  TOUGHNESS,
+  // Batch D
+  PLUSH_BODY,
+  VIGOR,
+  ALL_OUT_PITCH,
+  MUD_ARMOR,
+  POWER_CHEER,
+  CHIME_VOICE,
+  SPACE_WARP,
+  CANNONEER,
+  // Local fork (2026-11-14): passive rebalance. Follow-up: Clearing Gust (선풍, Essentials CLEARINGGUST), the Hoppip
+  // line's passive; registered by `initAbilities` from custom-abilities-1114-e.ts
+  CLEARING_GUST,
+  // Local fork (2026-11-14): custom moves. Gardener (정원사, Essentials GARDENER) and Turnabout (전세역전, Essentials
+  // TURNABOUT); registered by `initAbilities` from custom-abilities-1114-f.ts
+  GARDENER,
+  TURNABOUT,
   // #endregion Custom abilities
 }

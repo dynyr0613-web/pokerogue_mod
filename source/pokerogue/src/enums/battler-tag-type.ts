@@ -97,4 +97,11 @@ export enum BattlerTagType {
   RAGE = "RAGE",
   /** Local fork (2026-11-09): the move lock of the Choice items (구애머리띠 / 구애스카프 / 구애안경) */
   CHOICE_LOCK = "CHOICE_LOCK",
+  /**
+   * Local fork (2026-11-16): Z-Moves and Max Moves. Max Guard (다이월): a Protect that also stops moves which ignore
+   * protection (`MaxGuardTag`). Appended: a string enum, so saves keep tags by name.
+   */
+  MAX_GUARD = "MAX_GUARD",
+  /** Local fork (2026-11-16): G-Max Chi Strike (거다이회심격): critical-hit stage +1 per hit, up to +3 (`GmaxChiStrikeTag`) */
+  G_MAX_CHI_STRIKE = "G_MAX_CHI_STRIKE",
 }

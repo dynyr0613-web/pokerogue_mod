@@ -1794,6 +1794,7 @@ export function initGenerationNine(): SpeciesDataMapConfig {
       [16, MoveId.FLAIL],
       [20, MoveId.MEGA_DRAIN],
       [23, MoveId.GRASSY_TERRAIN],
+      [25, MoveId.GARDENING], // Local fork (2026-11-14): custom moves
       [27, MoveId.SEED_BOMB],
       [30, MoveId.ENERGY_BALL],
       [34, MoveId.LEECH_SEED],
@@ -1872,6 +1873,7 @@ export function initGenerationNine(): SpeciesDataMapConfig {
       [16, MoveId.FLAIL],
       [20, MoveId.MEGA_DRAIN],
       [23, MoveId.GRASSY_TERRAIN],
+      [25, MoveId.GARDENING], // Local fork (2026-11-14): custom moves
       [29, MoveId.SEED_BOMB],
       [34, MoveId.ENERGY_BALL],
       [37, MoveId.LEECH_SEED],
@@ -1920,6 +1922,7 @@ export function initGenerationNine(): SpeciesDataMapConfig {
       [16, MoveId.FLAIL],
       [20, MoveId.MEGA_DRAIN],
       [23, MoveId.GRASSY_TERRAIN],
+      [25, MoveId.GARDENING], // Local fork (2026-11-14): custom moves
       [29, MoveId.SEED_BOMB],
       [34, MoveId.ENERGY_BALL],
       [39, MoveId.LEECH_SEED],
@@ -2923,6 +2926,7 @@ export function initGenerationNine(): SpeciesDataMapConfig {
       [18, MoveId.ROAR],
       [22, MoveId.HEADBUTT],
       [26, MoveId.PAYBACK],
+      [28, MoveId.BLINDSIDE], // Local fork (2026-11-14): custom moves
       [31, MoveId.CRUNCH],
       [35, MoveId.SWAGGER],
       [39, MoveId.REVERSAL],
@@ -3015,6 +3019,7 @@ export function initGenerationNine(): SpeciesDataMapConfig {
       [18, MoveId.ROAR],
       [22, MoveId.HEADBUTT],
       [26, MoveId.PAYBACK],
+      [28, MoveId.BLINDSIDE], // Local fork (2026-11-14): custom moves
       [34, MoveId.CRUNCH],
       [39, MoveId.SWAGGER],
       [43, MoveId.REVERSAL],
@@ -3779,6 +3784,7 @@ export function initGenerationNine(): SpeciesDataMapConfig {
       [28, MoveId.ZEN_HEADBUTT],
       [31, MoveId.SUPER_FANG],
       [33, MoveId.WORRY_SEED],
+      [35, MoveId.SUBLIMATION], // Local fork (2026-11-14): custom moves
       [38, MoveId.CRUNCH],
       [44, MoveId.SEED_BOMB],
       [48, MoveId.SOLAR_BEAM],
@@ -8094,6 +8100,7 @@ export function initGenerationNine(): SpeciesDataMapConfig {
       [24, MoveId.BITE],
       [29, MoveId.ICE_FANG],
       [32, MoveId.DRAGON_CLAW],
+      [34, MoveId.ICEBREAKER], // Local fork (2026-11-14): custom moves
       [36, MoveId.TAKE_DOWN],
       [40, MoveId.ICE_BEAM],
       [44, MoveId.CRUNCH],
@@ -8175,6 +8182,7 @@ export function initGenerationNine(): SpeciesDataMapConfig {
       [24, MoveId.BITE],
       [29, MoveId.ICE_FANG],
       [32, MoveId.DRAGON_CLAW],
+      [34, MoveId.ICEBREAKER], // Local fork (2026-11-14): custom moves
       [40, MoveId.TAKE_DOWN],
       [45, MoveId.ICE_BEAM],
       [50, MoveId.CRUNCH],
@@ -8311,6 +8319,7 @@ export function initGenerationNine(): SpeciesDataMapConfig {
       [18, MoveId.FOCUS_ENERGY],
       [24, MoveId.BITE],
       [29, MoveId.ICE_FANG],
+      [34, MoveId.ICEBREAKER], // Local fork (2026-11-14): custom moves
       [35, MoveId.DRAGON_CLAW],
       [42, MoveId.TAKE_DOWN],
       [48, MoveId.ICE_BEAM],

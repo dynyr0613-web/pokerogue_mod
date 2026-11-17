@@ -3810,5 +3810,25 @@
   "nihilLight": {
     "name": "Nihil Light",
     "effect": "The user attacks by unleashing a powerful light that defies all laws of nature, striking even Fairy types and ignoring any stat changes affecting its targets."
+  },
+  "sublimation": {
+    "name": "Sublimation",
+    "effect": "The user attacks with flames hot enough to turn raindrops into steam. This move's power is not lowered in rain but rather boosted."
+  },
+  "gardening": {
+    "name": "Gardening",
+    "effect": "The user plants a garden on its side of the field for a while. Only grounded Pokémon on the user's side get the effects of Grassy Terrain."
+  },
+  "icebreaker": {
+    "name": "Icebreaker",
+    "effect": "The user slashes the target with a blade of ice. This attack inflicts big damage on a frozen target, but the blow also shatters the ice and thaws the target."
+  },
+  "blindside": {
+    "name": "Blindside",
+    "effect": "The user sneaks up and strikes the target when it least expects it. This move is also super effective on Fighting types."
+  },
+  "maxSwordsDance": {
+    "name": "Max Swords Dance",
+    "effect": "The Max Move of Swords Dance. A frenetic dance at full power that drastically boosts the user's Attack stat."
   }
 }

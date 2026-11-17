@@ -16,6 +16,7 @@ import { PokemonType } from "#enums/pokemon-type"; // Local fork (2026-11-11): M
 import type { PlayerPokemon, Pokemon } from "#field/pokemon";
 import { ConsumablePokemonModifier, LevelIncrementBoosterModifier } from "#modifiers/modifier";
 import type { ModifierType } from "#modifiers/modifier-type"; // Local fork (2026-11-11): Master TM
+import { isZMaxOnlyMove } from "#moves/zmax-data"; // Local fork (2026-11-16): Z-Moves and Max Moves
 import { applyChallenges } from "#utils/challenge-utils"; // Local fork (2026-11-11): Master TM (challenge move bans)
 import { BooleanHolder, NumberHolder } from "#utils/common";
 import i18next from "i18next"; // Local fork (2026-11-11): Master TM (move names for sorting)
@@ -125,8 +126,9 @@ export class CandyPileModifier extends ConsumablePokemonModifier {
  * "Any move" is every move the game implements, other Pokémon's signature moves and one-hit KO moves included; no
  * move is banned for balance (`OneHitKOAttr` already never knocks out a boss). Left out are only the moves that
  * cannot work as a learned move: these two (the empty move slot and Struggle, which a Pokémon only uses when it has
- * nothing else), every move marked `.unimplemented()` (all Z-Moves and Max Moves are, so they need no list of their
- * own) and the moves the Pokémon already knows.
+ * nothing else), every move marked `.unimplemented()` and the moves the Pokémon already knows.
+ * Local fork (2026-11-16): Z-Moves and Max Moves. The Z / Max / G-Max registry entries are implemented now (they back
+ * converted move slots), so `isMasterTmMove` leaves them out by `isZMaxOnlyMove` instead.
  */
 export const MASTER_TM_EXCLUDED_MOVES: ReadonlySet<MoveId> = new Set([MoveId.NONE, MoveId.STRUGGLE]);
 
@@ -168,7 +170,8 @@ export const MASTER_TM_TYPES: readonly PokemonType[] = [
  */
 export function isMasterTmMove(moveId: MoveId): boolean {
   const move = allMoves[moveId];
-  if (!move || move.isUnimplemented || MASTER_TM_EXCLUDED_MOVES.has(moveId)) {
+  // Local fork (2026-11-16): Z-Moves and Max Moves. Never a Z / Max / G-Max id (only converted slots use them)
+  if (!move || move.isUnimplemented || MASTER_TM_EXCLUDED_MOVES.has(moveId) || isZMaxOnlyMove(moveId)) {
     return false;
   }
   const usable = new BooleanHolder(true);

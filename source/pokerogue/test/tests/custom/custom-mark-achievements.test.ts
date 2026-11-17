@@ -55,6 +55,24 @@ describe("Local fork - mark collection achievements", () => {
     expect(achvs.CLASSIC_VICTORY.iconAtlas).toBe("items");
   });
 
+  // Local fork (2026-11-17), review: the 10 / 100 marks texts said any mark counts, but only the 41 wild marks do (the
+  // alpha, size, shiny and Partner marks are 증표 too); and "이로치" is not the game's word ("색이 다른")
+  it("says in its texts which marks count", () => {
+    const root = getAppRootDir();
+    const ko = JSON.parse(fs.readFileSync(path.join(root, "locales", "ko", "achv.json"), "utf8"));
+    const en = JSON.parse(fs.readFileSync(path.join(root, "locales", "en", "achv.json"), "utf8"));
+    for (const key of ["marks10", "marks100"]) {
+      expect(ko[key].description).toContain("일반 증표");
+      expect(en[key].description).toContain("wild mark");
+    }
+    // The same name as in the every-kind achievement's text
+    expect(ko.marksAllKinds.description).toContain("일반 증표 41종");
+    expect(ko.marksAllKinds.description).not.toContain("이로치");
+    for (const name of ["커다란", "조그만", "파트너의증표", "빛나는", "찬란한", "눈부신증표"]) {
+      expect(ko.marksAllKinds.description).toContain(name);
+    }
+  });
+
   it("counts a caught Pokémon's marks and unlocks the 10 Alpha Marks achievement on the tenth", async () => {
     const { gameData } = game.scene;
     for (let i = 1; i <= 10; i++) {

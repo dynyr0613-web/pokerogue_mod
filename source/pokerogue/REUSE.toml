@@ -121,6 +121,53 @@ path = [
 SPDX-FileCopyrightText = "The Cobblemon Team"
 SPDX-License-Identifier = "MPL-2.0"
 
+# Local fork (2026-11-16): the Z-Ring, Dynamax Candy and Z crystal item icons, the Cobblemon: Mega Showdown 1.7.3 textures
+# assets/mega_showdown/textures/item/<name>.png (ultranecrozium_z_crystal from ultranecrozium_z.png) from the user's
+# Cobbleverse modpack jar, scaled 2x (tools/port_zmax_1116/make_cobbleverse_icons.py). The user: "아이콘은 언제나처럼
+# 코블버스 쪽에서 빼오면 됩니다". Mega Showdown License v2.1: textures under CC BY-NC-SA 4.0.
+# Source: https://github.com/yajatkaul/CobblemonMegaShowdown (LICENSE.md)
+[[annotations]]
+path = [
+    "assets/images/items/z_ring.png",
+    "assets/images/items/dynamax_candy.png",
+    "assets/images/items/normalium_z.png",
+    "assets/images/items/fightinium_z.png",
+    "assets/images/items/flyinium_z.png",
+    "assets/images/items/poisonium_z.png",
+    "assets/images/items/groundium_z.png",
+    "assets/images/items/rockium_z.png",
+    "assets/images/items/buginium_z.png",
+    "assets/images/items/ghostium_z.png",
+    "assets/images/items/steelium_z.png",
+    "assets/images/items/firium_z.png",
+    "assets/images/items/waterium_z.png",
+    "assets/images/items/grassium_z.png",
+    "assets/images/items/electrium_z.png",
+    "assets/images/items/psychium_z.png",
+    "assets/images/items/icium_z.png",
+    "assets/images/items/dragonium_z.png",
+    "assets/images/items/darkinium_z.png",
+    "assets/images/items/fairium_z.png",
+    "assets/images/items/pikanium_z.png",
+    "assets/images/items/aloraichium_z.png",
+    "assets/images/items/decidium_z.png",
+    "assets/images/items/incinium_z.png",
+    "assets/images/items/primarium_z.png",
+    "assets/images/items/eevium_z.png",
+    "assets/images/items/snorlium_z.png",
+    "assets/images/items/mewnium_z.png",
+    "assets/images/items/tapunium_z.png",
+    "assets/images/items/marshadium_z.png",
+    "assets/images/items/kommonium_z.png",
+    "assets/images/items/lycanium_z.png",
+    "assets/images/items/mimikium_z.png",
+    "assets/images/items/solganium_z.png",
+    "assets/images/items/lunalium_z.png",
+    "assets/images/items/ultranecrozium_z_crystal.png",
+]
+SPDX-FileCopyrightText = "Yajat Kaul and contributors (Cobblemon: Mega Showdown)"
+SPDX-License-Identifier = "CC-BY-NC-SA-4.0"
+
 # Local fork (2026-11-11): named trainer sprites (Volo, Irida, Adaman, Sonia, Hop, Peony) by Brumirage, from the Pokemon
 # Showdown trainer sprite index, copied unedited (tools/port_named_trainers/install_pokerogue.py). The user: "인터넷에서
 # 에셋을 찾아보죠. 에센셜에 쓸 수 있는 네임드 트레이너 도트 이미지/대사 에셋들을" and "네, 추가해주세요."

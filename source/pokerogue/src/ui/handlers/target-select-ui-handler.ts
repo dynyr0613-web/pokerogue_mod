@@ -5,6 +5,7 @@ import { Button } from "#enums/buttons";
 import type { MoveId } from "#enums/move-id";
 import type { Pokemon } from "#field/pokemon";
 import type { ModifierBar } from "#modifiers/modifier";
+import { getSlotMove } from "#moves/move-transform"; // Local fork (2026-11-16): Z / Max moves
 import { getMoveTargets } from "#moves/move-utils";
 import type { TargetSelectCallback } from "#types/ui-types";
 import { UiHandler } from "#ui/ui-handler";
@@ -44,7 +45,9 @@ export class TargetSelectUiHandler extends UiHandler {
     [this.fieldIndex, this.move, this.targetSelectCallback] = args;
     const user = globalScene.getPlayerField()[this.fieldIndex];
 
-    const moveTargets = getMoveTargets(user, this.move);
+    // Local fork (2026-11-16): Z / Max moves. `this.move` is the slot's original id; a converted slot targets as its
+    // derived move does (Earthquake made Max Quake picks one target)
+    const moveTargets = getMoveTargets(user, getSlotMove(user, this.move));
     this.targets = moveTargets.targets;
     this.isMultipleTargets = moveTargets.multiple;
 

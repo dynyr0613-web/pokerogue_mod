@@ -312,12 +312,12 @@
   "marks10": {
     "name": "Mark Collector",
     "name_female": "Mark Collector",
-    "description": "Obtain {{amount}} Pokémon that carry a mark."
+    "description": "Obtain {{amount}} Pokémon that carry a wild mark (time, weather, personality and so on)."
   },
   "marks100": {
     "name": "Mark Maniac",
     "name_female": "Mark Maniac",
-    "description": "Obtain {{amount}} Pokémon that carry a mark."
+    "description": "Obtain {{amount}} Pokémon that carry a wild mark (time, weather, personality and so on)."
   },
   "marksAllKinds": {
     "name": "Every Mark",

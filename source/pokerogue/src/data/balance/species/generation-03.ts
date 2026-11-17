@@ -6871,6 +6871,7 @@ export function initGenerationThree(): SpeciesDataMapConfig {
       [24, MoveId.MAGNITUDE],
       [26, MoveId.EARTH_POWER],
       [29, MoveId.CURSE],
+      [30, MoveId.SUBLIMATION], // Local fork (2026-11-14): custom moves
       [31, MoveId.TAKE_DOWN],
       [36, MoveId.YAWN],
       [40, MoveId.EARTHQUAKE],
@@ -7052,6 +7053,7 @@ export function initGenerationThree(): SpeciesDataMapConfig {
       [24, MoveId.MAGNITUDE],
       [26, MoveId.EARTH_POWER],
       [29, MoveId.CURSE],
+      [30, MoveId.SUBLIMATION], // Local fork (2026-11-14): custom moves
       [31, MoveId.TAKE_DOWN],
       [36, MoveId.YAWN],
       [40, MoveId.EARTHQUAKE],
@@ -7113,6 +7115,7 @@ export function initGenerationThree(): SpeciesDataMapConfig {
       [20, MoveId.FLAME_WHEEL],
       [24, MoveId.PROTECT],
       [28, MoveId.LAVA_PLUME],
+      [30, MoveId.SUBLIMATION], // Local fork (2026-11-14): custom moves
       [32, MoveId.BODY_SLAM],
       [36, MoveId.IRON_DEFENSE],
       [40, MoveId.FLAMETHROWER],

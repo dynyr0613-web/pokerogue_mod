@@ -71,6 +71,17 @@ describe("Custom port", () => {
       expect(getCustomPassive(SpeciesId.CHARMELEON, "")).toBe(AbilityId.FLASH_FIRE);
     });
 
+    // Local fork (2026-11-14): passive rebalance. PokeRogue's split-off Battle Bond Greninja is GRENINJA form 1 / 2
+    // in Essentials, which the sheet's FROAKIE row covers (gen_custom_passives.py SPLIT_FORM_SPECIES)
+    it("gives Battle Bond Greninja (both forms) the Froakie row, like Greninja", () => {
+      expect(getCustomPassive(SpeciesId.FROAKIE, "")).toBe(AbilityId.TECHNICIAN);
+      expect(getCustomPassive(SpeciesId.GRENINJA, "")).toBe(AbilityId.TECHNICIAN);
+      expect(getCustomPassive(SpeciesId.BATTLE_BOND_GRENINJA, "battle-bond")).toBe(AbilityId.TECHNICIAN);
+      expect(getCustomPassive(SpeciesId.BATTLE_BOND_GRENINJA, "ash")).toBe(AbilityId.TECHNICIAN);
+      // Mega Greninja keeps its own row
+      expect(getCustomPassive(SpeciesId.GRENINJA, SpeciesFormKey.MEGA)).toBe(AbilityId.ADAPTABILITY);
+    });
+
     it("saves the per-species list with the Pokemon and widens an old whole-line flag to the chain", async () => {
       await game.classicMode.startBattle(SpeciesId.CHARIZARD);
       const charizard = game.field.getPlayerPokemon();

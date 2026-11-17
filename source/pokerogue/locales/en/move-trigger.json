@@ -86,5 +86,9 @@
   "fallDown": "The {{targetPokemonName}} fell straight down!",
   "celebrate": "Congratulations, {{playerName}}!",
   "struggle": "{{pokemonName}} has no moves left that it can use!",
-  "rageIsBuilding": "{{pokemonName}}’s rage is building!"
+  "rageIsBuilding": "{{pokemonName}}’s rage is building!",
+  "zPower": "{{pokemonName}} surrounded itself with its Z-Power!",
+  "zPowerResetStats": "{{pokemonName}} returned its decreased\nstats to normal using its Z-Power!",
+  "zPowerHeal": "{{pokemonName}} restored its HP\nusing its Z-Power!",
+  "zPowerHealReplacement": "The Z-Power restored the HP\nof the Pokémon that switched in!"
 }

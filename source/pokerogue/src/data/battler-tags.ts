@@ -87,6 +87,7 @@ import { healBlockedMoves, invalidEncoreMoves } from "#moves/invalid-moves";
 import type { Move } from "#moves/move";
 import { getMoveTargets } from "#moves/move-utils";
 import { PokemonMove } from "#moves/pokemon-move";
+import { ZMAX_RULES } from "#moves/zmax-data"; // Local fork (2026-11-16): Z-Moves and Max Moves
 import type { MoveEffectPhase } from "#phases/move-effect-phase";
 import type { MovePhase } from "#phases/move-phase";
 import type {
@@ -1895,16 +1896,18 @@ export class EncoreTag extends MoveRestrictionBattlerTag {
     // Tick down Encore's duration when overridding pending move
     this.turnCount--;
     this.#addedThisTurn = false;
-    return [movesetMove, this.getTargets(pokemon)];
+    // Local fork (2026-11-16): Z-Moves and Max Moves. Targets come from the slot's move as it is now (a converted slot
+    // is single-target: Earthquake -> Max Quake, or the user: Taunt -> Max Guard)
+    return [movesetMove, this.getTargets(pokemon, movesetMove.getMove())];
   }
 
-  private getTargets(pokemon: Pokemon): BattlerIndex[] {
+  private getTargets(pokemon: Pokemon, move: Move): BattlerIndex[] {
     // Edge case for Acupressure - always targets self
-    if (allMoves[this.moveId].moveTarget === MoveTarget.USER_OR_NEAR_ALLY) {
+    if (move.moveTarget === MoveTarget.USER_OR_NEAR_ALLY) {
       return [pokemon.getBattlerIndex()];
     }
 
-    const moveTargets = getMoveTargets(pokemon, this.moveId);
+    const moveTargets = getMoveTargets(pokemon, move);
     // Spread moves and ones with only 1 valid target will use their normal targeting.
     // If not, target a random enemy in our target list
     // TODO: Consolidate this _somewhere_ as move calling moves also duplicate this code
@@ -2066,6 +2069,15 @@ export class ProtectedTag extends BattlerTag {
     return true;
   }
 
+  /**
+   * Local fork (2026-11-16): Z-Moves and Max Moves. Whether this protection also stops moves that ignore protection
+   * (Feint, Unseen Fist, a plain Max / Z attack's 1/4 damage through it ...); only Max Guard ({@linkcode MaxGuardTag}).
+   * @defaultValue `false`
+   */
+  public get blocksProtectBypass(): boolean {
+    return false;
+  }
+
   constructor(sourceMove: MoveId, tagType: ProtectionBattlerTagType = BattlerTagType.PROTECTED) {
     super(tagType, BattlerTagLapseType.TURN_END, 0, sourceMove);
   }
@@ -2098,6 +2110,26 @@ export class ProtectedTag extends BattlerTag {
     }
 
     return super.lapse(pokemon, lapseType);
+  }
+}
+
+/**
+ * Local fork (2026-11-16): Z-Moves and Max Moves (tools/drive/zmax_1116/design_spec.md). Max Guard (다이월), the Max
+ * Move of every status move: a Protect (same messages, same consecutive-use chain through `ProtectAttr`) that also
+ * stops moves which ignore protection ({@linkcode blocksProtectBypass}): Feint, Unseen Fist, and the plain Max / G-Max
+ * / Z attacks that hit through Protect for 1/4. Only Z다이 attacks (1/2) and G-Max One Blow / Rapid Flow (full damage)
+ * pierce it (`ProtectPierceAttr.ignoresMaxGuard`, read by `MoveEffectPhase.protectedCheck`). Feint does not remove it
+ * (Feint only removes `PROTECTED`). Not serialized: it ends with the turn.
+ */
+export class MaxGuardTag extends ProtectedTag {
+  declare public readonly tagType: BattlerTagType.MAX_GUARD;
+
+  public override get blocksProtectBypass(): boolean {
+    return true;
+  }
+
+  constructor(sourceMove: MoveId) {
+    super(sourceMove, BattlerTagType.MAX_GUARD);
   }
 }
 
@@ -2741,6 +2773,38 @@ export class CritBoostTag extends SerializableBattlerTag {
     // TODO: Remove the nullish coalescing once Zod Schemas come in
     // For now, this is kept for backwards compatibility with older save files
     (this as Writable<CritBoostTag>).critStages = source.critStages ?? 1;
+  }
+}
+
+/**
+ * Local fork (2026-11-16): Z-Moves and Max Moves. G-Max Chi Strike (거다이회심격, Gigantamax Machamp): each hit raises the
+ * critical-hit stage of the user and its partner by 1, up to +3 (mainline), until they leave the field; Baton Pass
+ * passes it like Focus Energy. A {@linkcode CritBoostTag}, so `Pokemon.getCritStage` reads it the same way.
+ */
+export class GmaxChiStrikeTag extends CritBoostTag {
+  declare public readonly tagType: BattlerTagType.G_MAX_CHI_STRIKE;
+
+  constructor(sourceMove: MoveId) {
+    super(BattlerTagType.G_MAX_CHI_STRIKE, sourceMove);
+  }
+
+  /** Same message as Focus Energy ("is getting pumped!"), starting at +1 */
+  override onAdd(pokemon: Pokemon): void {
+    super.onAdd(pokemon);
+    (this as Writable<GmaxChiStrikeTag>).critStages = 1;
+  }
+
+  /** Another hit adds a stage, up to `ZMAX_RULES.gmaxChiStrikeMaxStages` */
+  override onOverlap(pokemon: Pokemon): void {
+    if (this.critStages >= ZMAX_RULES.gmaxChiStrikeMaxStages) {
+      return;
+    }
+    (this as Writable<GmaxChiStrikeTag>).critStages = this.critStages + 1;
+    globalScene.phaseManager.queueMessage(
+      i18next.t("battlerTags:critBoostOnAdd", {
+        pokemonNameWithAffix: getPokemonNameWithAffix(pokemon),
+      }),
+    );
   }
 }
 
@@ -4112,6 +4176,8 @@ export function getBattlerTag(
       return new InfestationTag(turnCount, sourceId);
     case BattlerTagType.PROTECTED:
       return new ProtectedTag(sourceMove);
+    case BattlerTagType.MAX_GUARD: // Local fork (2026-11-16): Max Guard (다이월)
+      return new MaxGuardTag(sourceMove);
     case BattlerTagType.SPIKY_SHIELD:
       return new ContactDamageProtectedTag(sourceMove, 8);
     case BattlerTagType.KINGS_SHIELD:
@@ -4157,6 +4223,8 @@ export function getBattlerTag(
     case BattlerTagType.CRIT_BOOST:
     case BattlerTagType.DRAGON_CHEER:
       return new CritBoostTag(tagType, sourceMove);
+    case BattlerTagType.G_MAX_CHI_STRIKE: // Local fork (2026-11-16): G-Max Chi Strike
+      return new GmaxChiStrikeTag(sourceMove);
     case BattlerTagType.ALWAYS_CRIT:
     case BattlerTagType.IGNORE_ACCURACY:
       return new SerializableBattlerTag(tagType, BattlerTagLapseType.TURN_END, 2, sourceMove);
@@ -4377,6 +4445,8 @@ export type BattlerTagTypeMap = {
   [BattlerTagType.BYPASS_SPEED]: BypassSpeedTag;
   [BattlerTagType.RAGE]: RageTag;
   [BattlerTagType.CHOICE_LOCK]: ChoiceLockTag; // Local fork (2026-11-09)
+  [BattlerTagType.MAX_GUARD]: MaxGuardTag; // Local fork (2026-11-16): Max Guard (다이월)
+  [BattlerTagType.G_MAX_CHI_STRIKE]: GmaxChiStrikeTag; // Local fork (2026-11-16): G-Max Chi Strike
 };
 
 /**

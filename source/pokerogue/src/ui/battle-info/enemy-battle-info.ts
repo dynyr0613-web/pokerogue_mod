@@ -221,6 +221,8 @@ export class EnemyBattleInfo extends BattleInfo {
         this.shinyIcon,
         this.ownedIcon,
         this.championRibbon,
+        // Local fork (2026-11-17): the mark icons move with the name too; left behind they covered the boss HP label
+        ...this.markIcons,
         this.statusIndicator,
         this.statValuesContainer,
       ].map(e => (e.x += 48 * (boss ? -1 : 1)));

@@ -71,6 +71,7 @@ export type DamagingBattlerTagType = DamageOverTimeTagType | DamagingTrapBattler
  */
 export type ProtectionBattlerTagType =
   | BattlerTagType.PROTECTED
+  | BattlerTagType.MAX_GUARD // Local fork (2026-11-16): Max Guard (다이월)
   | BattlerTagType.SPIKY_SHIELD
   | ContactSetStatusProtectedTagType
   | DamageProtectedTagType;
@@ -124,7 +125,10 @@ export type AbilityBattlerTagType =
 export type TypeBoostTagType = BattlerTagType.FIRE_BOOST | BattlerTagType.CHARGED;
 
 /** Subset of {@linkcode BattlerTagType}s that boost the user's critical stage */
-export type CritStageBoostTagType = BattlerTagType.CRIT_BOOST | BattlerTagType.DRAGON_CHEER;
+export type CritStageBoostTagType =
+  | BattlerTagType.CRIT_BOOST
+  | BattlerTagType.DRAGON_CHEER
+  | BattlerTagType.G_MAX_CHI_STRIKE; // Local fork (2026-11-16): G-Max Chi Strike
 
 /** Subset of {@linkcode BattlerTagType}s that remove one of the users' types */
 export type RemovedTypeTagType = BattlerTagType.DOUBLE_SHOCKED | BattlerTagType.BURNED_UP;

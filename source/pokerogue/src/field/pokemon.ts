@@ -1,6 +1,8 @@
 import type { PreAttackModifyDamageAbAttrParams, UngroundedAbAttr } from "#abilities/ab-attrs";
 import type { Ability } from "#abilities/ability";
 import { applyAbAttrs, applyOnGainAbAttrs, applyOnLoseAbAttrs } from "#abilities/apply-ab-attrs";
+// Local fork (2026-11-14): passive rebalance. All-Out Pitch's status-move rule
+import { getAllOutPitchMoveDeniedText } from "#abilities/custom-ability-helpers";
 import { generateMoveset } from "#ai/ai-moveset-gen";
 // Local fork (2026-11-08): Endless trainers' fusion tails evolve fully
 import { getEndlessTrainerFusionSpecies } from "#ai/ai-species-gen";
@@ -170,6 +172,7 @@ import {
 } from "#modifiers/modifier";
 import { applyMoveAttrs } from "#moves/apply-attrs";
 import type { HitsTagAttr, Move } from "#moves/move";
+import { getAnimMoveId, getSlotMove } from "#moves/move-transform"; // Local fork (2026-11-16): Z / Max moves
 import { getMoveTargets } from "#moves/move-utils";
 import { PokemonMove } from "#moves/pokemon-move";
 import { loadMoveAnimations } from "#sprites/pokemon-asset-loader";
@@ -919,7 +922,8 @@ export abstract class Pokemon extends Phaser.GameObjects.Container {
     /** Promises that are loading assets and can be run concurrently. */
     const loadPromises: Promise<void>[] = [];
     // Assets for moves
-    loadPromises.push(loadMoveAnimations(this.getMoveset().map(m => m.getMove().id)));
+    // Local fork (2026-11-16): Z / Max moves. A converted slot plays the base move's (or its own) animation
+    loadPromises.push(loadMoveAnimations(this.getMoveset().map(m => getAnimMoveId(m.getMove()))));
 
     /** alias for `this.summonData.illusion`; bangs on this are safe when guarded with `useIllusion` being true   */
     const illusion = this.summonData.illusion;
@@ -1574,10 +1578,19 @@ export abstract class Pokemon extends Phaser.GameObjects.Container {
     globalScene.applyModifiers(CritBoosterModifier, source.isPlayer(), source, critStage);
     globalScene.applyModifiers(TempCritBoosterModifier, source.isPlayer(), critStage);
     applyAbAttrs("BonusCritAbAttr", { pokemon: source, critStage });
-    const critBoostTag = source.getTag(CritBoostTag);
+    // Local fork (2026-11-16): Z / Max moves. G-Max Chi Strike's stages add on top of Focus Energy / Dragon Cheer
+    // (main games). Of the ordinary tags only the first counts, as before: Psych Up, the Lansat Berry, Costar and the
+    // Z-Power crit bonus can leave a Pokemon holding both Focus Energy and Dragon Cheer, and those must not add up
+    const critBoostTags = source.findTags((t): t is CritBoostTag => t instanceof CritBoostTag);
+    const critBoostTag = critBoostTags.find(t => t.tagType !== BattlerTagType.G_MAX_CHI_STRIKE);
     if (critBoostTag) {
       // Dragon cheer only gives +1 crit stage to non-dragon types
       critStage.value += critBoostTag.critStages;
+    }
+    for (const chiStrikeTag of critBoostTags) {
+      if (chiStrikeTag.tagType === BattlerTagType.G_MAX_CHI_STRIKE) {
+        critStage.value += chiStrikeTag.critStages;
+      }
     }
 
     console.log(`crit stage: +${critStage.value}`);
@@ -2549,6 +2562,12 @@ export abstract class Pokemon extends Phaser.GameObjects.Container {
   private choosesCustomPassive(): boolean {
     if (this.isPlayer()) {
       return this.customPassiveSpecies.includes(this.species.speciesId);
+    }
+    // Local fork (2026-11-14): custom moves. An enemy whose species has a blocked custom passive (Turnabout) keeps its
+    // base passive, so wild Pokémon coming in one after another can't send back every hazard laid during a biome
+    const customPassive = this.species.getCustomPassiveAbility(this.formIndex);
+    if (customPassive != null && ENEMY_BLOCKED_CUSTOM_PASSIVES.has(customPassive)) {
+      return false;
     }
     return enemyRollsCustomPassive(this.id);
   }
@@ -4077,8 +4096,12 @@ export abstract class Pokemon extends Phaser.GameObjects.Container {
    * arena tags are asked quietly (`simulated`): protectedCheck already showed their message. A tag that stops even
    * protection-ignoring moves (Crafty Shield) is left out, since the move would never have reached the damage step.
    */
-  private getProtectionInTheWay(source: Pokemon, move: Move): ProtectionInTheWay {
-    const protectTag = this.findTags(t => t instanceof ProtectedTag).length > 0;
+  private getProtectionInTheWay(source: Pokemon, move: Move, countMaxGuard = true): ProtectionInTheWay {
+    // Local fork (2026-11-16): Z / Max moves. `countMaxGuard = false` leaves Max Guard out (only a move that pierces
+    // it may count it, see applyProtectPierceDamage)
+    const protectTag =
+      this.findTags((t): t is ProtectedTag => t instanceof ProtectedTag && (countMaxGuard || !t.blocksProtectBypass))
+        .length > 0;
     const conditional = new BooleanHolder(false);
     const ignoresBypass = new BooleanHolder(false);
     if (!move.isAllyTarget()) {
@@ -4094,6 +4117,39 @@ export abstract class Pokemon extends Phaser.GameObjects.Container {
       );
     }
     return { protectTag, conditionalTag: conditional.value && !ignoresBypass.value };
+  }
+
+  /**
+   * Local fork (2026-11-16): Z / Max moves. The user: "z + 다이기술: ... 방어/판별 등의 효과를 뚫고 1/2 데미지". A move
+   * with a `ProtectPierceAttr` (Max / G-Max / Z moves 1/4, Z다이 moves 1/2) that hits this Pokémon through a
+   * protection (a protection tag, or its side's Quick Guard / Wide Guard / Mat Block; Max Guard only for a move that
+   * pierces it) deals `multiplier` of the damage, once, with a message on a real hit. A multiplier of 1 or more (G-Max
+   * One Blow / Rapid Flow) changes nothing.
+   * @param source - The attacker
+   * @param move - The move
+   * @param damage - The damage so far, changed in place
+   * @param simulated - Whether this is only a forecast (no message)
+   * @returns Whether `move` has a `ProtectPierceAttr` (then the Master Punching Glove's 1/4 is not applied as well)
+   */
+  private applyProtectPierceDamage(source: Pokemon, move: Move, damage: NumberHolder, simulated: boolean): boolean {
+    const pierce = move.getAttrs("ProtectPierceAttr")[0];
+    if (!pierce) {
+      return false;
+    }
+    if (pierce.multiplier >= 1) {
+      return true;
+    }
+    const { protectTag, conditionalTag } = this.getProtectionInTheWay(source, move, pierce.ignoresMaxGuard);
+    if (!protectTag && !conditionalTag) {
+      return true;
+    }
+    damage.value = toDmgValue(damage.value * pierce.multiplier);
+    if (!simulated) {
+      globalScene.phaseManager.queueMessage(
+        i18next.t("battle:protectPierced", { pokemonNameWithAffix: getPokemonNameWithAffix(this) }),
+      );
+    }
+    return true;
   }
 
   /**
@@ -4119,6 +4175,11 @@ export abstract class Pokemon extends Phaser.GameObjects.Container {
     const variableCategory = new NumberHolder(move.category);
     applyMoveAttrs("VariableMoveCategoryAttr", source, this, move, variableCategory);
     const moveCategory = variableCategory.value as MoveCategory;
+    // Local fork (2026-11-14): passive rebalance. Remember the category this real hit used, so Toughness (맷집) follows
+    // it after the hit instead of working it out again (Shell Side Arm breaks an exact tie with a battle RNG roll).
+    if (!simulated) {
+      this.turnData.lastHitCategory = { sourceId: source.id, move: move.id, category: moveCategory };
+    }
 
     /** If `value` is `true`, cancels the move and suppresses "No Effect" messages */
     const cancelled = new BooleanHolder(false);
@@ -4163,7 +4224,10 @@ export abstract class Pokemon extends Phaser.GameObjects.Container {
       // Local fork (2026-11-11), after review: the Master Punching Glove's 1/4 through protection ("보이지않는주먹
       // 효과(포챔스 기준)") for fixed damage too; this path returns before the one below, so Seismic Toss / Super Fang
       // used to go through Protect at full damage. Abilities are skipped here, so no Unseen Fist 1/4 was applied.
-      applyMasterGloveProtectDamage(source, move, () => this.getProtectionInTheWay(source, move), false, fixedDamage);
+      // Local fork (2026-11-16): Z / Max moves through protection (1/4, Z다이 1/2) instead of the glove's 1/4
+      if (!this.applyProtectPierceDamage(source, move, fixedDamage, simulated)) {
+        applyMasterGloveProtectDamage(source, move, () => this.getProtectionInTheWay(source, move), false, fixedDamage);
+      }
 
       // This return skips the rest of the calculation, so abilities that endure a hit
       // taken at full HP (Sturdy) have to be given their chance to apply here too.
@@ -4214,7 +4278,8 @@ export abstract class Pokemon extends Phaser.GameObjects.Container {
     const weatherDamageMultiplier = getWeatherMultiplierForMove(source, move);
 
     /** 25% damage debuff on moves hitting more than one non-fainted target (regardless of immunities) */
-    const { targets, multiple } = getMoveTargets(source, move.id);
+    // Local fork (2026-11-16): Z / Max moves. The Move itself: a converted slot's target is not its registry entry's
+    const { targets, multiple } = getMoveTargets(source, move);
     const numTargets = multiple ? targets.length : 1;
     const targetMultiplier = numTargets > 1 ? 0.75 : 1;
 
@@ -4325,13 +4390,16 @@ export abstract class Pokemon extends Phaser.GameObjects.Container {
     // protection move (Quick Guard / Wide Guard / Mat Block too, after review), unless the attacker's own Unseen Fist /
     // Piercing Drill (IgnoreProtectOnContactAbAttr, 1/4 into a protection tag) already quartered it just above, or the
     // move ignores protection by itself
-    applyMasterGloveProtectDamage(
-      source,
-      move,
-      () => this.getProtectionInTheWay(source, move),
-      !ignoreSourceAbility && source.hasAbilityWithAttr("IgnoreProtectOnContactAbAttr"),
-      damage,
-    );
+    // Local fork (2026-11-16): Z / Max moves through protection (1/4, Z다이 1/2), in the glove's place
+    if (!this.applyProtectPierceDamage(source, move, damage, simulated)) {
+      applyMasterGloveProtectDamage(
+        source,
+        move,
+        () => this.getProtectionInTheWay(source, move),
+        !ignoreSourceAbility && source.hasAbilityWithAttr("IgnoreProtectOnContactAbAttr"),
+        damage,
+      );
+    }
 
     // Local fork (2026-11-11): Expert Belt (달인의띠): super-effective hits x1.2, right before the Life Orb as in the
     // main series' order of final multipliers
@@ -4892,10 +4960,14 @@ export abstract class Pokemon extends Phaser.GameObjects.Container {
     if (restrictedTag) {
       return [false, restrictedTag.selectionDeniedText(this, moveId)];
     }
+    // Local fork (2026-11-16): Z / Max moves: the move's own properties are the slot's converted move (U-turn made Max
+    // Airstream does not switch out, Gigaton Hammer made Max Steelspike can be used twice in a row); restricting tags
+    // (Disable, Encore, Torment, ...) stay slot-based above
+    const slotMove = getSlotMove(this, moveId);
     // Fork: Last Stand (결사항전) bearers can't select moves that switch themselves out
     if (
       this.hasAbility(AbilityId.LAST_STAND)
-      && allMoves[moveId].getAttrs("ForceSwitchOutAttr").some(attr => attr.isSelfSwitch())
+      && slotMove.getAttrs("ForceSwitchOutAttr").some(attr => attr.isSelfSwitch())
     ) {
       return [
         false,
@@ -4907,7 +4979,12 @@ export abstract class Pokemon extends Phaser.GameObjects.Container {
     if (vestDeniedText) {
       return [false, vestDeniedText];
     }
-    return allMoves[moveId].checkRestrictions(this);
+    // Local fork (2026-11-14): passive rebalance. All-Out Pitch (전력투구) holders can't select status moves, like Taunt
+    const allOutPitchDeniedText = getAllOutPitchMoveDeniedText(this, moveId);
+    if (allOutPitchDeniedText) {
+      return [false, allOutPitchDeniedText];
+    }
+    return slotMove.checkRestrictions(this); // Local fork (2026-11-16): Z / Max moves (see above)
   }
 
   /**
@@ -6942,9 +7019,8 @@ export class PlayerPokemon extends Pokemon {
     const newPartyMemberIndex = globalScene.getPlayerParty().indexOf(this);
     pokemon
       .getMoveset(true)
-      .map((m: PokemonMove) =>
-        globalScene.phaseManager.unshiftNew("LearnMovePhase", newPartyMemberIndex, m.getMove().id),
-      );
+      // Local fork (2026-11-16): Z / Max moves. The slot's original move (a converted slot's derived id is not learnable)
+      .map((m: PokemonMove) => globalScene.phaseManager.unshiftNew("LearnMovePhase", newPartyMemberIndex, m.moveId));
     pokemon.destroy();
     this.updateFusionPalette();
   }
@@ -6962,7 +7038,8 @@ export class PlayerPokemon extends Pokemon {
   copyMoveset(): PokemonMove[] {
     const newMoveset: PokemonMove[] = [];
     this.moveset.forEach(move => {
-      newMoveset.push(new PokemonMove(move.moveId, 0, move.ppUp, move.maxPpOverride));
+      // Local fork (2026-11-16): Z / Max moves. The copy (Shedinja) keeps the slot's conversion (the ctor copies it)
+      newMoveset.push(new PokemonMove(move.moveId, 0, move.ppUp, move.maxPpOverride, move.transform));
     });
 
     return newMoveset;
@@ -7006,6 +7083,13 @@ export class PlayerPokemon extends Pokemon {
  * because ours are usually a little stronger.
  */
 export const ENEMY_CUSTOM_PASSIVE_ODDS = 8;
+
+/**
+ * Local fork (2026-11-14): custom moves. Custom passives an enemy never uses from our table: it keeps the base game's
+ * passive instead. Turnabout (전세역전) would swap every hazard the player laid during a biome back at each new wild
+ * Pokémon (the user's spec: "적 종족의 커스텀 패시브가 전세역전이면 적은 원래 패시브를 씁니다").
+ */
+export const ENEMY_BLOCKED_CUSTOM_PASSIVES: ReadonlySet<AbilityId> = new Set([AbilityId.TURNABOUT]);
 
 /**
  * Whether the enemy with this id uses our table's passive. It is decided from the id (top bits of a multiplicative
@@ -7299,7 +7383,7 @@ export class EnemyPokemon extends Pokemon {
       if (movePool.length === 1) {
         return {
           move: movePool[0].moveId,
-          targets: this.getNextTargets(movePool[0].moveId),
+          targets: this.getNextTargets(movePool[0].getMove()), // Local fork (2026-11-16): a converted slot's target
           useMode: MoveUseMode.NORMAL,
         };
       }
@@ -7311,7 +7395,7 @@ export class EnemyPokemon extends Pokemon {
         if (encoreMove) {
           return {
             move: encoreMove.moveId,
-            targets: this.getNextTargets(encoreMove.moveId),
+            targets: this.getNextTargets(encoreMove.getMove()), // Local fork (2026-11-16): a converted slot's target
             useMode: MoveUseMode.NORMAL,
           };
         }
@@ -7319,8 +7403,13 @@ export class EnemyPokemon extends Pokemon {
       switch (this.aiType) {
         // No enemy should spawn with this AI type in-game
         case AiType.RANDOM: {
-          const moveId = movePool[globalScene.randBattleSeedInt(movePool.length)].moveId;
-          return { move: moveId, targets: this.getNextTargets(moveId), useMode: MoveUseMode.NORMAL };
+          // Local fork (2026-11-16): Z / Max moves. Targets of the slot's derived move
+          const randomMove = movePool[globalScene.randBattleSeedInt(movePool.length)];
+          return {
+            move: randomMove.moveId,
+            targets: this.getNextTargets(randomMove.getMove()),
+            useMode: MoveUseMode.NORMAL,
+          };
         }
         case AiType.SMART_RANDOM:
         case AiType.SMART: {
@@ -7340,7 +7429,8 @@ export class EnemyPokemon extends Pokemon {
             }
 
             const fieldPokemon = globalScene.getField();
-            const moveTargets = getMoveTargets(this, move.id)
+            // Local fork (2026-11-16): Z / Max moves. The derived move's own target
+            const moveTargets = getMoveTargets(this, move)
               .targets.map(ind => fieldPokemon[ind])
               .filter(p => this.isPlayer() !== p.isPlayer());
             // Only considers critical hits for crit-only moves or when this Pokemon is under the effect of Laser Focus
@@ -7381,14 +7471,16 @@ export class EnemyPokemon extends Pokemon {
            * For more information on how benefit scores are calculated, see `docs/enemy-ai.md`.
            */
           const moveScores = movePool.map(() => 0);
-          const moveTargets = Object.fromEntries(movePool.map(m => [m.moveId, this.getNextTargets(m.moveId)]));
+          // Local fork (2026-11-16): Z / Max moves. Keyed and read by the slot's original move (a converted slot's
+          // derived move has another id: reading it by `move.id` found nothing and crashed), targets of the derived move
+          const moveTargets = Object.fromEntries(movePool.map(m => [m.moveId, this.getNextTargets(m.getMove())]));
           movePool.forEach((pokemonMove, moveIndex) => {
             const move = pokemonMove.getMove();
 
             let moveScore = moveScores[moveIndex];
             const targetScores: number[] = [];
 
-            for (const mt of moveTargets[move.id]) {
+            for (const mt of moveTargets[pokemonMove.moveId]) {
               // Prevent a target score from being calculated when the target is whoever attacks the user
               if (mt === BattlerIndex.ATTACKER) {
                 break;
@@ -7518,10 +7610,10 @@ export class EnemyPokemon extends Pokemon {
 
   /**
    * Determines the Pokemon the given move would target if used by this Pokemon
-   * @param moveId - The move to be used
+   * @param moveId - The move to be used. Local fork (2026-11-16): or the Move itself (a converted slot's derived move)
    * @returns The indexes of the Pokemon the given move would target
    */
-  getNextTargets(moveId: MoveId): BattlerIndex[] {
+  getNextTargets(moveId: MoveId | Move): BattlerIndex[] {
     const moveTargets = getMoveTargets(this, moveId);
     const targets = globalScene.getField(true).filter(p => moveTargets.targets.indexOf(p.getBattlerIndex()) > -1);
     // If the move is multi-target, return all targets' indexes
@@ -7529,7 +7621,7 @@ export class EnemyPokemon extends Pokemon {
       return targets.map(p => p.getBattlerIndex());
     }
 
-    const move = allMoves[moveId];
+    const move = typeof moveId === "number" ? allMoves[moveId] : moveId; // Local fork (2026-11-16): Z / Max moves
 
     /**
      * Get the move's target benefit score against each potential target.

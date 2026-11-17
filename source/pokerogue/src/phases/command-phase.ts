@@ -20,6 +20,7 @@ import { MysteryEncounterMode } from "#enums/mystery-encounter-mode";
 import { PokeballType } from "#enums/pokeball";
 import { UiMode } from "#enums/ui-mode";
 import type { PlayerPokemon } from "#field/pokemon";
+import { getSlotMove } from "#moves/move-transform"; // Local fork (2026-11-16): Z / Max moves
 import { getMoveTargets } from "#moves/move-utils";
 import { FieldPhase } from "#phases/field-phase";
 import type { MoveTargetSet } from "#types/move-target-set";
@@ -277,8 +278,10 @@ export class CommandPhase extends FieldPhase {
     const moveTargets: MoveTargetSet =
       // `move.targets` normally shouldn't be `null`,
       // that check is to guard against bugs that can cause it to become `null`
+      // Local fork (2026-11-16): Z / Max moves. The targets of the slot's derived move (Earthquake made Max Quake
+      // picks one target)
       move === undefined || move.targets == null
-        ? getMoveTargets(playerPokemon, moveId)
+        ? getMoveTargets(playerPokemon, getSlotMove(playerPokemon, moveId))
         : {
             targets: move.targets,
             multiple: move.targets.length > 1,

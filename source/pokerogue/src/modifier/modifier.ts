@@ -52,6 +52,7 @@ import type {
   TerastallizeModifierType,
   TmModifierType,
 } from "#modifiers/modifier-type";
+import { isZMaxOnlyMove } from "#moves/zmax-data"; // Local fork (2026-11-16): Multi-Lens never boosts Max / Z moves
 import type { ModifierInstanceMap, ModifierString } from "#types/modifier-types";
 import { getItemIconCentringOffset, getItemIconScale } from "#ui/item-icon-scale";
 import { addTextObject } from "#ui/text";
@@ -2828,6 +2829,11 @@ export class PokemonMultiHitModifier extends PokemonHeldItemModifier {
     count: NumberHolder | null = null,
     damageMultiplier: NumberHolder | null = null,
   ): boolean {
+    // Local fork (2026-11-16): Z / Max moves. A Max / G-Max / Z move (a converted slot's derived move carries one of
+    // these ids) is never boosted, as in the main games
+    if (isZMaxOnlyMove(moveId)) {
+      return false;
+    }
     const move = allMoves[moveId];
     /**
      * The move must meet Parental Bond's restrictions for this item

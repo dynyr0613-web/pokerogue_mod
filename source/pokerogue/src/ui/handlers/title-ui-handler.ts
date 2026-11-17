@@ -11,7 +11,6 @@ import { getSplashMessages } from "#data/splash-messages";
 import { SpeciesId } from "#enums/species-id";
 import { TextStyle } from "#enums/text-style";
 import { UiMode } from "#enums/ui-mode";
-import { version } from "#package.json";
 import type { SettingsUpdateEventArgs } from "#types/event-bus-types";
 import { TimedEventDisplay } from "#ui/event-display";
 import { OptionSelectUiHandler } from "#ui/option-select-ui-handler";
@@ -23,9 +22,9 @@ import i18next, { type TOptions } from "i18next";
 /** If the stats can not be retrieved, use this fallback value */
 const BATTLES_WON_FALLBACK = -1;
 
-/** Local fork (2026-11-17): the version the offline app (`vite build --mode app`) shows on the title screen */
-const FORK_APP_VERSION_LABEL = "v1.0.0 (베타)";
 
+/** Local fork (2026-11-14): version text shown under the title logo (the edition's own version). */
+export const EDITION_VERSION_TEXT = "v1.0.0 (베타)";
 export class TitleUiHandler extends OptionSelectUiHandler {
   private titleContainer: Phaser.GameObjects.Container;
   private usernameLabel: Phaser.GameObjects.Text;
@@ -199,14 +198,11 @@ export class TitleUiHandler extends OptionSelectUiHandler {
     this.splashMessage = randItem(getSplashMessages());
     this.splashMessageText.setText(i18next.t(this.splashMessage, this.getSplashMessageI18nParams()));
 
-    // Local fork (2026-11-17): the offline app shows the edition's own version, as the shipped 2026-11-14 build does
-    // (there the text was patched into the bundle by hand); every other mode keeps the base game's
-    if (import.meta.env.MODE === "app") {
-      this.appVersionText.setText(FORK_APP_VERSION_LABEL);
-    } else {
-      const betaText = isBeta || isDev ? " (Beta)" : "";
-      this.appVersionText.setText("v" + version + betaText);
-    }
+    // Local fork (2026-11-14): the title shows the edition version of "포켓로그 - 도주런 없는 엔드리스 에디션", not the
+    // PokeRogue version in package.json (that one still goes into saves and the update check, so it stays as it is).
+    // Bump EDITION_VERSION_TEXT with each release.
+    const betaText = isBeta || isDev ? " (Beta)" : "";
+    this.appVersionText.setText(EDITION_VERSION_TEXT + betaText);
 
     const ui = this.getUi();
 

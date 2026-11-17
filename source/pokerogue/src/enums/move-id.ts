@@ -1875,4 +1875,90 @@ export enum MoveId {
   MALIGNANT_CHAIN,
   /**{@link https://bulbapedia.bulbagarden.net/wiki/Nihil_Light_(move) | Source} */
   NIHIL_LIGHT,
+  // #region Custom moves
+  // Local fork (2026-11-14): custom moves. Appended after NIHIL_LIGHT (never insert in the middle: movesets are saved
+  // by numeric id, and `allMoves` is indexed by `MoveId`). Removing underscores gives the Essentials ID.
+  // Spec: tools/drive/custom_moves_1114/design_spec.json
+  /** 승화: Fire special 80, x1.5 in rain instead of x0.5 (reverse Hydro Steam) */
+  SUBLIMATION,
+  /** 정원가꾸기: Grass status, sets the Garden (정원) on the user's side for 5 turns */
+  GARDENING,
+  /** 쇄빙참: Ice physical 70 slicing, x2 power against a frozen target, then thaws it */
+  ICEBREAKER,
+  /** 뒤통수치기: Dark physical 70, also super effective on Fighting types */
+  BLINDSIDE,
+  // #endregion Custom moves
+  // #region Z/Max moves (2026-11-16)
+  // Local fork (2026-11-16): the 33 G-Max moves (commented out above at their mainline position, which would renumber
+  // every later id) and 다이검무 are appended here instead. Never insert in the middle: movesets are saved by numeric id.
+  // Spec: tools/drive/zmax_1116/design_spec.md (ids 925-958).
+  /** 거다이옥염 (Charizard): 4 turns of damage to non-Fire foes */
+  G_MAX_WILDFIRE,
+  /** 거다이고혹 (Butterfree): poison / paralysis / sleep on foes */
+  G_MAX_BEFUDDLE,
+  /** 거다이만뢰 (Pikachu): paralyzes foes */
+  G_MAX_VOLT_CRASH,
+  /** 거다이금화 (Meowth): confuses foes, scatters money */
+  G_MAX_GOLD_RUSH,
+  /** 거다이회심격 (Machamp): critical-hit stage up for the user's side */
+  G_MAX_CHI_STRIKE,
+  /** 거다이환영 (Gengar): foes cannot escape */
+  G_MAX_TERROR,
+  /** 거다이선율 (Lapras): Aurora Veil */
+  G_MAX_RESONANCE,
+  /** 거다이포옹 (Eevee): infatuates foes */
+  G_MAX_CUDDLE,
+  /** 거다이재생 (Snorlax): 50% to restore eaten berries */
+  G_MAX_REPLENISH,
+  /** 거다이악취 (Garbodor): poisons foes */
+  G_MAX_MALODOR,
+  /** 거다이암진 (Drednaw): Stealth Rock on the foe side */
+  G_MAX_STONESURGE,
+  /** 거다이풍격 (Corviknight): Defog effect */
+  G_MAX_WIND_RAGE,
+  /** 거다이감전 (Toxtricity): poison or paralysis on foes */
+  G_MAX_STUN_SHOCK,
+  /** 거다이단원 (Alcremie): heals the user's side 1/6 */
+  G_MAX_FINALE,
+  /** 거다이감쇠 (Duraludon): foes' last move loses 2 PP */
+  G_MAX_DEPLETION,
+  /** 거다이천도 (Orbeetle): Gravity */
+  G_MAX_GRAVITAS,
+  /** 거다이분석 (Coalossal): 4 turns of damage to non-Rock foes */
+  G_MAX_VOLCALITH,
+  /** 거다이사진 (Sandaconda): Sand Tomb on foes */
+  G_MAX_SANDBLAST,
+  /** 거다이수마 (Grimmsnarl): 50% Yawn on the target */
+  G_MAX_SNOOZE,
+  /** 거다이산격 (Flapple): foes' evasion -1 */
+  G_MAX_TARTNESS,
+  /** 거다이감로 (Appletun): cures the user's party */
+  G_MAX_SWEETNESS,
+  /** 거다이천벌 (Hatterene): confuses foes */
+  G_MAX_SMITE,
+  /** 거다이강철진 (Copperajah): Steel-type Stealth Rock on the foe side */
+  G_MAX_STEELSURGE,
+  /** 거다이융격 (Melmetal): Torment on foes */
+  G_MAX_MELTDOWN,
+  /** 거다이포말 (Kingler): foes' Speed -2 */
+  G_MAX_FOAM_BURST,
+  /** 거다이백화 (Centiskorch): Fire Spin on foes */
+  G_MAX_CENTIFERNO,
+  /** 거다이편달 (Venusaur): 4 turns of damage to non-Grass foes */
+  G_MAX_VINE_LASH,
+  /** 거다이포격 (Blastoise): 4 turns of damage to non-Water foes */
+  G_MAX_CANNONADE,
+  /** 거다이난타 (Rillaboom): 160 power, ignores abilities */
+  G_MAX_DRUM_SOLO,
+  /** 거다이화염구 (Cinderace): 160 power, ignores abilities */
+  G_MAX_FIREBALL,
+  /** 거다이저격 (Inteleon): 160 power, ignores abilities */
+  G_MAX_HYDROSNIPE,
+  /** 거다이일격 (Urshifu single): ignores every protection */
+  G_MAX_ONE_BLOW,
+  /** 거다이연격 (Urshifu rapid): ignores every protection */
+  G_MAX_RAPID_FLOW,
+  /** 다이검무: the Max move of Swords Dance, Attack +3 */
+  MAX_SWORDS_DANCE,
+  // #endregion Z/Max moves (2026-11-16)
 }

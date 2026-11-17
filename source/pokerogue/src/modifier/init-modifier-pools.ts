@@ -71,7 +71,23 @@ import {
 import type { initModifierTypes } from "#modifiers/modifier-type";
 // Local fork (2026-11-11): getPartyLuckValue for the luck clovers' weight
 import { getOfferableIvCandyStats, getPartyLuckValue, WeightedModifierType } from "#modifiers/modifier-type";
+// Local fork (2026-11-16): the Z-Ring, Dynamax Candy and Z crystal weights
+import {
+  getDynamaxCandyWeight,
+  getZCrystalWeight,
+  getZRingWeight,
+  registerZMaxConversionRules,
+  ZMAX_REWARD_RULES,
+} from "#modifiers/zmax-items";
 import type { Move } from "#moves/move"; // Local fork (2026-11-11): knowsMove
+// Local fork (2026-11-16): the slot conversion rules the Z / Max rewards use, registered in initModifierPools
+import {
+  canSlotTakeItem,
+  getAnimMoveId,
+  getConversionResult,
+  getTransformedMove,
+  isExclusiveZEligibleSpecies,
+} from "#moves/move-transform";
 import type { WeightedModifierTypeWeightFunc } from "#types/modifier-types";
 
 /**
@@ -472,6 +488,7 @@ function wouldOfferToxicOrb(p: Pokemon): boolean {
       const hasGeneralAbility = [
         AbilityId.QUICK_FEET,
         AbilityId.GUTS,
+        AbilityId.RAMPAGE, // Local fork (2026-11-14): passive rebalance. Guts + Quick Feet
         AbilityId.MARVEL_SCALE,
         AbilityId.MAGIC_GUARD,
       ].some(a => p.hasAbility(a, false, true));
@@ -766,6 +783,7 @@ function initUltraModifierPool() {
               const hasGeneralAbility = [
                 AbilityId.QUICK_FEET,
                 AbilityId.GUTS,
+                AbilityId.RAMPAGE, // Local fork (2026-11-14): passive rebalance. Guts + Quick Feet
                 AbilityId.MARVEL_SCALE,
                 AbilityId.MAGIC_GUARD,
               ].some(a => p.hasAbility(a, false, true));
@@ -817,12 +835,20 @@ function initUltraModifierPool() {
               AbilityId.SAND_STREAM,
               AbilityId.SAND_SPIT,
               AbilityId.SNOW_WARNING,
+              // Local fork (2026-11-14): passive rebalance. Custom abilities that set weather on entry
+              AbilityId.SOLAR_PULSE,
+              AbilityId.FULL_BLOOM,
+              AbilityId.IRON_SAND,
+              AbilityId.SAND_TEMPEST,
+              AbilityId.COLD_SNAP,
               AbilityId.ELECTRIC_SURGE,
               AbilityId.HADRON_ENGINE,
               AbilityId.PSYCHIC_SURGE,
               AbilityId.GRASSY_SURGE,
               AbilityId.SEED_SOWER,
               AbilityId.MISTY_SURGE,
+              // Local fork (2026-11-14): custom moves. The Rock extends the Garden (정원) its holder sets too
+              AbilityId.GARDENER,
             ].some(a => p.hasAbility(a, false, true));
 
             const hasMoves = [
@@ -836,6 +862,8 @@ function initUltraModifierPool() {
               MoveId.PSYCHIC_TERRAIN,
               MoveId.GRASSY_TERRAIN,
               MoveId.MISTY_TERRAIN,
+              // Local fork (2026-11-14): custom moves. Gardening (정원가꾸기) sets the Garden
+              MoveId.GARDENING,
             ].some(m => moveset.includes(m));
 
             return hasAbility || hasMoves;
@@ -899,6 +927,14 @@ function initUltraModifierPool() {
     // member holds fewer than 3 (hpBeltWeight; the user: "하이퍼(10%) … 하이퍼는 최대 3개로"); left out while one
     // party member holds 3 (applyFullHeldItemRule)
     new WeightedModifierType(modifierTypes.WEIGHT_BAND, hpBeltWeight("WEIGHT_BAND"), HP_BELTS.WEIGHT_BAND.poolWeight),
+    // Local fork (2026-11-16): 다이사탕 (Dynamax Candy), 6 like the Punching Glove while a party member is Dynamaxed and
+    // some party move can take it (getDynamaxCandyWeight; the user: "다이맥스한 포켓몬이 있을 경우 다이사탕(하이퍼)이 보상
+    // 테이블에서 나올 수 있음"); 0 otherwise, so a pick never fails
+    new WeightedModifierType(modifierTypes.DYNAMAX_CANDY, getDynamaxCandyWeight, ZMAX_REWARD_RULES.dynamaxCandy.weight),
+    // Local fork (2026-11-16): Z크리스탈 (Z crystal), 8 while the Z-Ring is owned and some party move can take a crystal
+    // (getZCrystalWeight, 0 exactly when the generator has nothing to give; the user: "z링 보유 시 + 해당 타입 기술 보유
+    // 포켓몬이 있는 경우(거다이맥스 기술 제외) Z 크리스탈이 보상 테이블에 등록됨")
+    new WeightedModifierType(modifierTypes.Z_CRYSTAL, getZCrystalWeight, ZMAX_REWARD_RULES.zCrystal.weight),
   ].map(m => {
     m.setTier(ModifierTier.ULTRA);
     return m;
@@ -989,6 +1025,13 @@ function initRogueModifierPool() {
       modifierTypes.DYNAMAX_BAND,
       () => Math.min(Math.ceil(globalScene.currentBattle.waveIndex / 50), 4) * 9,
       36,
+    ),
+    // Local fork (2026-11-16): Z링 (Z-Ring), the Dynamax Band's rule (getZRingWeight, max 36); a key item, so it leaves
+    // the pool once owned. The user: "z링 보유 시 ... Z 크리스탈이 보상 테이블에 등록됨"
+    new WeightedModifierType(
+      modifierTypes.Z_RING,
+      () => getZRingWeight(globalScene.currentBattle.waveIndex),
+      ZMAX_REWARD_RULES.zRing.maxWeight,
     ),
     new WeightedModifierType(
       modifierTypes.VOUCHER_PLUS,
@@ -1247,6 +1290,16 @@ function initDailyStarterModifierPool() {
  * {@linkcode initModifierTypes} MUST be called before this function.
  */
 export function initModifierPools() {
+  // Local fork (2026-11-16): the Z-Ring / Dynamax Candy / Z crystal code (zmax-items.ts) reaches move-transform.ts's
+  // rules through this registration, which keeps them out of an import cycle (see ZMaxConversionRules)
+  registerZMaxConversionRules({
+    canSlotTakeItem,
+    getAnimMoveId,
+    getConversionResult,
+    getTransformedMove,
+    isExclusiveZEligibleSpecies,
+  });
+
   // The modifier pools the player chooses from during modifier selection
   initCommonModifierPool();
   initGreatModifierPool();

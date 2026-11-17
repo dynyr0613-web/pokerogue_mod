@@ -1,4 +1,4 @@
-rows 792; species in table 1083; inherited 474
+rows 929; species in table 1084; inherited 337
 
 No PokeRogue form:
 폼 KYUREM,5 퍼펙트큐레무 (Perfect Kyurem) -> SLUSH_RUSH
@@ -7,3 +7,6 @@ No PokeRogue form:
 
 No such ability:
 
+
+Split-form species (SPLIT_FORM_SPECIES):
+BATTLE_BOND_GRENINJA <- GRENINJA: TECHNICIAN

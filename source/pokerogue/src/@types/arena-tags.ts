@@ -9,7 +9,8 @@ export type EntryHazardTagType =
   | ArenaTagType.SPIKES
   | ArenaTagType.TOXIC_SPIKES
   | ArenaTagType.STEALTH_ROCK
-  | ArenaTagType.IMPRISON;
+  | ArenaTagType.IMPRISON
+  | ArenaTagType.G_MAX_STEELSURGE; // Local fork (2026-11-16): G-Max Steelsurge
 
 /** Subset of {@linkcode ArenaTagType}s that create {@link https://bulbapedia.bulbagarden.net/wiki/Category:Screen-creating_moves | screens}. */
 export type ArenaScreenTagType = ArenaTagType.REFLECT | ArenaTagType.LIGHT_SCREEN | ArenaTagType.AURORA_VEIL;

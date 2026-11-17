@@ -30,6 +30,7 @@ import type { EnemyPokemon, PlayerPokemon, Pokemon } from "#field/pokemon";
 import { Trainer } from "#field/trainer";
 import type { ModifierTypeOption } from "#modifiers/modifier-type";
 import { PokemonMove } from "#moves/pokemon-move";
+import { isZMaxOnlyMove } from "#moves/zmax-data"; // Local fork (2026-11-16): Z-Moves and Max Moves
 import type { GameData } from "#system/game-data";
 import { RibbonData, type RibbonFlag } from "#system/ribbon-data";
 import type { LevelMoves } from "#types/level-moves";
@@ -1006,6 +1007,16 @@ export class FreshStartChallenge extends Challenge {
     // Remove cost reduction
     starterDataEntry.valueReduction = 0;
 
+    // Local fork (2026-11-17): no alpha starter and no Partner Mark either; both are earned or bought outside the run
+    // (alpha-pokemon.ts, pokemon-marks.ts). Only this copy changes, the save keeps them for other runs.
+    starterDataEntry.alphaEnabled = false;
+    starterDataEntry.alphaBoost = 0;
+    starterDataEntry.partnerMark = false;
+    // Local fork (2026-11-17): nor the Best Friends Ribbon or a mark worn from the line's collection
+    starterDataEntry.bestFriendsRibbon = false;
+    starterDataEntry.equippedMark = undefined;
+    starterDataEntry.marks = undefined;
+
     // Remove natures except for the default ones
     const neutralNaturesAttr =
       (1 << (Nature.HARDY + 1))
@@ -1333,8 +1344,10 @@ export class MovesetRandomizerChallenge extends Challenge {
     // being initialized before the `allMoves` array is
     if (!MovesetRandomizerChallenge._validMoveIds) {
       const disallowedMoves = [MoveId.NONE, MoveId.SPLASH, MoveId.HOLD_HANDS, MoveId.STRUGGLE];
+      // Local fork (2026-11-16): Z-Moves and Max Moves. The Z / Max / G-Max registry entries are implemented but only
+      // exist as converted slots, so the randomizer never deals them
       MovesetRandomizerChallenge._validMoveIds = getEnumValues(MoveId) //
-        .filter(m => !disallowedMoves.includes(m) && !allMoves[m].isUnimplemented);
+        .filter(m => !disallowedMoves.includes(m) && !allMoves[m].isUnimplemented && !isZMaxOnlyMove(m));
     }
     return [...MovesetRandomizerChallenge._validMoveIds];
   }

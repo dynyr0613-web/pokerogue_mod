@@ -3937,6 +3937,7 @@ export function initGenerationSeven(): SpeciesDataMapConfig {
       [30, MoveId.FLORAL_HEALING],
       [33, MoveId.PETAL_BLIZZARD],
       [36, MoveId.AROMATHERAPY],
+      [36, MoveId.GARDENING], // Local fork (2026-11-14): custom moves
       [39, MoveId.PLAY_ROUGH],
       [42, MoveId.SWEET_SCENT],
       [45, MoveId.PETAL_DANCE],
@@ -6209,6 +6210,7 @@ export function initGenerationSeven(): SpeciesDataMapConfig {
       [20, MoveId.INCINERATE],
       [24, MoveId.IRON_DEFENSE],
       [28, MoveId.DRAGON_PULSE],
+      [28, MoveId.SUBLIMATION], // Local fork (2026-11-14): custom moves
       [32, MoveId.BODY_SLAM],
       [36, MoveId.FLAMETHROWER],
       [40, MoveId.SHELL_TRAP],
