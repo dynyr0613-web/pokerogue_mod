@@ -2,8 +2,10 @@ import { audioManager } from "#app/global-audio-manager";
 import { globalScene } from "#app/global-scene";
 import { settings } from "#app/global-settings-manager";
 import { speciesDataRegistry } from "#app/global-species-data-registry";
+import { applyWildAlpha } from "#data/alpha-pokemon";
 import { modifierTypes } from "#data/data-lists";
 import { getLevelTotalExp } from "#data/exp";
+import { applyWildMark } from "#data/pokemon-marks";
 import type { PokemonSpecies } from "#data/pokemon-species";
 import { AbilityId } from "#enums/ability-id";
 import { Challenges } from "#enums/challenges";
@@ -457,6 +459,13 @@ function getTeamTransformations(): PokemonTransformation[] {
     );
 
     transformation.newPokemon.teraType = randSeedInt(MAX_POKEMON_TYPE);
+    // Local fork (2026-11-17): the transformed Pokémon is a different Pokémon, even though it takes over the old
+    // one's items: it has none of the old one's marks or ribbons and is no alpha because the old one was. Its own
+    // marks are rolled as a wild Pokémon's are (pokemon-marks.ts, alpha-pokemon.ts). The user: "변신되었을때 증표도
+    // 랜덤으로 가지게 합시다 / 아이템같은걸 이어받긴 해도 실제로는 다른 포켓몬으로 봐야하니까요" (carrying them over would
+    // let one Pokémon with every mark complete the collection for each species it turns into)
+    applyWildMark(transformation.newPokemon);
+    applyWildAlpha(transformation.newPokemon);
   }
 
   return pokemonTransformations;
@@ -474,14 +483,6 @@ async function doNewTeamPostProcess(transformations: PokemonTransformation[]) {
     if (await postProcessTransformedPokemon(previousPokemon, newPokemon, speciesRootForm)) {
       atLeastOneNewStarter = true;
     }
-
-    // Local fork (2026-11-17): the transformed Pokémon is still the same individual, so it keeps its marks, its
-    // ribbons and being an alpha (pokemon-marks.ts, alpha-pokemon.ts). After the registration above, so the marks it
-    // already had are not counted for the collection a second time
-    for (const mark of previousPokemon.marks) {
-      newPokemon.addMark(mark);
-    }
-    newPokemon.setAlphaBoost(previousPokemon.alphaBoost);
 
     // Copy old items to new pokemon
     for (const item of transformation.heldItems) {
