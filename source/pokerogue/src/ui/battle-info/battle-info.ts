@@ -1,7 +1,10 @@
 import { globalScene } from "#app/global-scene";
 import { settings } from "#app/global-settings-manager";
+import { ALPHA_MAX_BOOST } from "#data/alpha-pokemon";
 import { Gender, getGenderColor, getGenderSymbol } from "#data/gender";
+import { getMarkKey, MARKS_ATLAS_KEY } from "#data/pokemon-marks";
 import { getTypeRgb } from "#data/type";
+import { PokemonMark } from "#enums/pokemon-mark";
 import { PokemonType } from "#enums/pokemon-type";
 import { Stat } from "#enums/stat";
 import { StatusEffect } from "#enums/status-effect";
@@ -67,6 +70,14 @@ export abstract class BattleInfo extends Phaser.GameObjects.Container {
   protected shinyIcon: Phaser.GameObjects.Sprite;
   protected fusionShinyIcon: Phaser.GameObjects.Sprite;
   protected splicedIcon: Phaser.GameObjects.Sprite;
+  /**
+   * Local fork (2026-11-17): an alpha's badge after the other icons next to the name, for the player's and the enemy's
+   * Pokémon alike: its mark (golden at the full boost) with the stat boost in percent as a number on it
+   * (alpha-pokemon.ts; the user: "야생 우두머리는 전투 중에도 증가율이 보이게 해보죠" and "아군이 전투에서 표시될때도
+   * 아이콘과 증가율 표시가 있게 해보죠, 이름 옆에 우두머리 아이콘에 숫자를 추가한 아이콘이 있게 해서")
+   */
+  protected alphaIcon: Phaser.GameObjects.Image;
+  protected alphaBoostText: Phaser.GameObjects.Text;
   protected statusIndicator: Phaser.GameObjects.Sprite;
   protected levelContainer: Phaser.GameObjects.Container;
   protected hpLabel: Phaser.GameObjects.Image;
@@ -127,6 +138,49 @@ export abstract class BattleInfo extends Phaser.GameObjects.Container {
       .setPositionRelative(this.nameText, 0, 2);
 
     this.add([this.teraIcon, this.shinyIcon, this.fusionShinyIcon, this.splicedIcon]);
+
+    // Local fork (2026-11-17): the alpha badge, see the fields. The mark icons are 40 px; 0.225 makes them 9 px
+    this.alphaIcon = globalScene.add
+      .image(0, 0, MARKS_ATLAS_KEY, getMarkKey(PokemonMark.ALPHA_MARK))
+      .setName("icon_alpha")
+      .setVisible(false)
+      .setOrigin(0)
+      .setScale(0.225);
+    this.alphaBoostText = addTextObject(0, 0, "", TextStyle.BATTLE_INFO, { fontSize: "60px" })
+      .setName("text_alpha_boost")
+      .setVisible(false)
+      .setOrigin(0)
+      // A dark outline keeps the small digits readable over the icon
+      .setStroke("#282030", 14);
+    this.add([this.alphaIcon, this.alphaBoostText]);
+  }
+
+  /**
+   * Local fork (2026-11-17): show or hide the alpha badge for the Pokémon and put it after the last icon next to the
+   * name. Call it after the other icons have been placed.
+   * @param pokemon - The Pokémon this info is for
+   */
+  protected updateAlphaBadge(pokemon: Pokemon): void {
+    const isAlpha = pokemon.isAlpha();
+    this.alphaIcon.setVisible(isAlpha);
+    this.alphaBoostText.setVisible(isAlpha);
+    if (!isAlpha) {
+      return;
+    }
+
+    const x =
+      this.nameText.displayWidth
+      + this.genderText.displayWidth
+      + 1
+      + (this.teraIcon.visible ? this.teraIcon.displayWidth + 1 : 0)
+      + (this.splicedIcon.visible ? this.splicedIcon.displayWidth + 1 : 0)
+      + (this.shinyIcon.visible ? this.shinyIcon.displayWidth + 1 : 0);
+    const golden = pokemon.alphaBoost >= ALPHA_MAX_BOOST;
+    // The icon stands a little to the right, and the number overlaps its lower left, as in the user's sketch
+    this.alphaIcon
+      .setFrame(getMarkKey(golden ? PokemonMark.GOLDEN_ALPHA_MARK : PokemonMark.ALPHA_MARK))
+      .setPositionRelative(this.nameText, x + 4, 0.5);
+    this.alphaBoostText.setText(`${pokemon.alphaBoost}`).setPositionRelative(this.nameText, x, 2);
   }
 
   /**
@@ -376,6 +430,8 @@ export abstract class BattleInfo extends Phaser.GameObjects.Container {
     if (isFusion) {
       this.fusionShinyIcon.setTint(getVariantTint(pokemon.fusionVariant));
     }
+    // Local fork (2026-11-17): the alpha badge comes last
+    this.updateAlphaBadge(pokemon);
 
     this.hpBar.setScale(pokemon.getHpRatio(true), 1);
     this.lastHpFrame = this.hpBar.scaleX > 0.5 ? "high" : this.hpBar.scaleX > 0.25 ? "medium" : "low";
@@ -584,6 +640,9 @@ export abstract class BattleInfo extends Phaser.GameObjects.Container {
     if (nameUpdated || teraTypeUpdated) {
       this.updateIconDisplay(isFusion);
     }
+    // Local fork (2026-11-17): the alpha badge follows the icons, every time: a Pokémon can become an alpha without
+    // its name changing (the shiny icon's visibility is settled further down, but its position is not)
+    this.updateAlphaBadge(pokemon);
 
     this.updateStatusIcon(pokemon);
 
