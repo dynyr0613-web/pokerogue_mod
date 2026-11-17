@@ -337,7 +337,10 @@ export class PartyUiHandler extends MessageUiHandler {
       form: pokemon.formIndex,
       female: pokemon.gender === Gender.FEMALE,
     };
-    ui.setOverlayMode(UiMode.POKEDEX_PAGE, pokemon.species, attributes).then(() => this.clearOptions());
+    // Local fork (2026-11-17): the Pokémon itself goes along (6th argument), for the page's marks and ribbons
+    ui.setOverlayMode(UiMode.POKEDEX_PAGE, pokemon.species, attributes, undefined, undefined, undefined, pokemon).then(
+      () => this.clearOptions(),
+    );
     return true;
   }
 

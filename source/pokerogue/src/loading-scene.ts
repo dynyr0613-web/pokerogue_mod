@@ -3,6 +3,7 @@ import { globalScene } from "#app/global-scene";
 import { activeOverrides } from "#app/overrides";
 import { SceneBase } from "#app/scene-base";
 import { isMobile } from "#app/touch-controls";
+import { MARKS_ATLAS_KEY } from "#data/pokemon-marks";
 import { BiomeId } from "#enums/biome-id";
 import { GachaType } from "#enums/gacha-types";
 import { getBiomeHasProps } from "#field/arena";
@@ -183,7 +184,9 @@ export class LoadingScene extends SceneBase {
       .loadImage("evo_sparkle", "effects")
       .loadAtlas("tera_sparkle", "effects")
       .loadAtlas("pb", "")
-      .loadAtlas("items", "");
+      .loadAtlas("items", "")
+      // Local fork (2026-11-17): the marks' and ribbons' icons (pokemon-marks.ts)
+      .loadAtlas(MARKS_ATLAS_KEY, "marks");
 
     this.load
       .bitmapFont("item-count", "fonts/item-count.png", "fonts/item-count.xml")

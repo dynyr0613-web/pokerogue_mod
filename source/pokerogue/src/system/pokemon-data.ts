@@ -2,12 +2,14 @@ import { globalScene } from "#app/global-scene";
 import { speciesDataRegistry } from "#app/global-species-data-registry";
 import type { Gender } from "#data/gender";
 import { CustomPokemonData, PokemonBattleData, PokemonSummonData } from "#data/pokemon-data";
+import { normalizeMarks } from "#data/pokemon-marks";
 import { Status } from "#data/status-effect";
 import { BattleType } from "#enums/battle-type";
 import type { BiomeId } from "#enums/biome-id";
 import type { MoveId } from "#enums/move-id";
 import { Nature } from "#enums/nature";
 import { PokeballType } from "#enums/pokeball";
+import type { PokemonMark } from "#enums/pokemon-mark";
 import type { PokemonType } from "#enums/pokemon-type";
 import type { SpeciesId } from "#enums/species-id";
 import { TrainerSlot } from "#enums/trainer-slot";
@@ -41,6 +43,11 @@ export class PokemonData {
    * Pokémon without EVs are unchanged, and a save without them loads as all 0
    */
   declare public evs?: number[] | undefined;
+  /**
+   * Local fork (2026-11-17): the Pokémon's marks and ribbons (`Pokemon.marks`, pokemon-marks.ts); only set when it has
+   * one, so saves of Pokémon without any are unchanged, and a save without them loads as none
+   */
+  declare public marks?: PokemonMark[] | undefined;
   public nature: Nature;
   public moveset: PokemonMove[];
   public status: Status | null;
@@ -129,6 +136,11 @@ export class PokemonData {
     const evs = normalizeEvs(source.evs);
     if (hasAnyEvs(evs)) {
       this.evs = evs;
+    }
+    // Local fork (2026-11-17): marks and ribbons, see the field
+    const marks = normalizeMarks(source.marks);
+    if (marks.length > 0) {
+      this.marks = marks;
     }
 
     // TODO: Can't we move some of this verification stuff to an upgrade script?

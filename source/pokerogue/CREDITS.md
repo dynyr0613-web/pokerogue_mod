@@ -812,3 +812,7 @@ and [everyone else](https://github.com/pagefaultgames/pokerogue/graphs/contribut
   - kyledove ([Pokéngine](https://pokengine.org)): Kamado (전목), Professor Sada (올림 박사), Professor Turo (투로 박사),
     Carmine (시유), Briar (브라이어). Pokéngine Public Use Policy, non-commercial with credit
     (https://pokengine.org/legal/public-use-policy; `LICENSES/LicenseRef-Pokengine-Public-Use.txt`).
+- Local fork (2026-11-17), mark and ribbon icons (`assets/images/marks/marks.png`, built by
+  `tools/port/make_marks_atlas.py` from `tools/port/mark-icons/`): the 40x40 ribbon sprites of
+  [PKHeX](https://github.com/kwsch/PKHeX) (`PKHeX.Drawing.Misc/Resources/img/ribbons`), used unedited. GPL-3.0
+  (`LICENSES/GPL-3.0-only.txt`). The marks' and ribbons' Korean and English names are the main series' own.

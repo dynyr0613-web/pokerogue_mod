@@ -82,5 +82,8 @@
   "sameSpeciesEgg": "Buy an Egg",
   "locked": "Locked",
   "disabled": "Disabled",
-  "uncaught": "Uncaught"
+  "uncaught": "Uncaught",
+  "menuMarks": "Marks & Ribbons",
+  "showMarks": "Check this Pokémon's marks and ribbons.",
+  "noMarks": "This Pokémon has no marks or ribbons."
 }

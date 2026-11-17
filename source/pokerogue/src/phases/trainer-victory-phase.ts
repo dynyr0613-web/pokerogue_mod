@@ -3,6 +3,7 @@ import { timedEventManager } from "#app/global-event-manager";
 import { globalScene } from "#app/global-scene";
 import { modifierTypes } from "#data/data-lists";
 import { getCharVariantFromDialogue } from "#data/dialogue";
+import { awardTrainerRibbon, getMarkName } from "#data/pokemon-marks";
 import { BiomeId } from "#enums/biome-id";
 import { TrainerSlot } from "#enums/trainer-slot";
 import { TrainerType } from "#enums/trainer-type";
@@ -56,6 +57,16 @@ export class TrainerVictoryPhase extends BattlePhase {
           ],
         );
       }
+    }
+    // Local fork (2026-11-17): the party that beats a champion gets that champion's ribbon (pokemon-marks.ts); the
+    // message comes after the rewards queued above
+    const ribbon = awardTrainerRibbon(trainerType);
+    if (ribbon !== null) {
+      globalScene.phaseManager.queueMessage(
+        i18next.t("pokemonMarks:ribbonAwarded", { ribbonName: getMarkName(ribbon) }),
+        null,
+        true,
+      );
     }
     // Breeders in Space achievement
     if (

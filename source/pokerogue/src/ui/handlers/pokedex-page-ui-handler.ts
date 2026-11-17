@@ -42,6 +42,7 @@ import { TextStyle } from "#enums/text-style";
 import { TimeOfDay } from "#enums/time-of-day";
 import { UiMode } from "#enums/ui-mode";
 import { getLevelMoves } from "#field/learnsets";
+import type { Pokemon } from "#field/pokemon";
 import type { Variant } from "#sprites/variant";
 import { getVariantIcon, getVariantTint } from "#sprites/variant";
 import { SettingKeyboard } from "#system/settings-keyboard";
@@ -53,6 +54,7 @@ import type { StarterSpeciesId } from "#types/starter-species-id";
 import type { OptionSelectIconConfig, OptionSelectItem, OptionSelectModeConfig } from "#types/ui-types";
 import { BaseStatsOverlay } from "#ui/base-stats-overlay";
 import { getLearnableMoveSourceIconFrame } from "#ui/learnable-move-utils";
+import { MarkTray } from "#ui/mark-tray-container";
 import { MessageUiHandler } from "#ui/message-ui-handler";
 import { MoveInfoOverlay } from "#ui/move-info-overlay";
 import { PokedexInfoOverlay } from "#ui/pokedex-info-overlay";
@@ -199,6 +201,12 @@ const languageSettings: { [key: string]: LanguageSetting } = {
 
 const speciesContainerX = 109;
 
+// Local fork (2026-11-17): the menu's line metrics, in the text's own pixels. A line is 84 high plus the spacing; the
+// compact spacing is for the ten-line menu of a party Pokémon (see `MenuOptions.MARKS`).
+const MENU_LINE_HEIGHT = 84;
+const MENU_LINE_SPACING = 12;
+const MENU_LINE_SPACING_COMPACT = 2;
+
 enum MenuOptions {
   BASE_STATS,
   ABILITIES,
@@ -209,6 +217,11 @@ enum MenuOptions {
   NATURES,
   RIBBONS,
   EVOLUTIONS,
+  /**
+   * Local fork (2026-11-17): the marks and ribbons of the party Pokémon the page was opened for (pokemon-marks.ts).
+   * Last, and only in the menu when there is such a Pokémon, so the other options' cursor positions never move.
+   */
+  MARKS,
 }
 
 export class PokedexPageUiHandler extends MessageUiHandler {
@@ -329,6 +342,12 @@ export class PokedexPageUiHandler extends MessageUiHandler {
   // Ribbons
   private ribbonContainer: RibbonTray;
   private isRibbonTrayOpen = false;
+  /** Local fork (2026-11-17): the party Pokémon the page was opened for, whose marks and ribbons the menu shows */
+  private markPokemon: Pokemon | null = null;
+  private markContainer: MarkTray;
+  private isMarkTrayOpen = false;
+  /** Local fork (2026-11-17): the menu text's line spacing, smaller while the marks' option is in the menu */
+  private menuLineSpacing = MENU_LINE_SPACING;
 
   public override setup() {
     const ui = this.getUi();
@@ -690,7 +709,7 @@ export class PokedexPageUiHandler extends MessageUiHandler {
       0,
       this.menuOptions.map(o => `${i18next.t(`pokedexUiHandler:${toCamelCase(`menu${MenuOptions[o]}`)}`)}`).join("\n"),
       TextStyle.WINDOW,
-      { maxLines: this.menuOptions.length, lineSpacing: 12 },
+      { maxLines: this.menuOptions.length, lineSpacing: MENU_LINE_SPACING },
     );
 
     this.menuDescriptions = [
@@ -703,6 +722,7 @@ export class PokedexPageUiHandler extends MessageUiHandler {
       i18next.t("pokedexUiHandler:showNatures"),
       i18next.t("pokedexUiHandler:showRibbons"),
       i18next.t("pokedexUiHandler:showEvolutions"),
+      i18next.t("pokedexUiHandler:showMarks"),
     ];
 
     this.scale = getTextStyleOptions(TextStyle.WINDOW).scale;
@@ -735,6 +755,11 @@ export class PokedexPageUiHandler extends MessageUiHandler {
     this.starterSelectContainer.add(this.ribbonContainer);
     this.ribbonContainer.setVisible(false);
 
+    // Local fork (2026-11-17): the party Pokémon's marks and ribbons, where the challenge ribbons' tray opens
+    this.markContainer = new MarkTray(this, 192, 0);
+    this.starterSelectContainer.add(this.markContainer);
+    this.markContainer.setVisible(false);
+
     // Filter bar sits above everything, except the message box
     this.starterSelectContainer.bringToTop(this.starterSelectMessageBoxContainer);
 
@@ -765,6 +790,15 @@ export class PokedexPageUiHandler extends MessageUiHandler {
     if (args[4] instanceof Function) {
       this.exitCallback = args[4];
     }
+    // Local fork (2026-11-17): the party passes its Pokémon (party-ui-handler.ts); every other way in has none, and so
+    // does moving on to another species from this page
+    const markPokemon = args[5] as Pokemon | undefined;
+    this.markPokemon =
+      Array.isArray(markPokemon?.marks) && markPokemon.species.speciesId === this.species.speciesId
+        ? markPokemon
+        : null;
+    this.isMarkTrayOpen = false;
+    this.markContainer.close();
 
     this.moveInfoOverlay.clear(); // clear this when removing a menu; the cancel button doesn't seem to trigger this automatically on controllers
     this.infoOverlay.clear();
@@ -776,7 +810,7 @@ export class PokedexPageUiHandler extends MessageUiHandler {
 
     this.starterPreferences = this.initStarterPrefs();
 
-    this.menuOptions = getEnumValues(MenuOptions);
+    this.menuOptions = getEnumValues(MenuOptions).filter(o => o !== MenuOptions.MARKS || this.markPokemon !== null);
 
     this.menuContainer.setVisible(true);
 
@@ -784,6 +818,10 @@ export class PokedexPageUiHandler extends MessageUiHandler {
     this.setSpecies();
     this.updateInstructions();
 
+    // Local fork (2026-11-17): with the marks' option the menu has a tenth line, which only fits above the message
+    // box with the lines closer together
+    this.menuLineSpacing = this.markPokemon ? MENU_LINE_SPACING_COMPACT : MENU_LINE_SPACING;
+    this.optionSelectText.setLineSpacing(this.menuLineSpacing);
     this.optionSelectText.setText(this.getMenuText());
 
     this.setCursor(0);
@@ -805,7 +843,8 @@ export class PokedexPageUiHandler extends MessageUiHandler {
           || (!globalScene.gameData.dexData[this.species.speciesId].ribbons.getRibbons()
             && o === MenuOptions.RIBBONS
             && !settings.display.showMissingRibbons
-            && !globalScene.gameData.starterData[this.species.speciesId]?.classicWinCount);
+            && !globalScene.gameData.starterData[this.species.speciesId]?.classicWinCount)
+          || (o === MenuOptions.MARKS && !this.markPokemon?.marks.length);
         const color = getTextColor(isDark ? TextStyle.SHADOW_TEXT : TextStyle.SETTINGS_VALUE, false);
         const shadow = getTextColor(isDark ? TextStyle.SHADOW_TEXT : TextStyle.SETTINGS_VALUE, true);
         return `[shadow=${shadow}][color=${color}]${label}[/color][/shadow]`;
@@ -1182,6 +1221,21 @@ export class PokedexPageUiHandler extends MessageUiHandler {
         return success;
       }
       return this.ribbonContainer.processInput(button);
+    }
+
+    // Local fork (2026-11-17): the marks' tray takes the input while it is open
+    if (this.isMarkTrayOpen) {
+      if (button === Button.CANCEL) {
+        this.isMarkTrayOpen = false;
+        this.markContainer.close();
+        this.setCursor(MenuOptions.MARKS);
+        ui.playSelect();
+        return success;
+      }
+      if (this.markContainer.processInput(button)) {
+        ui.playSelect();
+      }
+      return true;
     }
 
     if (this.blockInputOverlay) {
@@ -1787,6 +1841,17 @@ export class PokedexPageUiHandler extends MessageUiHandler {
             break;
           }
 
+          // Local fork (2026-11-17): the party Pokémon's marks and ribbons
+          case MenuOptions.MARKS:
+            if (!this.markPokemon || !this.markContainer.open(this.markPokemon)) {
+              ui.showText(i18next.t("pokedexUiHandler:noMarks"));
+              error = true;
+              break;
+            }
+            this.isMarkTrayOpen = true;
+            success = true;
+            break;
+
           case MenuOptions.NATURES:
             if (!isStarterCaught) {
               error = true;
@@ -2318,7 +2383,11 @@ export class PokedexPageUiHandler extends MessageUiHandler {
 
     this.cursorObj
       .setScale(this.scale * 6)
-      .setPositionRelative(this.menuBg, 7, 6 + (18 + this.cursor * 96) * this.scale);
+      .setPositionRelative(
+        this.menuBg,
+        7,
+        6 + (18 + this.cursor * (MENU_LINE_HEIGHT + this.menuLineSpacing)) * this.scale,
+      );
 
     const ui = this.getUi();
 
@@ -2835,6 +2904,8 @@ export class PokedexPageUiHandler extends MessageUiHandler {
   }
 
   public override clear(): void {
+    this.isMarkTrayOpen = false;
+    this.markContainer.close();
     super.clear();
 
     this.cursor = -1;

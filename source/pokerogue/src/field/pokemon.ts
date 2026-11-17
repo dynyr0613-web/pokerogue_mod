@@ -70,6 +70,7 @@ import {
   PokemonWaveData,
 } from "#data/pokemon-data";
 import type { SpeciesFormChange } from "#data/pokemon-forms";
+import { applyWildMark, normalizeMarks } from "#data/pokemon-marks";
 import type { PokemonSpeciesForm } from "#data/pokemon-species";
 import { PokemonSpecies } from "#data/pokemon-species";
 import { getRandomStatus, getStatusEffectHealText, getStatusEffectOverlapText, Status } from "#data/status-effect";
@@ -104,6 +105,7 @@ import { Nature } from "#enums/nature";
 import { PartyUiMode } from "#enums/party-ui-mode";
 import { PokeballType } from "#enums/pokeball";
 import { PokemonAnimType } from "#enums/pokemon-anim-type";
+import type { PokemonMark } from "#enums/pokemon-mark";
 import { PokemonType } from "#enums/pokemon-type";
 import { SpeciesFormKey } from "#enums/species-form-key";
 import { SpeciesId } from "#enums/species-id";
@@ -118,7 +120,7 @@ import {
 } from "#enums/stat";
 import { StatusEffect } from "#enums/status-effect";
 import { SwitchType } from "#enums/switch-type";
-import type { TrainerSlot } from "#enums/trainer-slot";
+import { TrainerSlot } from "#enums/trainer-slot";
 import { UiMode } from "#enums/ui-mode";
 import { VolumeSetting } from "#enums/volume-setting";
 import { WeatherType } from "#enums/weather-type";
@@ -272,6 +274,12 @@ export abstract class Pokemon extends Phaser.GameObjects.Container {
    * copy of a party member an encounter makes from its data (Training Session), which gets them as it gets the IVs.
    */
   public evs: number[] = emptyEvs();
+  /**
+   * Local fork (2026-11-17): the marks (증표) and memorial ribbons (리본) this Pokémon carries, in the order it got
+   * them (pokemon-marks.ts). A wild Pokémon may be met with a mark, and a champion's ribbon goes to the party that
+   * beats them; a caught Pokémon keeps its marks, and they are saved with it (`PokemonData.marks`).
+   */
+  public marks: PokemonMark[] = [];
   public nature: Nature;
   public moveset: PokemonMove[];
   /**
@@ -412,6 +420,8 @@ export abstract class Pokemon extends Phaser.GameObjects.Container {
       this.ivs = dataSource.ivs;
       // Local fork (2026-11-12): EVs come with the data like the IVs (a copy, never shared); missing in older saves = 0
       this.evs = normalizeEvs(dataSource.evs);
+      // Local fork (2026-11-17): marks and ribbons come with the data too (a caught Pokémon's, a saved one's)
+      this.marks = normalizeMarks(dataSource.marks);
       this.passive = !!dataSource.passive;
       this.customPassiveSpecies = Array.isArray(dataSource.customPassiveSpecies)
         ? dataSource.customPassiveSpecies.slice()
@@ -533,6 +543,24 @@ export abstract class Pokemon extends Phaser.GameObjects.Container {
    * @param prependFormName - (Default `true`) Whether to put "Mega"/etc in front of the Pokemon's name if applicable
    * @returns The name to render for this {@linkcode Pokemon}.
    */
+  /**
+   * Local fork (2026-11-17): give this Pokémon a mark or ribbon (pokemon-marks.ts).
+   * @param mark - The mark or ribbon
+   * @returns Whether it was added; `false` if the Pokémon already had it
+   */
+  public addMark(mark: PokemonMark): boolean {
+    if (this.marks.includes(mark)) {
+      return false;
+    }
+    this.marks.push(mark);
+    return true;
+  }
+
+  /** Local fork (2026-11-17): whether this Pokémon carries the mark or ribbon */
+  public hasMark(mark: PokemonMark): boolean {
+    return this.marks.includes(mark);
+  }
+
   getNameToRender({
     useIllusion = true,
     prependFormName = true,
@@ -6690,6 +6718,8 @@ export class PlayerPokemon extends Pokemon {
         newPokemon.passive = this.passive;
         // Local fork (2026-11-12): Shedinja copies Nincada's EVs, as in the main series (its HP stays 1)
         newPokemon.evs = this.evs.slice();
+        // Local fork (2026-11-17): and its marks and ribbons, as in the main series
+        newPokemon.marks = this.marks.slice();
         newPokemon.customPassiveSpecies = this.customPassiveSpecies.slice();
         newPokemon.moveset = this.moveset.slice();
         newPokemon.moveset = this.copyMoveset();
@@ -6979,6 +7009,11 @@ export class EnemyPokemon extends Pokemon {
     }
     if (boss) {
       this.setBoss(boss, dataSource?.bossSegments);
+    }
+    // Local fork (2026-11-17): a newly met wild Pokémon may have a mark (pokemon-marks.ts); a reloaded one already
+    // has its own from the data, and trainers' Pokémon have none
+    if (!dataSource && trainerSlot === TrainerSlot.NONE) {
+      applyWildMark(this);
     }
 
     if (activeOverrides.ENEMY_STATUS_OVERRIDE) {

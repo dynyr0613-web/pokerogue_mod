@@ -82,5 +82,8 @@
   "sameSpeciesEgg": "알 구매하기",
   "locked": "잠김",
   "disabled": "비활성",
-  "uncaught": "미등록"
+  "uncaught": "미등록",
+  "menuMarks": "증표/리본",
+  "showMarks": "이 포켓몬의 증표와 리본을 확인합니다.",
+  "noMarks": "이 포켓몬은 증표나 리본을 가지고 있지 않다."
 }
