@@ -13,7 +13,7 @@ import {
   registerAlpha,
   rollAlphaBoost,
 } from "#data/alpha-pokemon";
-import { Egg } from "#data/egg";
+import { EGG_MASTER_BALL_RATE, Egg } from "#data/egg";
 import { Gender } from "#data/gender";
 import { BiomeId } from "#enums/biome-id";
 import { Challenges } from "#enums/challenges";
@@ -271,6 +271,29 @@ describe("Local fork - alpha Pokémon", () => {
     }
     expect(alphas).toBeGreaterThan(2);
     expect(alphas).toBeLessThan(30);
+  });
+
+  it("hatches about 1 Pokémon in 100 in a Master Ball, with the Master Ball Mark", async () => {
+    await game.classicMode.startBattle(SpeciesId.FEEBAS);
+    expect(EGG_MASTER_BALL_RATE).toBe(100);
+    let inMasterBall = 0;
+    const total = 800;
+    for (let i = 0; i < total; i++) {
+      const hatched = new Egg({
+        tier: EggTier.COMMON,
+        species: SpeciesId.MAGIKARP,
+        id: 1073751824 + i,
+      }).generatePlayerPokemon();
+      // The ball and the mark come together
+      expect(hatched.hasMark(PokemonMark.MASTER_BALL_MARK)).toBe(hatched.pokeball === PokeballType.MASTER_BALL);
+      if (hatched.pokeball === PokeballType.MASTER_BALL) {
+        inMasterBall++;
+      }
+      hatched.destroy();
+    }
+    // 8 expected
+    expect(inMasterBall).toBeGreaterThan(0);
+    expect(inMasterBall).toBeLessThan(24);
   });
 
   it("can hatch an alpha from an egg bought with candy", async () => {

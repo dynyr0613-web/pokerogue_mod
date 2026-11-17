@@ -3144,6 +3144,35 @@ export class ShinyRateBoosterModifier extends PersistentModifier {
   }
 }
 
+/**
+ * Local fork (2026-11-17): the Mark Charm (증표부적), the main series' item: a wild Pokémon's mark is rolled more often
+ * (pokemon-marks.ts, `applyWildMark`). As in Sword and Shield one charm makes it three rolls instead of one; each
+ * further charm adds two more, up to three charms (seven rolls).
+ */
+export class MarkRateBoosterModifier extends PersistentModifier {
+  match(modifier: Modifier): boolean {
+    return modifier instanceof MarkRateBoosterModifier;
+  }
+
+  clone(): MarkRateBoosterModifier {
+    return new MarkRateBoosterModifier(this.type, this.stackCount);
+  }
+
+  /**
+   * @param rolls - Holds how many times the wild mark is rolled
+   * @returns always `true`
+   */
+  override apply(rolls: NumberHolder): boolean {
+    rolls.value += 2 * this.getStackCount();
+
+    return true;
+  }
+
+  getMaxStackCount(): number {
+    return 3;
+  }
+}
+
 export class CriticalCatchChanceBoosterModifier extends PersistentModifier {
   match(modifier: Modifier): boolean {
     return modifier instanceof CriticalCatchChanceBoosterModifier;

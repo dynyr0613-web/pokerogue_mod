@@ -1,29 +1,25 @@
 import { globalScene } from "#app/global-scene";
 import { settings } from "#app/global-settings-manager";
-import { getMarkKey, MARKS_ATLAS_KEY, WILD_MARKS } from "#data/pokemon-marks";
-import { PokemonMark } from "#enums/pokemon-mark";
 import { Stat } from "#enums/stat";
 import { TextStyle } from "#enums/text-style";
 import { TypeHints } from "#enums/type-hints";
 import type { EnemyPokemon } from "#field/pokemon";
 import { BattleFlyout } from "#ui/battle-flyout";
 import type { BattleInfoParamList } from "#ui/battle-info";
-import { BattleInfo } from "#ui/battle-info";
+import { BattleInfo, TITLE_STALE } from "#ui/battle-info";
 import { addTextObject } from "#ui/text";
 import { addWindow, WindowVariant } from "#ui/ui-theme";
 import { getLocalizedSpriteKey } from "#utils/common";
 import i18next from "i18next";
 import type { GameObjects } from "phaser";
 
+/** Local fork (2026-11-17): the width of icons that fits left of a status before the HP bar's label, in px */
+const MAX_ICONS_WITH_STATUS = 18;
+
 export class EnemyBattleInfo extends BattleInfo {
   protected player: false = false;
   protected championRibbon: Phaser.GameObjects.Sprite;
   protected ownedIcon: Phaser.GameObjects.Sprite;
-  /**
-   * Local fork (2026-11-17): the icons of a wild Pokémon's marks, after the two icons below the name: its one wild
-   * mark and the Mini Mark (pokemon-marks.ts; an alpha's marks are its badge next to the name). The user: "야생 증표 표시"
-   */
-  protected markIcons: Phaser.GameObjects.Image[] = [];
   protected flyoutMenu: BattleFlyout;
 
   protected hpBarSegmentDividers: GameObjects.Rectangle[] = [];
@@ -82,19 +78,8 @@ export class EnemyBattleInfo extends BattleInfo {
       .setVisible(false)
       .setOrigin(0, 0)
       .setPositionRelative(this.nameText, 8, 11.75);
-    // Local fork (2026-11-17): the mark icons, see the field. The mark icons are 40 px; 0.2 makes them 8 px
-    for (let i = 0; i < 2; i++) {
-      this.markIcons.push(
-        globalScene.add
-          .image(0, 0, MARKS_ATLAS_KEY, getMarkKey(PokemonMark.RARE_MARK))
-          .setName(`icon_mark_${i}`)
-          .setVisible(false)
-          .setOrigin(0, 0)
-          .setScale(0.2),
-      );
-    }
     // Ensure these icons are positioned below the stats container
-    this.addAt([this.ownedIcon, this.championRibbon, ...this.markIcons], this.getIndex(this.statsContainer));
+    this.addAt([this.ownedIcon, this.championRibbon], this.getIndex(this.statsContainer));
 
     this.flyoutMenu = new BattleFlyout(this.player);
     this.add(this.flyoutMenu);
@@ -138,9 +123,7 @@ export class EnemyBattleInfo extends BattleInfo {
       && globalScene.gameData.starterData[pokemon.species.getRootSpeciesId()].classicWinCount > 0
       && globalScene.gameData.starterData[pokemon.species.getRootSpeciesId(true)].classicWinCount > 0
     ) {
-      // move the ribbon to the left if there is no owned icon
-      const championRibbonX = this.ownedIcon.visible ? 8 : 0;
-      this.championRibbon.setPositionRelative(this.nameText, championRibbonX, 11.75);
+      // Local fork (2026-11-17): placed with the rest of the row in layoutIconRow
       this.championRibbon.setVisible(true);
     }
 
@@ -160,17 +143,7 @@ export class EnemyBattleInfo extends BattleInfo {
       this.updateBossSegmentDividers(pokemon as EnemyPokemon);
     }
 
-    // Local fork (2026-11-17): the wild mark and the Mini Mark, after the icons above
-    const shownMarks = pokemon.marks.filter(m => WILD_MARKS.includes(m) || m === PokemonMark.MINI_MARK);
-    let markX = (this.ownedIcon.visible ? 8 : 0) + (this.championRibbon.visible ? 8 : 0);
-    this.markIcons.forEach((icon, i) => {
-      const mark = shownMarks[i];
-      icon.setVisible(mark !== undefined);
-      if (mark !== undefined) {
-        icon.setFrame(getMarkKey(mark)).setPositionRelative(this.nameText, markX, 11.75);
-        markX += 9;
-      }
-    });
+    this.layoutIconRow(pokemon);
   }
 
   /**
@@ -221,11 +194,17 @@ export class EnemyBattleInfo extends BattleInfo {
         this.shinyIcon,
         this.ownedIcon,
         this.championRibbon,
-        // Local fork (2026-11-17): the mark icons move with the name too; left behind they covered the boss HP label
+        // Local fork (2026-11-17): the mark icons and the title move with the name too; left behind they covered the
+        // boss HP label
         ...this.markIcons,
+        this.titleText,
         this.statusIndicator,
         this.statValuesContainer,
       ].map(e => (e.x += 48 * (boss ? -1 : 1)));
+      // Local fork (2026-11-17): and so does the left end of the row, which the name and the icons are placed from
+      this.nameTextBaseX += 48 * (boss ? -1 : 1);
+      // The boss box has more room for the name and the title, so they are worked out again at the next update
+      this.lastTitle = TITLE_STALE;
       this.hpBar.x += 38 * (boss ? -1 : 1);
       this.hpBar.y += 2 * (this.boss ? -1 : 1);
       this.hpBar.setTexture(`overlay_hp${boss ? "_boss" : ""}`);
@@ -268,8 +247,27 @@ export class EnemyBattleInfo extends BattleInfo {
     }
   }
 
+  /**
+   * Local fork (2026-11-17): place the row under the name from its left end: the mark icons, the owned icon, the
+   * classic-win ribbon, then the status. With a status there is room for 18 px of icons before the HP bar's label; if
+   * they need more, the marks give way while the status shows (they used to cover its letters).
+   * @returns Where the status goes, from the left end of the row
+   */
+  private layoutIconRow(pokemon: EnemyPokemon): number {
+    const otherWidth = (this.ownedIcon.visible ? 8 : 0) + (this.championRibbon.visible ? 8 : 0);
+    this.updateMarkIcons(pokemon);
+    if (pokemon.status?.effect && this.getMarkIconsWidth() + otherWidth > MAX_ICONS_WITH_STATUS) {
+      this.updateMarkIcons(pokemon, false);
+    }
+    const x = this.nameTextBaseX + this.getMarkIconsWidth();
+    const y = this.nameText.y + 11.75;
+    this.ownedIcon.setPosition(x, y);
+    this.championRibbon.setPosition(x + (this.ownedIcon.visible ? 8 : 0), y);
+    return this.getMarkIconsWidth() + otherWidth;
+  }
+
   override updateStatusIcon(pokemon: EnemyPokemon): void {
-    super.updateStatusIcon(pokemon, (this.ownedIcon.visible ? 8 : 0) + (this.championRibbon.visible ? 8 : 0));
+    super.updateStatusIcon(pokemon, this.layoutIconRow(pokemon));
   }
 
   protected override updatePokemonHp(

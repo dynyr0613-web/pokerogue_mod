@@ -5,6 +5,7 @@ import { activeOverrides } from "#app/overrides";
 import { Phase } from "#app/phase";
 import { SpeciesFormChangeMoveLearnedTrigger } from "#data/form-change-triggers";
 import { Gender } from "#data/gender";
+import { isPokemonMark } from "#data/pokemon-marks";
 import { ChallengeType } from "#enums/challenge-type";
 import { PokemonMark } from "#enums/pokemon-mark";
 import { UiMode } from "#enums/ui-mode";
@@ -84,6 +85,14 @@ export class SelectStarterPhase extends Phase {
       // Local fork (2026-11-17): and with the Partner Mark bought for it (pokemon-marks.ts)
       if (starter.partnerMark) {
         starterPokemon.addMark(PokemonMark.PARTNER_MARK);
+      }
+      if (starter.bestFriendsRibbon) {
+        starterPokemon.addMark(PokemonMark.BEST_FRIENDS_RIBBON);
+      }
+      // Local fork (2026-11-17): and wearing the mark chosen among the ones its line has collected
+      if (isPokemonMark(starter.equippedMark)) {
+        starterPokemon.addMark(starter.equippedMark);
+        starterPokemon.equippedMark = starter.equippedMark;
       }
       starterPokemon.luck = globalScene.gameData.getDexAttrLuck(
         globalScene.gameData.dexData[species.speciesId].caughtAttr,

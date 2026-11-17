@@ -17,7 +17,8 @@ import { getStatusEffectCatchRateMultiplier } from "#data/status-effect";
 import { BattlerIndex } from "#enums/battler-index";
 import { ChallengeType } from "#enums/challenge-type";
 import { PartyUiMode } from "#enums/party-ui-mode";
-import type { PokeballType } from "#enums/pokeball";
+import { PokeballType } from "#enums/pokeball";
+import { PokemonMark } from "#enums/pokemon-mark";
 import { StatusEffect } from "#enums/status-effect";
 import { UiMode } from "#enums/ui-mode";
 import type { EnemyPokemon } from "#field/pokemon";
@@ -319,6 +320,10 @@ export class AttemptCapturePhase extends PokemonPhase {
             }
           });
         };
+        // Local fork (2026-11-17): caught in a Master Ball, it carries the Master Ball Mark (pokemon-marks.ts)
+        if (this.pokeballType === PokeballType.MASTER_BALL) {
+          pokemon.addMark(PokemonMark.MASTER_BALL_MARK);
+        }
         Promise.all([pokemon.hideInfo(), gameData.setPokemonCaught(pokemon)]).then(() => {
           if (!addStatus.value) {
             removePokemon();

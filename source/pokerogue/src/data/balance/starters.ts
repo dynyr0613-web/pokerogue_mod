@@ -90,6 +90,15 @@ export function getPartnerMarkCandyCount(starterCost: number): number {
   return allStarterCandyCosts[starterCost - 1].passive;
 }
 
+/**
+ * Local fork (2026-11-17): the candy price of the Best Friends Ribbon for a starter, the step after the Partner Mark
+ * (the user: "절친리본은 친밀도 사탕의 다음 단계 구매로"): twice the Partner Mark's.
+ * @param starterCost - The default point cost of the starter
+ */
+export function getBestFriendsRibbonCandyCount(starterCost: number): number {
+  return getPartnerMarkCandyCount(starterCost) * 2;
+}
+
 export function getPassiveCandyCount(starterCost: number): number {
   return allStarterCandyCosts[starterCost - 1].passive;
 }

@@ -6,6 +6,7 @@ import { getPokemonNameWithAffix } from "#app/messages";
 import { TrappedTag } from "#data/battler-tags";
 import { getDailyEventSeedBoss } from "#data/daily-run";
 import { isDailyFinalBoss } from "#data/daily-seed-utils";
+import { isEndlessRaidWave } from "#data/endless-raid";
 import { AbilityId } from "#enums/ability-id";
 import { ArenaTagSide } from "#enums/arena-tag-side";
 import { ArenaTagType } from "#enums/arena-tag-type";
@@ -373,6 +374,10 @@ export class CommandPhase extends FieldPhase {
       gameData.getStarterCount(d => !!d.caughtAttr) < speciesDataRegistry.getAllStarters().length - 1;
     const isCatchableDailyBoss = isDailyFinalBoss() && (getDailyEventSeedBoss()?.catchable ?? false);
 
+    // Local fork (2026-11-17): the raid's boss can always be caught, in the END biome too (endless-raid.ts)
+    if (isEndlessRaidWave(gameMode, currentBattle.waveIndex) && battleType === BattleType.WILD) {
+      return true;
+    }
     if (biomeId === BiomeId.END && battleType === BattleType.WILD) {
       if (
         (isClassic && !isClassicFinalBoss && someUncaughtSpeciesOnField)

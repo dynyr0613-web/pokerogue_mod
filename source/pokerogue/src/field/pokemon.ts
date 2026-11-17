@@ -80,6 +80,7 @@ import {
   PokemonWaveData,
 } from "#data/pokemon-data";
 import type { SpeciesFormChange } from "#data/pokemon-forms";
+import { applyRaidHpMultiplier, isEndlessRaidWave } from "#data/endless-raid";
 import { applyWildMark, normalizeMarks } from "#data/pokemon-marks";
 import type { PokemonSpeciesForm } from "#data/pokemon-species";
 import { PokemonSpecies } from "#data/pokemon-species";
@@ -292,6 +293,12 @@ export abstract class Pokemon extends Phaser.GameObjects.Container {
    */
   public marks: PokemonMark[] = [];
   /**
+   * Local fork (2026-11-17): the mark or ribbon this Pokémon wears, one of {@linkcode marks}: its title goes before
+   * the Pokémon's name (`getPokemonTitle`). `null` shows the title of its most telling mark, as before. Chosen on the
+   * Pokédex page's mark list; saved with the Pokémon (`PokemonData.equippedMark`).
+   */
+  public equippedMark: PokemonMark | null = null;
+  /**
    * Local fork (2026-11-17): an alpha's stat boost in percent (1 to 20), 0 for an ordinary Pokémon (alpha-pokemon.ts).
    * Every stat is raised by it in {@linkcode calculateStats} and the sprite is drawn 10% larger
    * ({@linkcode getSpriteScale}). It belongs to the Pokémon, so evolution and form changes keep it; set it with
@@ -440,6 +447,7 @@ export abstract class Pokemon extends Phaser.GameObjects.Container {
       this.evs = normalizeEvs(dataSource.evs);
       // Local fork (2026-11-17): marks and ribbons come with the data too (a caught Pokémon's, a saved one's)
       this.marks = normalizeMarks(dataSource.marks);
+      this.equippedMark = this.marks.find(m => m === dataSource.equippedMark) ?? null;
       // Local fork (2026-11-17): and whether it is an alpha (alpha-pokemon.ts)
       this.alphaBoost = normalizeAlphaBoost(dataSource.alphaBoost);
       this.passive = !!dataSource.passive;
@@ -1775,6 +1783,8 @@ export abstract class Pokemon extends Phaser.GameObjects.Container {
         statHolder.value = applyEndlessBossHpCorrection(this, statHolder.value);
         // Local fork (2026-11-17): an alpha's boost, on the finished max HP (alpha-pokemon.ts)
         statHolder.value = applyAlphaStatBoost(this, statHolder.value);
+        // Local fork (2026-11-17): the raid boss' HP multiplier (endless-raid.ts)
+        statHolder.value = applyRaidHpMultiplier(this, statHolder.value);
         if (this.hasAbility(AbilityId.WONDER_GUARD, false, true)) {
           statHolder.value = 1;
         }
@@ -6855,6 +6865,7 @@ export class PlayerPokemon extends Pokemon {
         newPokemon.evs = this.evs.slice();
         // Local fork (2026-11-17): and its marks and ribbons, as in the main series
         newPokemon.marks = this.marks.slice();
+        newPokemon.equippedMark = this.equippedMark;
         // Local fork (2026-11-17): an alpha Nincada leaves an alpha Shedinja
         newPokemon.setAlphaBoost(this.alphaBoost);
         newPokemon.customPassiveSpecies = this.customPassiveSpecies.slice();
@@ -7161,6 +7172,14 @@ export class EnemyPokemon extends Pokemon {
       // Local fork (2026-11-17): and it may be an alpha (alpha-pokemon.ts); bosses are left as they are
       if (!boss) {
         applyWildAlpha(this);
+      }
+      // Local fork (2026-11-17): the raid's boss is Terastallized and carries the Mightiest Mark (endless-raid.ts)
+      if (boss && isEndlessRaidWave(globalScene.gameMode, globalScene.currentBattle?.waveIndex)) {
+        this.isTerastallized = true;
+        this.addMark(PokemonMark.MIGHTIEST_MARK);
+        // The mark makes it the raid's boss, whose max HP is multiplied
+        this.calculateStats();
+        this.hp = this.getMaxHp();
       }
     }
 

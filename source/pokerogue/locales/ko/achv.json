@@ -322,7 +322,7 @@
   "marksAllKinds": {
     "name": "증표 도감 완성",
     "name_female": "증표 도감 완성",
-    "description": "일반 증표 41종과 커다란·조그만·파트너의증표, 빛나는·찬란한·눈부신증표를 모두 획득"
+    "description": "일반 증표 41종과 커다란·조그만·파트너의증표, 빛나는·찬란한증표를 모두 획득"
   },
   "alphaMarks10": {
     "name": "우두머리 사냥꾼",
@@ -363,5 +363,35 @@
     "name": "챔피언 로드 완주",
     "name_female": "챔피언 로드 완주",
     "description": "기념 리본을 모든 종류 획득"
+  },
+  "markDexOne": {
+    "name": "한 우물",
+    "name_female": "한 우물",
+    "description": "한 포켓몬으로 히든 증표를 뺀 모든 증표와 리본을 수집"
+  },
+  "effortRibbon": {
+    "name": "노력의 결실",
+    "name_female": "노력의 결실",
+    "description": "노력리본을 획득"
+  },
+  "hiddenMark": {
+    "name": "숨겨진 증표",
+    "name_female": "숨겨진 증표",
+    "description": "히든 증표를 획득"
+  },
+  "mightiestMark": {
+    "name": "최강의 증명",
+    "name_female": "최강의 증명",
+    "description": "최강의증표를 가진 포켓몬을 포획"
+  },
+  "eternatusMark": {
+    "name": "무한의 끝",
+    "name_female": "무한의 끝",
+    "description": "무한다이노의증표를 획득"
+  },
+  "theEnd": {
+    "name": "완주",
+    "name_female": "완주",
+    "description": "모든 히든 증표를 획득하고 다른 모든 업적을 달성"
   }
 }

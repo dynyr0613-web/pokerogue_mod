@@ -1012,6 +1012,10 @@ export class FreshStartChallenge extends Challenge {
     starterDataEntry.alphaEnabled = false;
     starterDataEntry.alphaBoost = 0;
     starterDataEntry.partnerMark = false;
+    // Local fork (2026-11-17): nor the Best Friends Ribbon or a mark worn from the line's collection
+    starterDataEntry.bestFriendsRibbon = false;
+    starterDataEntry.equippedMark = undefined;
+    starterDataEntry.marks = undefined;
 
     // Remove natures except for the default ones
     const neutralNaturesAttr =

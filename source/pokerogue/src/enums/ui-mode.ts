@@ -47,4 +47,6 @@ export enum UiMode {
   MYSTERY_ENCOUNTER,
   CHANGE_PASSWORD_FORM,
   ALERT_MODAL,
+  /** Local fork (2026-11-17): the mark Pokédex (mark-dex-ui-handler.ts) */
+  MARK_DEX,
 }

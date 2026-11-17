@@ -291,7 +291,8 @@ export class EncounterPhase extends BattlePhase {
             enemyPokemon.setVisible(false);
             globalScene.currentBattle.trainer?.tint(0, 0.5);
           }
-          if (battle.double) {
+          // Local fork (2026-11-17): the raid's lone boss stays in the middle of its side (endless-raid.ts)
+          if (battle.double && (battle.enemyLevels?.length ?? 0) > 1) {
             enemyPokemon.setFieldPosition(e ? FieldPosition.RIGHT : FieldPosition.LEFT);
           }
         }

@@ -134,6 +134,7 @@ import {
   LevelIncrementBoosterModifier,
   LockModifierTiersModifier,
   MapModifier,
+  MarkRateBoosterModifier,
   MegaEvolutionAccessModifier,
   type Modifier,
   MoneyInterestModifier,
@@ -2993,6 +2994,13 @@ const modifierTypeInitObj = Object.freeze({
       "modifierType:ModifierType.SHINY_CHARM",
       "shiny_charm",
       (type, _args) => new ShinyRateBoosterModifier(type),
+    ),
+  // Local fork (2026-11-17): the Mark Charm, more rolls for a wild Pokémon's mark (MarkRateBoosterModifier)
+  MARK_CHARM: () =>
+    new ModifierType(
+      "modifierType:ModifierType.MARK_CHARM",
+      "mark_charm",
+      (type, _args) => new MarkRateBoosterModifier(type),
     ),
   ABILITY_CHARM: () =>
     new ModifierType(

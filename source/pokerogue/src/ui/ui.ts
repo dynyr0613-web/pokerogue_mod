@@ -36,6 +36,7 @@ import { SettingsKeyboardUiHandler } from "#ui/keyboard-settings-ui-handler";
 import { LoadingModalUiHandler } from "#ui/loading-modal-ui-handler";
 import { LoginFormUiHandler } from "#ui/login-form-ui-handler";
 import { LoginOrRegisterUiHandler } from "#ui/login-or-register-ui-handler";
+import { MarkDexUiHandler } from "#ui/mark-dex-ui-handler";
 import { MenuUiHandler } from "#ui/menu-ui-handler";
 import { MessageUiHandler } from "#ui/message-ui-handler";
 import { ModifierSelectUiHandler } from "#ui/modifier-select-ui-handler";
@@ -94,6 +95,7 @@ const noTransitionModes = [
   UiMode.SETTINGS_GAMEPAD,
   UiMode.SETTINGS_KEYBOARD,
   UiMode.ACHIEVEMENTS,
+  UiMode.MARK_DEX,
   UiMode.GAME_STATS,
   UiMode.POKEDEX_SCAN,
   UiMode.LOGIN_FORM,
@@ -184,6 +186,8 @@ export class UI extends Phaser.GameObjects.Container {
       new MysteryEncounterUiHandler(),
       new ChangePasswordFormUiHandler(),
       new AlertModalUiHandler(),
+      // Local fork (2026-11-17): the mark Pokédex, opened from the menu
+      new MarkDexUiHandler(),
     ];
   }
 

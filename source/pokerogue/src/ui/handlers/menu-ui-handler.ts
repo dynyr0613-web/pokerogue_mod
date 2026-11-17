@@ -46,6 +46,8 @@ enum MenuOptions {
   EGG_LIST,
   EGG_GACHA,
   POKEDEX,
+  /** Local fork (2026-11-17): the mark Pokédex (mark-dex-ui-handler.ts) */
+  MARK_DEX,
   MANAGE_DATA,
   COMMUNITY,
   SAVE_AND_QUIT,
@@ -602,6 +604,10 @@ export class MenuUiHandler extends OptionSelectUiHandler {
       case MenuOptions.POKEDEX:
         ui.revertMode();
         ui.setOverlayMode(UiMode.POKEDEX);
+        success = true;
+        break;
+      case MenuOptions.MARK_DEX:
+        ui.setOverlayMode(UiMode.MARK_DEX);
         success = true;
         break;
       case MenuOptions.MANAGE_DATA:

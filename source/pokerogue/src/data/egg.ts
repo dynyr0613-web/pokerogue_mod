@@ -33,6 +33,8 @@ import { rollAlphaBoost } from "#data/alpha-pokemon";
 import { DexAttr } from "#enums/dex-attr";
 import { EggSourceType } from "#enums/egg-source-types";
 import { EggTier } from "#enums/egg-type";
+import { PokeballType } from "#enums/pokeball";
+import { PokemonMark } from "#enums/pokemon-mark";
 import { SpeciesId } from "#enums/species-id";
 import { VariantTier } from "#enums/variant-tier";
 import type { PlayerPokemon } from "#field/pokemon";
@@ -83,6 +85,9 @@ export interface IEggOptions {
   /** Can customize the message displayed for where the egg was obtained */
   eggDescriptor?: string;
 }
+
+/** Local fork (2026-11-17): 1 hatched Pokémon in this many comes in a Master Ball, with the Master Ball Mark */
+export const EGG_MASTER_BALL_RATE = 100;
 
 export class Egg {
   // #region Private properties
@@ -280,6 +285,12 @@ export class Egg {
       // Local fork (2026-11-17): a hatched Pokémon may be an alpha, as a wild one may (alpha-pokemon.ts). Rolled last,
       // so everything above comes out as it did before
       ret.setAlphaBoost(rollAlphaBoost());
+      // Local fork (2026-11-17): 1 hatched Pokémon in 100 comes in a Master Ball, with the Master Ball Mark (the user:
+      // "알 뽑기에서도 1% 확률로 마스터볼에 잡힌 채 나오게"). Rolled after the alpha, for the same reason
+      if (!randSeedInt(EGG_MASTER_BALL_RATE)) {
+        ret.pokeball = PokeballType.MASTER_BALL;
+        ret.addMark(PokemonMark.MASTER_BALL_MARK);
+      }
     };
 
     ret = ret!; // Tell TS compiler it's defined now

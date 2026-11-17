@@ -10,6 +10,7 @@ import { speciesEggMoves } from "#balance/egg-moves";
 // Local fork (2026-11-12): our passives wait for the first Classic clear
 import { isForkContentUnlocked } from "#balance/fork-unlock";
 import {
+  getBestFriendsRibbonCandyCount,
   getMaxValueReductions,
   getPartnerMarkCandyCount,
   getPassiveCandyCount,
@@ -21,7 +22,7 @@ import { getStarterAlphaBoost, normalizeAlphaBoost } from "#data/alpha-pokemon";
 import { allAbilities, allMoves } from "#data/data-lists";
 import { Egg } from "#data/egg";
 import { getNatureName } from "#data/nature";
-import { getMarkName } from "#data/pokemon-marks";
+import { getMarkName, getStarterEquippedMark } from "#data/pokemon-marks";
 import type { PokemonSpecies } from "#data/pokemon-species";
 import { AbilityAttr } from "#enums/ability-attr";
 import { AbilityId } from "#enums/ability-id";
@@ -2126,29 +2127,39 @@ export class StarterSelectUiHandler extends MessageUiHandler {
         });
       }
 
-      // Local fork (2026-11-17): buy the Partner Mark; the starter then carries it every run (pokemon-marks.ts)
-      if (!persistentStarterData.partnerMark && !globalScene.gameMode.hasChallenge(Challenges.FRESH_START)) {
-        const partnerMarkCost = getPartnerMarkCandyCount(speciesDataRegistry.getStarterCost(this.lastStarterId));
-        const canBuyPartnerMark = (): boolean =>
-          activeOverrides.FREE_CANDY_UPGRADE_OVERRIDE || persistentStarterData.candyCount >= partnerMarkCost;
+      // Local fork (2026-11-17): buy the Partner Mark, then the Best Friends Ribbon (the user: "절친리본은 친밀도 사탕의
+      // 다음 단계 구매로"); the starter then carries them every run (pokemon-marks.ts)
+      const candyMark = persistentStarterData.partnerMark
+        ? persistentStarterData.bestFriendsRibbon
+          ? null
+          : ({ mark: PokemonMark.BEST_FRIENDS_RIBBON, field: "bestFriendsRibbon" } as const)
+        : ({ mark: PokemonMark.PARTNER_MARK, field: "partnerMark" } as const);
+      if (candyMark && !globalScene.gameMode.hasChallenge(Challenges.FRESH_START)) {
+        const baseCost = speciesDataRegistry.getStarterCost(this.lastStarterId);
+        const candyMarkCost =
+          candyMark.field === "partnerMark"
+            ? getPartnerMarkCandyCount(baseCost)
+            : getBestFriendsRibbonCandyCount(baseCost);
+        const canBuyCandyMark = (): boolean =>
+          activeOverrides.FREE_CANDY_UPGRADE_OVERRIDE || persistentStarterData.candyCount >= candyMarkCost;
         useCandiesOptions.push({
-          label: `×${partnerMarkCost} ${getMarkName(PokemonMark.PARTNER_MARK)}`,
+          label: `×${candyMarkCost} ${getMarkName(candyMark.mark)}`,
           handler: () => {
-            if (!canBuyPartnerMark()) {
+            if (!canBuyCandyMark()) {
               return false;
             }
-            persistentStarterData.partnerMark = true;
-            starterData.partnerMark = true;
+            persistentStarterData[candyMark.field] = true;
+            starterData[candyMark.field] = true;
             if (isDupe) {
-              this.partyStarters[removeIndex].partnerMark = true;
+              this.partyStarters[removeIndex][candyMark.field] = true;
             }
             if (!activeOverrides.FREE_CANDY_UPGRADE_OVERRIDE) {
-              persistentStarterData.candyCount -= partnerMarkCost;
+              persistentStarterData.candyCount -= candyMarkCost;
               starterData.candyCount = persistentStarterData.candyCount;
             }
             this.starterSummary.updateCandyCount(starterData.candyCount);
             // The mark counts for the collection once, when it is bought
-            globalScene.gameData.registerMarks([PokemonMark.PARTNER_MARK]);
+            globalScene.gameData.registerMarks([candyMark.mark], this.lastStarterId);
             globalScene.gameData.saveSystem().then(success => {
               if (!success) {
                 return globalScene.reset(true);
@@ -2162,8 +2173,8 @@ export class StarterSelectUiHandler extends MessageUiHandler {
             }
             return true;
           },
-          color: canBuyPartnerMark() ? TextStyle.WINDOW : TextStyle.SHADOW_TEXT,
-          iconsConfig: getCandyIconsConfig(getColors(() => canBuyPartnerMark())),
+          color: canBuyCandyMark() ? TextStyle.WINDOW : TextStyle.SHADOW_TEXT,
+          iconsConfig: getCandyIconsConfig(getColors(() => canBuyCandyMark())),
         });
       }
 
@@ -2284,6 +2295,11 @@ export class StarterSelectUiHandler extends MessageUiHandler {
             if (species) {
               starterContainer = this.starterContainers[this.cursor];
               const persistentStarterData = globalScene.gameData.starterData[this.lastStarterId];
+              // Local fork (2026-11-17): a starter already in the party follows the mark worn on the Pokédex page
+              const partyStarter = this.partyStarters[this.partyStarterIds.indexOf(this.lastStarterId)];
+              if (partyStarter) {
+                partyStarter.equippedMark = getStarterEquippedMark(persistentStarterData) ?? undefined;
+              }
               this.updateCandyUpgradeDisplay(starterContainer);
               this.updateStarterValueLabel(starterContainer);
               starterContainer.starterPassiveBgs.setVisible(
@@ -2452,10 +2468,12 @@ export class StarterSelectUiHandler extends MessageUiHandler {
         (starterDataEntry.passiveAttr & (PassiveAttr.ENABLED | PassiveAttr.UNLOCKED))
         === (PassiveAttr.ENABLED | PassiveAttr.UNLOCKED),
       customPassiveSpecies: starterDataEntry.customPassiveSpecies?.slice() ?? [],
-      // Local fork (2026-11-17): taken as an alpha if that is switched on for the starter (alpha-pokemon.ts). Both come
-      // from the challenge copy, like the passive: Fresh Start takes away the alpha and the Partner Mark
+      // Local fork (2026-11-17): taken as an alpha if that is switched on for the starter (alpha-pokemon.ts). These come
+      // from the challenge copy, like the passive: Fresh Start takes away the alpha and the marks
       alphaBoost: getStarterAlphaBoost(starterDataEntry),
       partnerMark: !!starterDataEntry.partnerMark,
+      bestFriendsRibbon: !!starterDataEntry.bestFriendsRibbon,
+      equippedMark: getStarterEquippedMark(starterDataEntry) ?? undefined,
       nature,
       moveset,
       pokerus: this.pokerusSpeciesIds.includes(starterId),

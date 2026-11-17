@@ -21,6 +21,7 @@ import { GrowthRate, getGrowthRateColor } from "#data/exp";
 import { Gender, getGenderColor, getGenderSymbol } from "#data/gender";
 import { getNatureName } from "#data/nature";
 import type { SpeciesFormChange } from "#data/pokemon-forms";
+import { getCollectedMarks, getStarterEquippedMark, isMarkCollectionComplete } from "#data/pokemon-marks";
 import type { PokemonSpecies } from "#data/pokemon-species";
 import { normalForm } from "#data/pokemon-species";
 import { AbilityAttr } from "#enums/ability-attr";
@@ -54,7 +55,7 @@ import type { StarterSpeciesId } from "#types/starter-species-id";
 import type { OptionSelectIconConfig, OptionSelectItem, OptionSelectModeConfig } from "#types/ui-types";
 import { BaseStatsOverlay } from "#ui/base-stats-overlay";
 import { getLearnableMoveSourceIconFrame } from "#ui/learnable-move-utils";
-import { MarkTray } from "#ui/mark-tray-container";
+import { MarkTray, type MarkTraySource } from "#ui/mark-tray-container";
 import { MessageUiHandler } from "#ui/message-ui-handler";
 import { MoveInfoOverlay } from "#ui/move-info-overlay";
 import { PokedexInfoOverlay } from "#ui/pokedex-info-overlay";
@@ -818,7 +819,9 @@ export class PokedexPageUiHandler extends MessageUiHandler {
 
     this.starterPreferences = this.initStarterPrefs();
 
-    this.menuOptions = getEnumValues(MenuOptions).filter(o => o !== MenuOptions.MARKS || this.markPokemon !== null);
+    // Local fork (2026-11-17): the marks' option is always there: a party Pokémon's own marks, otherwise the marks
+    // the species' line has collected (the user: "스타터 선택의 포켓몬 도감에서 증표 볼때 장착 가능하게")
+    this.menuOptions = getEnumValues(MenuOptions);
 
     this.menuContainer.setVisible(true);
 
@@ -828,13 +831,48 @@ export class PokedexPageUiHandler extends MessageUiHandler {
 
     // Local fork (2026-11-17): with the marks' option the menu has a tenth line, which only fits above the message
     // box with the lines closer together
-    this.menuLineSpacing = this.markPokemon ? MENU_LINE_SPACING_COMPACT : MENU_LINE_SPACING;
+    this.menuLineSpacing = MENU_LINE_SPACING_COMPACT;
     this.optionSelectText.setLineSpacing(this.menuLineSpacing);
     this.optionSelectText.setText(this.getMenuText());
 
     this.setCursor(0);
 
     return true;
+  }
+
+  /**
+   * Local fork (2026-11-17): whose marks the tray shows: the party Pokémon's own, or with none the collection of the
+   * species' starter line, where the worn mark is the one the starter is taken with (saved at once).
+   */
+  private getMarkTraySource(): MarkTraySource {
+    const pokemon = this.markPokemon;
+    const entry = globalScene.gameData.starterData[this.species.getRootSpeciesId()];
+    const complete = isMarkCollectionComplete(getCollectedMarks(entry));
+    if (pokemon) {
+      return {
+        owned: pokemon.marks.slice(),
+        complete,
+        alphaBoost: pokemon.alphaBoost,
+        equipped: pokemon.equippedMark,
+        setEquipped: mark => {
+          pokemon.equippedMark = mark;
+          pokemon.updateInfo();
+        },
+      };
+    }
+    return {
+      owned: getCollectedMarks(entry),
+      complete,
+      alphaBoost: entry?.alphaBoost ?? 0,
+      equipped: getStarterEquippedMark(entry),
+      setEquipped: mark => {
+        if (!entry) {
+          return;
+        }
+        entry.equippedMark = mark ?? undefined;
+        globalScene.gameData.saveSystem();
+      },
+    };
   }
 
   private getMenuText(): string {
@@ -852,7 +890,7 @@ export class PokedexPageUiHandler extends MessageUiHandler {
             && o === MenuOptions.RIBBONS
             && !settings.display.showMissingRibbons
             && !globalScene.gameData.starterData[this.species.speciesId]?.classicWinCount)
-          || (o === MenuOptions.MARKS && !this.markPokemon);
+          || (o === MenuOptions.MARKS && !this.markPokemon && !isStarterCaught);
         const color = getTextColor(isDark ? TextStyle.SHADOW_TEXT : TextStyle.SETTINGS_VALUE, false);
         const shadow = getTextColor(isDark ? TextStyle.SHADOW_TEXT : TextStyle.SETTINGS_VALUE, true);
         return `[shadow=${shadow}][color=${color}]${label}[/color][/shadow]`;
@@ -1887,12 +1925,12 @@ export class PokedexPageUiHandler extends MessageUiHandler {
 
           // Local fork (2026-11-17): the party Pokémon's marks and ribbons
           case MenuOptions.MARKS:
-            if (!this.markPokemon) {
+            if (!this.markPokemon && !isStarterCaught) {
               error = true;
               break;
             }
             // The tray lists every mark, the ones not obtained greyed out, so it opens for any Pokémon
-            this.markContainer.open(this.markPokemon);
+            this.markContainer.open(this.getMarkTraySource());
             this.isMarkTrayOpen = true;
             success = true;
             break;

@@ -7,10 +7,12 @@ import { speciesDataRegistry } from "#app/global-species-data-registry";
 import { bypassLogin } from "#constants/app-constants";
 import { modifierTypes } from "#data/data-lists";
 import { getCharVariantFromDialogue } from "#data/dialogue";
+import { awardPartyRibbon } from "#data/pokemon-marks";
 import type { PokemonSpecies } from "#data/pokemon-species";
 import { BattleType } from "#enums/battle-type";
 import { ChallengeType } from "#enums/challenge-type";
 import { PlayerGender } from "#enums/player-gender";
+import { PokemonMark } from "#enums/pokemon-mark";
 import { TrainerType } from "#enums/trainer-type";
 import { UiMode } from "#enums/ui-mode";
 import { Unlockables } from "#enums/unlockables";
@@ -69,6 +71,9 @@ export class GameOverPhase extends BattlePhase {
     // Otherwise, continue standard Game Over logic
 
     if (this.isVictory && globalScene.gameMode.isEndless) {
+      // Local fork (2026-11-17): the party that clears Endless gets the Endless Master Ribbon (the user: "배틀타워는
+      // 엔드리스 클리어 증표처럼 하고 이름을 바꿔보죠")
+      awardPartyRibbon(PokemonMark.ENDLESS_MASTER_RIBBON);
       const genderIndex = settings.general.playerGender;
       const genderStr = PlayerGender[genderIndex].toLowerCase();
       globalScene.ui.showDialogue(

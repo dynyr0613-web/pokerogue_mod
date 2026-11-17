@@ -10,19 +10,37 @@
  *   (alpha-pokemon.ts).
  * - The Once-in-a-Lifetime Ribbon comes with 1 Hyper GTS Wonder Trade Pokémon in 10, the Partner Mark is bought for
  *   a starter with candy, and a shiny Pokémon that is caught or hatched gets its tier's shiny mark.
- * - The Mightiest Mark is defined and shown, but nothing gives it yet (see the enum).
+ * - The Egg Move Mark and the Perfect IV Mark are a starter line's, for all its egg moves unlocked and best IVs of
+ *   31 in every stat (`getAchievedLineMarks`); the Master Ball Mark is for a Pokémon caught in a Master Ball, or
+ *   obtained at all if its line is never met in the wild (`isWildLine`).
+ * - The Eternatus Mark is the player's own hidden mark, not a Pokémon's (`hasEternatusMark`).
+ * - The Mightiest Mark comes with the boss of the raid on wave 5849 of Endless (endless-raid.ts).
+ * - The Best Friends Ribbon is bought after the Partner Mark; the six stat effort ribbons, the Effort Ribbon and the
+ *   two footprint ribbons are earned during a run (`awardProgressRibbons`); the Endless Master Ribbon goes to the
+ *   party that clears Endless (`awardPartyRibbon`).
+ *
+ * One mark can be worn (`Pokemon.equippedMark`): its title goes before the Pokémon's name (`getPokemonTitle`). Each
+ * starter line remembers the marks its Pokémon have collected (`StarterDataEntry.marks`), and a starter can be taken
+ * wearing one of them.
  *
  * A Pokémon's marks are `Pokemon.marks`, saved with it (`PokemonData.marks`) and shown on the Pokédex page opened
  * from the party (`MarkTray`). The icons are the atlas `marks` (tools/port/make_marks_atlas.py).
  */
 
 import { globalScene } from "#app/global-scene";
+import { speciesDataRegistry } from "#app/global-species-data-registry";
+import { speciesEggMoves } from "#balance/egg-moves";
+import { catchableSpecies } from "#data/data-lists";
 import { PokemonMark } from "#enums/pokemon-mark";
+import { SpeciesId } from "#enums/species-id";
+import { PERMANENT_STATS, type PermanentStat, Stat } from "#enums/stat";
 import { TimeOfDay } from "#enums/time-of-day";
 import { TrainerType } from "#enums/trainer-type";
 import { WeatherType } from "#enums/weather-type";
 import type { Pokemon } from "#field/pokemon";
-import { randSeedInt, randSeedItem } from "#utils/common";
+import { getEvCap } from "#modifiers/ev-items";
+import type { StarterDataEntry } from "#types/save-data";
+import { NumberHolder, randSeedInt, randSeedItem } from "#utils/common";
 import { toCamelCase } from "#utils/strings";
 import i18next from "i18next";
 import Phaser from "phaser";
@@ -41,6 +59,17 @@ export const orderedPokemonMarks: readonly PokemonMark[] = [
   PokemonMark.PALDEA_CHAMPION_RIBBON,
   PokemonMark.LEGEND_RIBBON,
   PokemonMark.ONCE_IN_A_LIFETIME_RIBBON,
+  PokemonMark.ENDLESS_MASTER_RIBBON,
+  PokemonMark.BEST_FRIENDS_RIBBON,
+  PokemonMark.FOOTPRINT_RIBBON,
+  PokemonMark.GRAND_FOOTPRINT_RIBBON,
+  PokemonMark.EFFORT_RIBBON,
+  PokemonMark.HP_EFFORT_RIBBON,
+  PokemonMark.ATK_EFFORT_RIBBON,
+  PokemonMark.DEF_EFFORT_RIBBON,
+  PokemonMark.SPATK_EFFORT_RIBBON,
+  PokemonMark.SPDEF_EFFORT_RIBBON,
+  PokemonMark.SPD_EFFORT_RIBBON,
   PokemonMark.MIGHTIEST_MARK,
   PokemonMark.GOLDEN_ALPHA_MARK,
   PokemonMark.ALPHA_MARK,
@@ -50,6 +79,9 @@ export const orderedPokemonMarks: readonly PokemonMark[] = [
   PokemonMark.SHINY_MARK,
   PokemonMark.RARE_SHINY_MARK,
   PokemonMark.EPIC_SHINY_MARK,
+  PokemonMark.EGG_MOVES_MARK,
+  PokemonMark.PERFECT_IV_MARK,
+  PokemonMark.MASTER_BALL_MARK,
   PokemonMark.LUNCHTIME_MARK,
   PokemonMark.SLEEPY_TIME_MARK,
   PokemonMark.DUSK_MARK,
@@ -122,6 +154,20 @@ const TITLE_MARKS: readonly PokemonMark[] = [
   PokemonMark.PARTNER_MARK,
 ];
 
+/** The stat effort ribbon of each stat's EVs (the user: "노력치는 노력치별로 색깔 다르게 해서 추가") */
+export const STAT_EFFORT_RIBBONS: Readonly<Record<PermanentStat, PokemonMark>> = {
+  [Stat.HP]: PokemonMark.HP_EFFORT_RIBBON,
+  [Stat.ATK]: PokemonMark.ATK_EFFORT_RIBBON,
+  [Stat.DEF]: PokemonMark.DEF_EFFORT_RIBBON,
+  [Stat.SPATK]: PokemonMark.SPATK_EFFORT_RIBBON,
+  [Stat.SPDEF]: PokemonMark.SPDEF_EFFORT_RIBBON,
+  [Stat.SPD]: PokemonMark.SPD_EFFORT_RIBBON,
+};
+
+/** The level a Pokémon reaches for the Footprint Ribbon, and in Endless for the Grand Footprint Ribbon */
+export const FOOTPRINT_LEVEL = 200;
+export const GRAND_FOOTPRINT_LEVEL = 100000;
+
 /** The 28 personality marks, one of which a wild Pokémon has 1 time in 100 */
 const PERSONALITY_MARKS: readonly PokemonMark[] = orderedPokemonMarks.filter(
   m => m >= PokemonMark.ROWDY_MARK && m <= PokemonMark.SLUMP_MARK,
@@ -164,6 +210,11 @@ export const TRAINER_RIBBONS: Partial<Record<TrainerType, PokemonMark>> = {
   [TrainerType.KIERAN]: PokemonMark.PALDEA_CHAMPION_RIBBON,
 };
 
+/** @returns The mark's title on its own ("장난꾸러기"), or an empty string if it has none */
+export function getMarkTitle(mark: PokemonMark): string {
+  return i18next.t(`pokemonMarks:${getMarkKey(mark)}.title`, { defaultValue: "" });
+}
+
 /** @returns Whether `value` is a mark or ribbon this build knows */
 export function isPokemonMark(value: unknown): value is PokemonMark {
   return typeof value === "number" && orderedPokemonMarks.includes(value);
@@ -184,6 +235,69 @@ export function normalizeMarks(marks: unknown): PokemonMark[] {
     return [];
   }
   return [...new Set(marks.filter(isPokemonMark))];
+}
+
+/**
+ * The marks and ribbons a starter line has collected (`StarterDataEntry.marks`), in the tray's order. The two bought
+ * with candy count from their flags too, so a Partner Mark bought before the per-line collection existed is there.
+ * @param entry - The starter's `starterData` entry
+ */
+export function getCollectedMarks(entry: StarterDataEntry | undefined): PokemonMark[] {
+  const marks = new Set(normalizeMarks(entry?.marks));
+  if (entry?.partnerMark) {
+    marks.add(PokemonMark.PARTNER_MARK);
+  }
+  if (entry?.bestFriendsRibbon) {
+    marks.add(PokemonMark.BEST_FRIENDS_RIBBON);
+  }
+  return orderedPokemonMarks.filter(m => marks.has(m));
+}
+
+/**
+ * The hidden marks, which a complete collection does not need (the user: "한 포켓몬의 도감을 전부 채울경우(천재일우증표
+ * 제외)" and "히든 증표(이것들은 안모아도 위의 증표들이 황금 테두리를 갖는 것에 영향을 안끼치고, 다른 증표들보다 획득
+ * 난이도 높음) ... 최강의 증표나 천재일우의 증표"): the Once-in-a-Lifetime Ribbon, which only a traded Pokémon has,
+ * and the Mightiest Mark of the raid at the end of Endless. The mark Pokédex shows them on its page below the list.
+ */
+export const COMPLETION_EXEMPT_MARKS: readonly PokemonMark[] = [
+  PokemonMark.ONCE_IN_A_LIFETIME_RIBBON,
+  PokemonMark.MIGHTIEST_MARK,
+  // The user: "엔드리스 마스터 리본, 눈부신증표 넣어두죠": clearing Endless, and an epic shiny
+  PokemonMark.ENDLESS_MASTER_RIBBON,
+  PokemonMark.EPIC_SHINY_MARK,
+];
+
+/** @returns Whether the marks are every mark and ribbon there is, but for {@linkcode COMPLETION_EXEMPT_MARKS} */
+export function isMarkCollectionComplete(marks: readonly PokemonMark[]): boolean {
+  return orderedPokemonMarks.every(m => COMPLETION_EXEMPT_MARKS.includes(m) || marks.includes(m));
+}
+
+/**
+ * Whether the player has the hidden Eternatus Mark (the user: "모든 포켓몬 잡기 + 무한다이노 잡기가 조건인 증표(포켓몬은
+ * 딱히 착용 불가)로 해서 히든 증표처럼"): every starter line caught, and Eternatus, which can only be caught once all
+ * the others are. It is read from the Pokédex, so it needs no save data of its own.
+ */
+export function hasEternatusMark(): boolean {
+  const { dexData, starterData } = globalScene.gameData;
+  return (
+    !!dexData[SpeciesId.ETERNATUS]?.caughtAttr
+    && Object.keys(starterData).every(id => !!dexData[Number(id) as SpeciesId]?.caughtAttr)
+  );
+}
+
+/**
+ * Whether the player has ever obtained the mark on any Pokémon: the collection's count (`GameData.markCounts`,
+ * counted at every catch, hatch, award and purchase), or a starter line that has it.
+ */
+export function hasEverObtainedMark(mark: PokemonMark): boolean {
+  const { markCounts, starterData } = globalScene.gameData;
+  return (markCounts[mark] ?? 0) > 0 || Object.values(starterData).some(e => getCollectedMarks(e).includes(mark));
+}
+
+/** @returns The collected mark a starter is taken wearing, or `null` for none (or one it has not collected) */
+export function getStarterEquippedMark(entry: StarterDataEntry | undefined): PokemonMark | null {
+  const equipped = entry?.equippedMark;
+  return isPokemonMark(equipped) && getCollectedMarks(entry).includes(equipped) ? equipped : null;
 }
 
 /** @returns The mark's locale key and atlas frame, e.g. `sleepyTimeMark` */
@@ -209,12 +323,16 @@ export function getShinyMark(variant: number): PokemonMark {
 
 /**
  * The title a Pokémon's marks give it ("장난꾸러기", "the Rowdy"), as the main series shows when a Pokémon with a mark
- * enters battle: that of the first mark of {@linkcode TITLE_MARKS} it carries.
+ * enters battle: that of the mark it wears (`Pokemon.equippedMark`), otherwise of the first mark of
+ * {@linkcode TITLE_MARKS} it carries.
  * @param pokemon - The Pokémon
  * @returns The title, or an empty string for none
  */
 export function getPokemonTitle(pokemon: Pokemon): string {
-  const mark = TITLE_MARKS.find(m => pokemon.marks.includes(m));
+  // The mark the player chose to show, if any (the user: "증표 볼때 장착 가능하게 하고, 그게 이름 옆에 붙도록")
+  const equipped = pokemon.equippedMark;
+  const mark =
+    equipped !== null && pokemon.marks.includes(equipped) ? equipped : TITLE_MARKS.find(m => pokemon.marks.includes(m));
   return mark === undefined ? "" : i18next.t(`pokemonMarks:${getMarkKey(mark)}.title`, { defaultValue: "" });
 }
 
@@ -270,6 +388,63 @@ export function getWildRollSeedOffset(pokemon: Pokemon, salt: number): number {
   return (globalScene.currentBattle?.waveIndex ?? 0) * 16 + (pokemon.id % 65521) + salt;
 }
 
+/** Whether each starter line has a species that is met in the wild, by root species */
+const wildLines = new Map<SpeciesId, boolean>();
+
+/**
+ * Whether any species of the Pokémon's line is in a biome's wild pool (the user: "마스터볼로 해당 포켓몬 잡기(야생에서
+ * 안나오는 경우에는 획득 시 바로 달성)").
+ * @param rootId - The line's root species
+ */
+export function isWildLine(rootId: SpeciesId): boolean {
+  let wild = wildLines.get(rootId);
+  if (wild === undefined) {
+    wild = speciesDataRegistry.getAllSpecies().some(
+      s =>
+        (catchableSpecies[s.speciesId]?.length ?? 0) > 0
+        // The species itself too: a starter that is not its line's root (Pikachu) is asked about by its own id
+        && (s.speciesId === rootId || s.getRootSpeciesId() === rootId),
+    );
+    wildLines.set(rootId, wild);
+  }
+  return wild;
+}
+
+/**
+ * The marks a starter line has earned by what the save says about it: the Egg Move Mark with every egg move
+ * unlocked, the Perfect IV Mark with best IVs of 31 in all six stats (the user: "알 기술 전부 해금, 개체값 6V 달성").
+ * @param rootId - The line's root species
+ */
+export function getAchievedLineMarks(rootId: SpeciesId): PokemonMark[] {
+  const { dexData, starterData } = globalScene.gameData;
+  const marks: PokemonMark[] = [];
+  const eggMoves = speciesEggMoves[rootId];
+  if (eggMoves?.length) {
+    const all = (1 << eggMoves.length) - 1;
+    if (((starterData[rootId]?.eggMoves ?? 0) & all) === all) {
+      marks.push(PokemonMark.EGG_MOVES_MARK);
+    }
+  }
+  const ivs = dexData[rootId]?.ivs;
+  if (ivs?.length === 6 && ivs.every(iv => iv === 31)) {
+    marks.push(PokemonMark.PERFECT_IV_MARK);
+  }
+  return marks;
+}
+
+/** The modifier type id of the Mark Charm (modifier-type.ts); looked up by id, since the modifiers import this file */
+export const MARK_CHARM_ID = "MARK_CHARM";
+
+/**
+ * How many times a wild Pokémon's mark is rolled: once, and with the player's Mark Charms as often as
+ * `MarkRateBoosterModifier` says (three times with one charm, as in Sword and Shield).
+ */
+export function getWildMarkRolls(): number {
+  const rolls = new NumberHolder(1);
+  globalScene.findModifier(m => m.type.id === MARK_CHARM_ID, true)?.apply(rolls);
+  return rolls.value;
+}
+
 /**
  * Give a freshly generated wild Pokémon its mark, if the roll says so. The roll has its own seed
  * ({@linkcode getWildRollSeedOffset}), so it changes nothing else the wave generates.
@@ -282,9 +457,14 @@ export function applyWildMark(pokemon: Pokemon): void {
   }
   globalScene.executeWithSeedOffset(
     () => {
-      const mark = rollWildMark(globalScene.arena.getTimeOfDay(), globalScene.arena.weatherType);
-      if (mark !== null) {
-        pokemon.addMark(mark);
+      // The Mark Charm rolls again: three times with one, as in Sword and Shield (MarkRateBoosterModifier)
+      const rolls = getWildMarkRolls();
+      for (let i = 0; i < rolls; i++) {
+        const mark = rollWildMark(globalScene.arena.getTimeOfDay(), globalScene.arena.weatherType);
+        if (mark !== null) {
+          pokemon.addMark(mark);
+          break;
+        }
       }
     },
     getWildRollSeedOffset(pokemon, 7919),
@@ -308,8 +488,69 @@ export function awardTrainerRibbon(trainerType: TrainerType): PokemonMark | null
     if (pokemon.addMark(ribbon)) {
       awarded = true;
       // Each ribbon given counts for the collection (the mark achievements)
-      globalScene.gameData.registerMarks([ribbon]);
+      globalScene.gameData.registerMarks([ribbon], pokemon);
     }
   }
   return awarded ? ribbon : null;
+}
+
+/**
+ * Give the player's whole party a ribbon (the Endless Master Ribbon when Endless is cleared).
+ * @param ribbon - The ribbon
+ * @returns Whether at least one party member did not have it yet
+ */
+export function awardPartyRibbon(ribbon: PokemonMark): boolean {
+  let awarded = false;
+  for (const pokemon of globalScene.getPlayerParty()) {
+    if (pokemon.addMark(ribbon)) {
+      awarded = true;
+      globalScene.gameData.registerMarks([ribbon], pokemon);
+    }
+  }
+  return awarded;
+}
+
+/**
+ * The ribbons a party member has earned by how it was raised and does not carry yet: a stat's effort ribbon for that
+ * stat's EVs at their cap (ev-items.ts), the Effort Ribbon for all six, the Footprint Ribbon at level 200 and
+ * the Grand Footprint Ribbon at level 100,000 in Endless.
+ * @param pokemon - The player's Pokémon
+ */
+export function getEarnedProgressRibbons(pokemon: Pokemon): PokemonMark[] {
+  const earned: PokemonMark[] = [];
+  for (const stat of PERMANENT_STATS) {
+    if ((pokemon.evs[stat] ?? 0) >= getEvCap(stat)) {
+      earned.push(STAT_EFFORT_RIBBONS[stat]);
+    }
+  }
+  const statRibbons = Object.values(STAT_EFFORT_RIBBONS);
+  if (statRibbons.every(r => pokemon.marks.includes(r) || earned.includes(r))) {
+    earned.push(PokemonMark.EFFORT_RIBBON);
+  }
+  if (pokemon.level >= FOOTPRINT_LEVEL) {
+    earned.push(PokemonMark.FOOTPRINT_RIBBON);
+  }
+  if (pokemon.level >= GRAND_FOOTPRINT_LEVEL && globalScene.gameMode.isEndless) {
+    earned.push(PokemonMark.GRAND_FOOTPRINT_RIBBON);
+  }
+  return earned.filter(r => !pokemon.marks.includes(r));
+}
+
+/**
+ * Give every party member the progress ribbons it has earned ({@linkcode getEarnedProgressRibbons}), with a message
+ * for each. Called when the party gains EVs and when a Pokémon levels up.
+ */
+export function awardProgressRibbons(): void {
+  for (const pokemon of globalScene.getPlayerParty()) {
+    for (const ribbon of getEarnedProgressRibbons(pokemon)) {
+      pokemon.addMark(ribbon);
+      globalScene.gameData.registerMarks([ribbon], pokemon);
+      globalScene.phaseManager.queueMessage(
+        i18next.t("pokemonMarks:ribbonEarned", {
+          pokemonName: pokemon.getNameToRender(),
+          ribbonName: getMarkName(ribbon),
+        }),
+      );
+    }
+  }
 }
