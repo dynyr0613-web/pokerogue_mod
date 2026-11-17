@@ -10,6 +10,7 @@
  *   (alpha-pokemon.ts).
  * - The Once-in-a-Lifetime Ribbon comes with 1 Hyper GTS Wonder Trade Pokémon in 10, the Partner Mark is bought for
  *   a starter with candy, and a shiny Pokémon that is caught or hatched gets its tier's shiny mark.
+ * - The Eternatus Mark is the player's own hidden mark, not a Pokémon's (`hasEternatusMark`).
  * - The Mightiest Mark is defined and shown, but nothing gives it yet (see the enum).
  * - The Best Friends Ribbon is bought after the Partner Mark; the six stat effort ribbons, the Effort Ribbon and the
  *   two footprint ribbons are earned during a run (`awardProgressRibbons`); the Endless Master Ribbon goes to the
@@ -25,6 +26,7 @@
 
 import { globalScene } from "#app/global-scene";
 import { PokemonMark } from "#enums/pokemon-mark";
+import { SpeciesId } from "#enums/species-id";
 import { PERMANENT_STATS, type PermanentStat, Stat } from "#enums/stat";
 import { TimeOfDay } from "#enums/time-of-day";
 import { TrainerType } from "#enums/trainer-type";
@@ -254,6 +256,19 @@ export const COMPLETION_EXEMPT_MARKS: readonly PokemonMark[] = [
 /** @returns Whether the marks are every mark and ribbon there is, but for {@linkcode COMPLETION_EXEMPT_MARKS} */
 export function isMarkCollectionComplete(marks: readonly PokemonMark[]): boolean {
   return orderedPokemonMarks.every(m => COMPLETION_EXEMPT_MARKS.includes(m) || marks.includes(m));
+}
+
+/**
+ * Whether the player has the hidden Eternatus Mark (the user: "모든 포켓몬 잡기 + 무한다이노 잡기가 조건인 증표(포켓몬은
+ * 딱히 착용 불가)로 해서 히든 증표처럼"): every starter line caught, and Eternatus, which can only be caught once all
+ * the others are. It is read from the Pokédex, so it needs no save data of its own.
+ */
+export function hasEternatusMark(): boolean {
+  const { dexData, starterData } = globalScene.gameData;
+  return (
+    !!dexData[SpeciesId.ETERNATUS]?.caughtAttr
+    && Object.keys(starterData).every(id => !!dexData[Number(id) as SpeciesId]?.caughtAttr)
+  );
 }
 
 /**

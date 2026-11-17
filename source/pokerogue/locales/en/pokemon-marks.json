@@ -366,5 +366,9 @@
     "unknownSpecies": "???"
   },
   "unknownName": "???",
-  "neverObtained": "A mark you have not obtained yet"
+  "neverObtained": "A mark you have not obtained yet",
+  "eternatusMark": {
+    "name": "Eternatus Mark",
+    "description": "A mark for catching every Pokémon and Eternatus."
+  }
 }

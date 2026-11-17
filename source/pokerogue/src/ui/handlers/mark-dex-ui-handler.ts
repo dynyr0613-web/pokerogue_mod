@@ -10,6 +10,10 @@
  * - The action button on a mark opens the second view: every starter line's icon, bright if the line has that mark
  *   and grey if not, with the line's own count ("증표 n/70") under the cursor.
  *
+ * - The hidden Eternatus Mark (`hasEternatusMark`) is not in the list until it is earned. Then it stands after the
+ *   last mark and counts as one more than the total: "종류 71/70" (the user: "도감 다 채우면 예를들어 52/51 이런 식으로
+ *   하나 더 있는듯하게 표시되도록").
+ *
  * The data is each starter line's collection (`StarterDataEntry.marks`, pokemon-marks.ts).
  */
 
@@ -20,11 +24,12 @@ import {
   getMarkDescription,
   getMarkKey,
   getMarkName,
+  hasEternatusMark,
   MARKS_ATLAS_KEY,
   orderedPokemonMarks,
 } from "#data/pokemon-marks";
 import { Button } from "#enums/buttons";
-import type { PokemonMark } from "#enums/pokemon-mark";
+import { PokemonMark } from "#enums/pokemon-mark";
 import type { SpeciesId } from "#enums/species-id";
 import { TextStyle } from "#enums/text-style";
 import { createMarkOutline } from "#ui/mark-tray-container";
@@ -63,6 +68,11 @@ export class MarkDexUiHandler extends MessageUiHandler {
   private markFills: Phaser.GameObjects.Image[] = [];
   /** Each mark's golden outline, shown once every starter line has the mark */
   private markOutlines: Phaser.GameObjects.Image[][] = [];
+  /** The hidden Eternatus Mark, in a fifteenth column of the last row once it is earned */
+  private hiddenIcon: Phaser.GameObjects.Image;
+  private hasHiddenMark = false;
+  /** Where the marks' grid starts without the hidden mark's column */
+  private markContainerBaseX = 0;
 
   private speciesContainer: Phaser.GameObjects.Container;
   private speciesIcons: Phaser.GameObjects.Sprite[] = [];
@@ -118,6 +128,17 @@ export class MarkDexUiHandler extends MessageUiHandler {
       this.markOutlines.push([]);
       this.markContainer.add([base, fill]);
     });
+    this.markContainerBaseX = this.markContainer.x;
+    this.hiddenIcon = globalScene.add
+      .image(
+        MARK_COLS * MARK_PITCH + MARK_PITCH / 2,
+        (markRows - 1) * MARK_PITCH + MARK_PITCH / 2,
+        MARKS_ATLAS_KEY,
+        getMarkKey(PokemonMark.ETERNATUS_MARK),
+      )
+      .setScale(MARK_SCALE)
+      .setVisible(false);
+    this.markContainer.add(this.hiddenIcon);
 
     // The second view: every starter line, a few rows at a time
     this.speciesContainer = globalScene.add.container(
@@ -188,6 +209,10 @@ export class MarkDexUiHandler extends MessageUiHandler {
   /** Grey, dark or partly bright, by how many starter lines have each mark */
   private updateMarkIcons(): void {
     const total = Math.max(this.starterIds.length, 1);
+    // The hidden mark's column makes the grid one icon wider, so it moves half an icon left
+    this.hasHiddenMark = hasEternatusMark();
+    this.hiddenIcon.setVisible(this.hasHiddenMark);
+    this.markContainer.setX(this.markContainerBaseX - (this.hasHiddenMark ? MARK_PITCH / 2 : 0));
     orderedPokemonMarks.forEach((mark, index) => {
       const count = this.speciesCounts.get(mark) ?? 0;
       const base = this.markBases[index];
@@ -223,7 +248,8 @@ export class MarkDexUiHandler extends MessageUiHandler {
     this.speciesContainer.setVisible(false);
     this.scrollBar.setVisible(false);
     this.headerText.setText(i18next.t("pokemonMarks:dex.title"));
-    const kinds = orderedPokemonMarks.filter(m => (this.speciesCounts.get(m) ?? 0) > 0).length;
+    const kinds =
+      orderedPokemonMarks.filter(m => (this.speciesCounts.get(m) ?? 0) > 0).length + (this.hasHiddenMark ? 1 : 0);
     const species = this.starterIds.filter(id => (this.collected.get(id)?.length ?? 0) > 0).length;
     this.totalText.setText(
       `${i18next.t("pokemonMarks:dex.kinds", { count: kinds, total: orderedPokemonMarks.length })}   ${i18next.t(
@@ -238,6 +264,15 @@ export class MarkDexUiHandler extends MessageUiHandler {
   private setMarkCursor(cursor: number): boolean {
     const changed = cursor !== this.markCursor;
     this.markCursor = cursor;
+    // The hidden mark is the cursor's last stop, past the end of the last row
+    if (cursor >= orderedPokemonMarks.length) {
+      this.cursorObj.setPosition(
+        this.markContainer.x + this.hiddenIcon.x - MARK_PITCH / 2 + 1,
+        this.markContainer.y + this.hiddenIcon.y - MARK_PITCH / 2 + 1,
+      );
+      this.showText(`${getMarkName(PokemonMark.ETERNATUS_MARK)}\n${getMarkDescription(PokemonMark.ETERNATUS_MARK)}`);
+      return changed;
+    }
     this.cursorObj.setPosition(
       this.markContainer.x + (cursor % MARK_COLS) * MARK_PITCH + 1,
       this.markContainer.y + Math.floor(cursor / MARK_COLS) * MARK_PITCH + 1,
@@ -349,22 +384,31 @@ export class MarkDexUiHandler extends MessageUiHandler {
     let success = false;
 
     if (this.openMark === null) {
-      const count = orderedPokemonMarks.length;
+      const count = orderedPokemonMarks.length + (this.hasHiddenMark ? 1 : 0);
       const cursor = this.markCursor;
       switch (button) {
         case Button.ACTION:
-          this.showSpeciesView(orderedPokemonMarks[cursor]);
-          success = true;
+          // The hidden mark is the player's, not a Pokémon's: nothing to list
+          if (cursor < orderedPokemonMarks.length) {
+            this.showSpeciesView(orderedPokemonMarks[cursor]);
+            success = true;
+          }
           break;
         case Button.CANCEL:
           success = true;
           globalScene.ui.revertMode();
           break;
         case Button.UP:
-          success = this.setMarkCursor(cursor >= MARK_COLS ? cursor - MARK_COLS : cursor);
+          success = this.setMarkCursor(
+            cursor >= orderedPokemonMarks.length
+              ? orderedPokemonMarks.length - MARK_COLS - 1
+              : cursor >= MARK_COLS
+                ? cursor - MARK_COLS
+                : cursor,
+          );
           break;
         case Button.DOWN:
-          success = this.setMarkCursor(cursor + MARK_COLS < count ? cursor + MARK_COLS : cursor);
+          success = this.setMarkCursor(cursor + MARK_COLS < orderedPokemonMarks.length ? cursor + MARK_COLS : cursor);
           break;
         case Button.LEFT:
           success = this.setMarkCursor(cursor === 0 ? count - 1 : cursor - 1);

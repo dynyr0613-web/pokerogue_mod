@@ -366,5 +366,9 @@
     "unknownSpecies": "???"
   },
   "unknownName": "???",
-  "neverObtained": "아직 획득한 적 없는 증표"
+  "neverObtained": "아직 획득한 적 없는 증표",
+  "eternatusMark": {
+    "name": "무한다이노의증표",
+    "description": "모든 포켓몬과 무한다이노를 잡은 트레이너의 증표."
+  }
 }

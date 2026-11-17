@@ -57,6 +57,8 @@ SOURCES = {
     "GRAND_FOOTPRINT_RIBBON": "footprintgrand",
     # This fork's own ribbon, with the Tower Master Ribbon's icon
     "ENDLESS_MASTER_RIBBON": "towermaster",
+    # This fork's own hidden mark: PokéRogue's Mini Black Hole item icon recoloured in Eternatus' navy and crimson
+    "ETERNATUS_MARK": "marketernatus",
 }
 for name in (
     "LUNCHTIME SLEEPY_TIME DUSK DAWN RAINY STORMY SNOWY BLIZZARD DRY SANDSTORM MISTY UNCOMMON RARE ROWDY "

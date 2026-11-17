@@ -112,4 +112,11 @@ export enum PokemonMark {
   RARE_SHINY_MARK = 207,
   EPIC_SHINY_MARK = 208,
   // #endregion
+
+  /**
+   * The Eternatus Mark (무한다이노의증표), this fork's own hidden mark. No Pokémon carries it and it is not in the
+   * ordinary list (`orderedPokemonMarks`): it is the player's, for catching every Pokémon and then Eternatus, and
+   * only shows in the mark Pokédex once it is earned, as one more than the total (`hasEternatusMark`).
+   */
+  ETERNATUS_MARK = 300,
 }

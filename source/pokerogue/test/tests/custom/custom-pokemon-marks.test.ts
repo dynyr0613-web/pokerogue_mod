@@ -59,7 +59,12 @@ describe("Local fork - marks and ribbons", () => {
   });
 
   it("lists every mark exactly once, with a name, a description and an icon", () => {
-    expect([...orderedPokemonMarks].sort((a, b) => a - b)).toEqual(getEnumValues(PokemonMark).sort((a, b) => a - b));
+    // All but the hidden Eternatus Mark, which is the player's and no Pokémon's (custom-mark-ribbons.test.ts)
+    expect([...orderedPokemonMarks].sort((a, b) => a - b)).toEqual(
+      getEnumValues(PokemonMark)
+        .filter(m => m !== PokemonMark.ETERNATUS_MARK)
+        .sort((a, b) => a - b),
+    );
 
     const root = getAppRootDir();
     const atlas = JSON.parse(fs.readFileSync(path.join(root, "assets", "images", "marks", "marks.json"), "utf8"));

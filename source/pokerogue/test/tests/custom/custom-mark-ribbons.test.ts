@@ -15,8 +15,11 @@ import {
   getMarkTitle,
   getPokemonTitle,
   getStarterEquippedMark,
+  hasEternatusMark,
   hasEverObtainedMark,
   isMarkCollectionComplete,
+  isPokemonMark,
+  normalizeMarks,
   orderedPokemonMarks,
   STAT_EFFORT_RIBBONS,
 } from "#data/pokemon-marks";
@@ -28,6 +31,9 @@ import { PERMANENT_STATS, Stat } from "#enums/stat";
 import { getEvCap } from "#modifiers/ev-items";
 import { PokemonData } from "#system/pokemon-data";
 import { GameManager } from "#test/framework/game-manager";
+import { getAppRootDir } from "#test/utils/sprite-utils";
+import fs from "node:fs";
+import path from "node:path";
 import i18next from "i18next";
 import Phaser from "phaser";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -177,6 +183,29 @@ describe("Local fork - earned ribbons, the worn mark and the line's collection",
     expect(isMarkCollectionComplete(needed)).toBe(true);
     expect(isMarkCollectionComplete(needed.slice(1))).toBe(false);
     expect(isMarkCollectionComplete([])).toBe(false);
+  });
+
+  it("the hidden Eternatus Mark: every starter line caught, and Eternatus; no Pokémon can carry it", async () => {
+    await game.classicMode.startBattle(SpeciesId.BULBASAUR);
+    const { dexData, starterData } = game.scene.gameData;
+    expect(orderedPokemonMarks).not.toContain(PokemonMark.ETERNATUS_MARK);
+    expect(isPokemonMark(PokemonMark.ETERNATUS_MARK)).toBe(false);
+    expect(normalizeMarks([PokemonMark.ETERNATUS_MARK])).toEqual([]);
+
+    for (const id of Object.keys(starterData).map(Number)) {
+      dexData[id as SpeciesId].caughtAttr = 1n;
+    }
+    dexData[SpeciesId.ETERNATUS].caughtAttr = 0n;
+    expect(hasEternatusMark()).toBe(false);
+    dexData[SpeciesId.ETERNATUS].caughtAttr = 1n;
+    expect(hasEternatusMark()).toBe(true);
+    dexData[SpeciesId.PIKACHU].caughtAttr = 0n;
+    expect(hasEternatusMark()).toBe(false);
+
+    for (const lang of ["en", "ko"]) {
+      const file = path.join(getAppRootDir(), "locales", lang, "pokemon-marks.json");
+      expect(JSON.parse(fs.readFileSync(file, "utf8")).eternatusMark?.name, lang).toBeTruthy();
+    }
   });
 
   it("the Best Friends Ribbon costs twice the Partner Mark", () => {
