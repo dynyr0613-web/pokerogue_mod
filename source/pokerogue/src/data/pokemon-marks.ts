@@ -10,6 +10,9 @@
  *   (alpha-pokemon.ts).
  * - The Once-in-a-Lifetime Ribbon comes with 1 Hyper GTS Wonder Trade Pokémon in 10, the Partner Mark is bought for
  *   a starter with candy, and a shiny Pokémon that is caught or hatched gets its tier's shiny mark.
+ * - The Egg Move Mark and the Perfect IV Mark are a starter line's, for all its egg moves unlocked and best IVs of
+ *   31 in every stat (`getAchievedLineMarks`); the Master Ball Mark is for a Pokémon caught in a Master Ball, or
+ *   obtained at all if its line is never met in the wild (`isWildLine`).
  * - The Eternatus Mark is the player's own hidden mark, not a Pokémon's (`hasEternatusMark`).
  * - The Mightiest Mark comes with the boss of the raid on wave 5849 of Endless (endless-raid.ts).
  * - The Best Friends Ribbon is bought after the Partner Mark; the six stat effort ribbons, the Effort Ribbon and the
@@ -25,6 +28,9 @@
  */
 
 import { globalScene } from "#app/global-scene";
+import { speciesDataRegistry } from "#app/global-species-data-registry";
+import { speciesEggMoves } from "#balance/egg-moves";
+import { catchableSpecies } from "#data/data-lists";
 import { PokemonMark } from "#enums/pokemon-mark";
 import { SpeciesId } from "#enums/species-id";
 import { PERMANENT_STATS, type PermanentStat, Stat } from "#enums/stat";
@@ -73,6 +79,9 @@ export const orderedPokemonMarks: readonly PokemonMark[] = [
   PokemonMark.SHINY_MARK,
   PokemonMark.RARE_SHINY_MARK,
   PokemonMark.EPIC_SHINY_MARK,
+  PokemonMark.EGG_MOVES_MARK,
+  PokemonMark.PERFECT_IV_MARK,
+  PokemonMark.MASTER_BALL_MARK,
   PokemonMark.LUNCHTIME_MARK,
   PokemonMark.SLEEPY_TIME_MARK,
   PokemonMark.DUSK_MARK,
@@ -377,6 +386,50 @@ export function rollWildMark(timeOfDay: TimeOfDay, weather: WeatherType): Pokemo
  */
 export function getWildRollSeedOffset(pokemon: Pokemon, salt: number): number {
   return (globalScene.currentBattle?.waveIndex ?? 0) * 16 + (pokemon.id % 65521) + salt;
+}
+
+/** Whether each starter line has a species that is met in the wild, by root species */
+const wildLines = new Map<SpeciesId, boolean>();
+
+/**
+ * Whether any species of the Pokémon's line is in a biome's wild pool (the user: "마스터볼로 해당 포켓몬 잡기(야생에서
+ * 안나오는 경우에는 획득 시 바로 달성)").
+ * @param rootId - The line's root species
+ */
+export function isWildLine(rootId: SpeciesId): boolean {
+  let wild = wildLines.get(rootId);
+  if (wild === undefined) {
+    wild = speciesDataRegistry.getAllSpecies().some(
+      s =>
+        (catchableSpecies[s.speciesId]?.length ?? 0) > 0
+        // The species itself too: a starter that is not its line's root (Pikachu) is asked about by its own id
+        && (s.speciesId === rootId || s.getRootSpeciesId() === rootId),
+    );
+    wildLines.set(rootId, wild);
+  }
+  return wild;
+}
+
+/**
+ * The marks a starter line has earned by what the save says about it: the Egg Move Mark with every egg move
+ * unlocked, the Perfect IV Mark with best IVs of 31 in all six stats (the user: "알 기술 전부 해금, 개체값 6V 달성").
+ * @param rootId - The line's root species
+ */
+export function getAchievedLineMarks(rootId: SpeciesId): PokemonMark[] {
+  const { dexData, starterData } = globalScene.gameData;
+  const marks: PokemonMark[] = [];
+  const eggMoves = speciesEggMoves[rootId];
+  if (eggMoves?.length) {
+    const all = (1 << eggMoves.length) - 1;
+    if (((starterData[rootId]?.eggMoves ?? 0) & all) === all) {
+      marks.push(PokemonMark.EGG_MOVES_MARK);
+    }
+  }
+  const ivs = dexData[rootId]?.ivs;
+  if (ivs?.length === 6 && ivs.every(iv => iv === 31)) {
+    marks.push(PokemonMark.PERFECT_IV_MARK);
+  }
+  return marks;
 }
 
 /** The modifier type id of the Mark Charm (modifier-type.ts); looked up by id, since the modifiers import this file */

@@ -371,5 +371,20 @@
     "name": "무한다이노의증표",
     "description": "모든 포켓몬과 무한다이노를 잡은 트레이너의 증표."
   },
-  "raidStatReset": "{{pokemonName}}[[가]] 능력 변화를\n원래대로 되돌렸다!"
+  "raidStatReset": "{{pokemonName}}[[가]] 능력 변화를\n원래대로 되돌렸다!",
+  "eggMovesMark": {
+    "name": "알기술의증표",
+    "description": "알 기술을 모두 익힌 포켓몬이라는 증표.",
+    "title": "기술의 달인"
+  },
+  "perfectIvMark": {
+    "name": "최고개체의증표",
+    "description": "모든 개체값이 최고인 포켓몬이라는 증표.",
+    "title": "완전무결한"
+  },
+  "masterBallMark": {
+    "name": "마스터볼의증표",
+    "description": "마스터볼로 잡은 포켓몬이라는 증표.",
+    "title": "마스터볼의"
+  }
 }

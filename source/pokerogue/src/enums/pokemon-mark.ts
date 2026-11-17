@@ -113,6 +113,18 @@ export enum PokemonMark {
   EPIC_SHINY_MARK = 208,
   // #endregion
 
+  // #region This fork's own marks for what a starter line has achieved (pokemon-marks.ts, `getAchievedLineMarks`)
+  /** The Egg Move Mark (알기술의증표): every egg move of the line unlocked */
+  EGG_MOVES_MARK = 209,
+  /** The Perfect IV Mark (최고개체의증표): the line's best IVs are 31 in all six stats */
+  PERFECT_IV_MARK = 210,
+  /**
+   * The Master Ball Mark (마스터볼의증표): a Pokémon caught in a Master Ball carries it; a Pokémon of a line that is
+   * never met in the wild gets it when it is obtained
+   */
+  MASTER_BALL_MARK = 211,
+  // #endregion
+
   /**
    * The Eternatus Mark (무한다이노의증표), this fork's own hidden mark. No Pokémon carries it and it is not in the
    * ordinary list (`orderedPokemonMarks`): it is the player's, for catching every Pokémon and then Eternatus, and

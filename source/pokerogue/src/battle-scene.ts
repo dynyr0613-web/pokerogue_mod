@@ -3293,6 +3293,10 @@ export class BattleScene extends SceneBase {
       if (Object.hasOwn(vouchers, achv.id)) {
         this.validateVoucher(vouchers[achv.id]);
       }
+      // Local fork (2026-11-17): the hidden last achievement, for every other one and every hidden mark (achv.ts)
+      if (achv.id !== achvs.THE_END.id) {
+        this.validateAchv(achvs.THE_END);
+      }
       return true;
     }
 

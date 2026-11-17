@@ -388,5 +388,10 @@
     "name": "무한의 끝",
     "name_female": "무한의 끝",
     "description": "무한다이노의증표를 획득"
+  },
+  "theEnd": {
+    "name": "완주",
+    "name_female": "완주",
+    "description": "모든 히든 증표를 획득하고 다른 모든 업적을 달성"
   }
 }

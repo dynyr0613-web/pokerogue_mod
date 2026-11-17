@@ -57,6 +57,11 @@ SOURCES = {
     "GRAND_FOOTPRINT_RIBBON": "footprintgrand",
     # This fork's own ribbon, with the Tower Master Ribbon's icon
     "ENDLESS_MASTER_RIBBON": "towermaster",
+    # This fork's own marks, from PokéRogue's own icons: the Mystery Egg item, the HP Up item recoloured gold and the
+    # Master Ball (mark-icons/ribbonmarkeggmoves.png, ribbonmarkperfectiv.png, ribbonmarkmasterball.png)
+    "EGG_MOVES_MARK": "markeggmoves",
+    "PERFECT_IV_MARK": "markperfectiv",
+    "MASTER_BALL_MARK": "markmasterball",
     # This fork's own hidden mark: PokéRogue's Mini Black Hole item icon recoloured in Eternatus' navy and crimson
     "ETERNATUS_MARK": "marketernatus",
 }

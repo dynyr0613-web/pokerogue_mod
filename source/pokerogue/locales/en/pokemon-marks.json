@@ -371,5 +371,20 @@
     "name": "Eternatus Mark",
     "description": "A mark for catching every Pokémon and Eternatus."
   },
-  "raidStatReset": "{{pokemonName}} reset the stat changes!"
+  "raidStatReset": "{{pokemonName}} reset the stat changes!",
+  "eggMovesMark": {
+    "name": "Egg Move Mark",
+    "description": "A mark for a Pokémon that knows all its Egg Moves.",
+    "title": "the Move Master"
+  },
+  "perfectIvMark": {
+    "name": "Perfect IV Mark",
+    "description": "A mark for a Pokémon whose IVs are all the best.",
+    "title": "the Flawless"
+  },
+  "masterBallMark": {
+    "name": "Master Ball Mark",
+    "description": "A mark for a Pokémon caught in a Master Ball.",
+    "title": "the Master Ball"
+  }
 }

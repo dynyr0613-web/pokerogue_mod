@@ -18,7 +18,13 @@ import { EntryHazardTag } from "#data/arena-tag";
 import { getSerializedDailyRunConfig, parseDailySeed } from "#data/daily-seed-utils";
 import { allMoves } from "#data/data-lists";
 import type { Egg } from "#data/egg";
-import { getShinyMark, isPokemonMark, normalizeMarks } from "#data/pokemon-marks";
+import {
+  getAchievedLineMarks,
+  getShinyMark,
+  isPokemonMark,
+  isWildLine,
+  normalizeMarks,
+} from "#data/pokemon-marks";
 import type { PokemonSpecies } from "#data/pokemon-species";
 import { loadPositionalTag } from "#data/positional-tags/load-positional-tag";
 import { AbilityAttr } from "#enums/ability-attr";
@@ -31,7 +37,7 @@ import { GameModes } from "#enums/game-modes";
 import { Nature } from "#enums/nature";
 import { Passive } from "#enums/passive";
 import { PlayerGender } from "#enums/player-gender";
-import type { PokemonMark } from "#enums/pokemon-mark";
+import { PokemonMark } from "#enums/pokemon-mark";
 import { SpeciesId } from "#enums/species-id";
 import { StatusEffect } from "#enums/status-effect";
 import { TrainerVariant } from "#enums/trainer-variant";
@@ -422,6 +428,11 @@ export class GameData {
     this.unlockPity = systemData.unlockPity?.slice(0) ?? [0, 0, 0, 0];
 
     this.dexData = Object.assign(this.dexData, systemData.dexData);
+    // Local fork (2026-11-17): the lines of an older save get the marks they had already earned (all egg moves, best
+    // IVs of 31): no achievement check here, the next mark obtained does it
+    for (const id of Object.keys(this.starterData)) {
+      this.syncAchievedLineMarks(Number(id), false);
+    }
     this.consolidateDexData(this.dexData);
     this.defaultDexData = null;
 
@@ -1646,10 +1657,28 @@ export class GameData {
    * the mark achievements they complete. Call it once for each Pokémon that is caught or hatched with marks, and for
    * each Pokémon a ribbon is awarded to.
    * @param marks - The marks or ribbons obtained
+   * @param validate - Whether to check the mark achievements; `false` while a save is being loaded
    * @param owner - The Pokémon that got them, or its starter species: the marks also join that line's own collection
    *   (`StarterDataEntry.marks`, the mark Pokédex and the marks a starter can wear)
    */
-  public registerMarks(marks: readonly PokemonMark[], owner?: Pokemon | SpeciesId): void {
+  /**
+   * Local fork (2026-11-17): give a starter line the marks it has earned by its save data and does not have yet (the
+   * Egg Move Mark, the Perfect IV Mark: `getAchievedLineMarks`).
+   * @param rootId - The line's root species
+   * @param validate - Whether to check the mark achievements; `false` while a save is being loaded
+   */
+  public syncAchievedLineMarks(rootId: SpeciesId, validate = true): void {
+    const entry = this.starterData[rootId];
+    if (!entry) {
+      return;
+    }
+    const earned = getAchievedLineMarks(rootId).filter(m => !entry.marks?.includes(m));
+    if (earned.length > 0) {
+      this.registerMarks(earned, rootId, validate);
+    }
+  }
+
+  public registerMarks(marks: readonly PokemonMark[], owner?: Pokemon | SpeciesId, validate = true): void {
     for (const mark of marks) {
       this.markCounts[mark] = (this.markCounts[mark] ?? 0) + 1;
     }
@@ -1659,6 +1688,9 @@ export class GameData {
       if (entry) {
         entry.marks = normalizeMarks([...(entry.marks ?? []), ...marks]);
       }
+    }
+    if (!validate) {
+      return;
     }
     for (const achv of markCollectionAchvs) {
       globalScene.validateAchv(achv);
@@ -1683,6 +1715,11 @@ export class GameData {
       // Local fork (2026-11-17): a shiny Pokémon that is caught or hatched gets its tier's shiny mark
       if (pokemon.isShiny()) {
         pokemon.addMark(getShinyMark(pokemon.variant));
+      }
+      // Local fork (2026-11-17): a Pokémon whose line is never met in the wild cannot be caught in a Master Ball, so
+      // it gets the Master Ball Mark for being obtained
+      if (!isWildLine(speciesRootForm)) {
+        pokemon.addMark(PokemonMark.MASTER_BALL_MARK);
       }
       // Local fork (2026-11-17): and its marks join the collection (the mark achievements)
       this.registerMarks(pokemon.marks, pokemon);
@@ -1922,6 +1959,8 @@ export class GameData {
     }
 
     this.starterData[speciesId].eggMoves |= value;
+    // Local fork (2026-11-17): the Egg Move Mark with the last one
+    this.syncAchievedLineMarks(speciesId);
     if (!showMessage) {
       return true;
     }
@@ -1968,6 +2007,8 @@ export class GameData {
       }
       if (dexIvs.every(iv => iv === 31)) {
         globalScene.validateAchv(achvs.PERFECT_IVS);
+        // Local fork (2026-11-17): and the line's Perfect IV Mark, if this is its starter
+        this.syncAchievedLineMarks(speciesId);
       }
       speciesId = speciesDataRegistry.getPrevolution(speciesId)!;
     } while (speciesId != null);

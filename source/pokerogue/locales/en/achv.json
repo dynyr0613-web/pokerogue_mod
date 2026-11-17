@@ -388,5 +388,10 @@
     "name": "The End of Eternity",
     "name_female": "The End of Eternity",
     "description": "Obtain the Eternatus Mark."
+  },
+  "theEnd": {
+    "name": "The End",
+    "name_female": "The End",
+    "description": "Obtain every hidden mark and unlock every other achievement."
   }
 }

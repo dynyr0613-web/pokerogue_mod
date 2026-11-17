@@ -38,7 +38,7 @@ describe("Local fork - mark collection achievements", () => {
   });
 
   it("has a name, a description and a mark icon for each, in both languages", () => {
-    expect(markCollectionAchvs).toHaveLength(16);
+    expect(markCollectionAchvs).toHaveLength(17);
     const root = getAppRootDir();
     const atlas = JSON.parse(fs.readFileSync(path.join(root, "assets", "images", "marks", "marks.json"), "utf8"));
     const frames = new Set<string>(atlas.textures[0].frames.map((f: { filename: string }) => f.filename));

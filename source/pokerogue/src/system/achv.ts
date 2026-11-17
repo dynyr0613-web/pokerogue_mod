@@ -16,6 +16,7 @@ import {
   getCollectedMarks,
   getMarkKey,
   hasEternatusMark,
+  hasEverObtainedMark,
   isMarkCollectionComplete,
   MARKS_ATLAS_KEY,
   TRAINER_RIBBONS,
@@ -839,6 +840,18 @@ export const achvs = {
     () => getMarkCount(PokemonMark.MIGHTIEST_MARK) > 0,
   ),
   ETERNATUS_MARK: new MarkCollectionAchv("eternatusMark", PokemonMark.ETERNATUS_MARK, 150, () => hasEternatusMark()),
+  // Local fork (2026-11-17): the last one, hidden without a hint (the user: "숨겨진 업적(힌트도 안뜸)으로 히든 증표 +
+  // 모든 업적 달성 시 완주 라던가 끝"): every hidden mark obtained and every other achievement unlocked. Checked
+  // whenever another achievement unlocks (BattleScene.validateAchv). Keep it the last entry.
+  THE_END: new MarkCollectionAchv(
+    "theEnd",
+    PokemonMark.ENDLESS_MASTER_RIBBON,
+    200,
+    (): boolean =>
+      hasEternatusMark()
+      && COMPLETION_EXEMPT_MARKS.every(m => hasEverObtainedMark(m))
+      && Object.keys(achvs).every(id => id === "THE_END" || Object.hasOwn(globalScene.gameData.achvUnlocks, id)),
+  ).setSecret(),
 };
 
 /** Local fork (2026-11-17): the achievements for collecting marks and ribbons, in the order they are checked */

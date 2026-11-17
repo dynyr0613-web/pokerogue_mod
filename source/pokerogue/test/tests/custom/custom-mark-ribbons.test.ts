@@ -3,6 +3,7 @@
 // 구매로 / 노력치는 노력치별로 색깔 다르게 해서 추가 / 발자국리본은 2버전 만들어보죠, 200레벨, 그리고 엔드리스에서
 // 10만레벨 달성 시 하나 / 배틀타워는 엔드리스 클리어 증표처럼 하고 이름을 바꿔보죠 / 포켓몬별 증표 n/50몇개".
 
+import { speciesDataRegistry } from "#app/global-species-data-registry";
 import { getBestFriendsRibbonCandyCount, getPartnerMarkCandyCount } from "#balance/starters";
 import { modifierTypes } from "#data/data-lists";
 import {
@@ -11,6 +12,7 @@ import {
   COMPLETION_EXEMPT_MARKS,
   FOOTPRINT_LEVEL,
   GRAND_FOOTPRINT_LEVEL,
+  getAchievedLineMarks,
   getCollectedMarks,
   getEarnedProgressRibbons,
   getMarkTitle,
@@ -21,6 +23,7 @@ import {
   hasEverObtainedMark,
   isMarkCollectionComplete,
   isPokemonMark,
+  isWildLine,
   MARK_CHARM_ID,
   normalizeMarks,
   orderedPokemonMarks,
@@ -31,8 +34,11 @@ import { MoveId } from "#enums/move-id";
 import { PokemonMark } from "#enums/pokemon-mark";
 import { SpeciesId } from "#enums/species-id";
 import { PERMANENT_STATS, Stat } from "#enums/stat";
+import { TrainerSlot } from "#enums/trainer-slot";
+import { EnemyPokemon } from "#field/pokemon";
 import { getEvCap } from "#modifiers/ev-items";
 import type { PersistentModifier } from "#modifiers/modifier";
+import { achvs } from "#system/achv";
 import { PokemonData } from "#system/pokemon-data";
 import { GameManager } from "#test/framework/game-manager";
 import { getAppRootDir } from "#test/utils/sprite-utils";
@@ -233,6 +239,81 @@ describe("Local fork - earned ribbons, the worn mark and the line's collection",
     expect(getWildMarkRolls()).toBe(5);
     // In the Master pool, and with its texts
     expect(i18next.t("modifierType:ModifierType.MARK_CHARM.name")).not.toContain("MARK_CHARM");
+  });
+
+  it("a line earns the Egg Move Mark with all its egg moves and the Perfect IV Mark with 31s, once", async () => {
+    await game.classicMode.startBattle(SpeciesId.BULBASAUR);
+    const { gameData } = game.scene;
+    const entry = gameData.starterData[SpeciesId.BULBASAUR];
+    entry.eggMoves = 0b0111;
+    gameData.dexData[SpeciesId.BULBASAUR].ivs = [31, 31, 31, 31, 31, 30];
+    expect(getAchievedLineMarks(SpeciesId.BULBASAUR)).toEqual([]);
+
+    entry.eggMoves = 0b1111;
+    expect(getAchievedLineMarks(SpeciesId.BULBASAUR)).toEqual([PokemonMark.EGG_MOVES_MARK]);
+    gameData.syncAchievedLineMarks(SpeciesId.BULBASAUR);
+    gameData.syncAchievedLineMarks(SpeciesId.BULBASAUR);
+    expect(gameData.markCounts[PokemonMark.EGG_MOVES_MARK]).toBe(1);
+    expect(getCollectedMarks(entry)).toEqual([PokemonMark.EGG_MOVES_MARK]);
+
+    // The best IVs reach 31 through the game's own update
+    gameData.updateSpeciesDexIvs(SpeciesId.BULBASAUR, [31, 31, 31, 31, 31, 31]);
+    expect(getCollectedMarks(entry)).toEqual([PokemonMark.EGG_MOVES_MARK, PokemonMark.PERFECT_IV_MARK]);
+    expect(gameData.markCounts[PokemonMark.PERFECT_IV_MARK]).toBe(1);
+  });
+
+  it("the Master Ball Mark: caught in a Master Ball, or obtained at all if its line is never wild", async () => {
+    await game.classicMode.startBattle(SpeciesId.BULBASAUR);
+    expect(isWildLine(SpeciesId.BULBASAUR)).toBe(true);
+    expect(isWildLine(SpeciesId.MAGIKARP)).toBe(true);
+
+    const wild = game.field.getEnemyPokemon();
+    wild.marks = [];
+    await game.scene.gameData.setPokemonCaught(wild, true, false, false);
+    expect(wild.hasMark(PokemonMark.MASTER_BALL_MARK)).toBe(false);
+
+    // A line in no biome's wild pool (egg-only Pokémon) gets it for being obtained
+    const nonWild = speciesDataRegistry.getAllStarters().filter(id => !isWildLine(id));
+    console.info(
+      "lines never met in the wild:",
+      nonWild.length,
+      nonWild
+        .slice(0, 12)
+        .map(id => SpeciesId[id])
+        .join(" "),
+    );
+    expect(nonWild.length).toBeGreaterThan(0);
+    // Built directly: `addEnemyPokemon` would swap in the test's enemy species override
+    const gift = new EnemyPokemon(speciesDataRegistry.getSpecies(nonWild[0]), 50, TrainerSlot.NONE, false);
+    gift.marks = [];
+    await game.scene.gameData.setPokemonCaught(gift, true, false, false);
+    expect(gift.hasMark(PokemonMark.MASTER_BALL_MARK)).toBe(true);
+    gift.destroy();
+  });
+
+  it("the last achievement is hidden and needs every hidden mark and every other achievement", async () => {
+    await game.classicMode.startBattle(SpeciesId.BULBASAUR);
+    const { gameData } = game.scene;
+    const keys = Object.keys(achvs);
+    expect(keys.at(-1)).toBe("THE_END");
+    expect(achvs.THE_END.secret).toBe(true);
+    expect(achvs.THE_END.hasParent).toBeFalsy();
+
+    for (const id of keys.filter(k => k !== "THE_END")) {
+      gameData.achvUnlocks[id] = 1;
+    }
+    expect(achvs.THE_END.validate()).toBe(false);
+    for (const mark of COMPLETION_EXEMPT_MARKS) {
+      gameData.markCounts[mark] = 1;
+    }
+    expect(achvs.THE_END.validate()).toBe(false);
+    for (const id of Object.keys(gameData.starterData).map(Number)) {
+      gameData.dexData[id as SpeciesId].caughtAttr = 1n;
+    }
+    gameData.dexData[SpeciesId.ETERNATUS].caughtAttr = 1n;
+    expect(achvs.THE_END.validate()).toBe(true);
+    delete gameData.achvUnlocks[keys[0]];
+    expect(achvs.THE_END.validate()).toBe(false);
   });
 
   it("the Best Friends Ribbon costs twice the Partner Mark", () => {
