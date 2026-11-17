@@ -24,6 +24,10 @@ Output: assets/images/items/choice_band.png        32x32 palette PNG (like items
         D:/PokeRogueDev/docs/choice_items_preview.png  the three Choice item icons and the two vests, each in its 32x32
                                                      frame at x4 on a dark background, with the Korean names
 --preview-only writes just the preview from the current atlas and installs nothing.
+
+Local fork (2026-11-18): superseded as an installer. "choice_band" is PokéSprite's items/hold-item/choice-band.png since
+D:/PokeRogueDev/tools/port/install_pokesprite_icons.py (the user: "아이콘 화풍은 포케스프라이트로 통일"); installing the
+Essentials band now needs --essentials. --preview-only still writes the preview.
 """
 
 import json
@@ -182,6 +186,10 @@ def preview() -> None:
 
 
 if __name__ == "__main__":
+    # Local fork (2026-11-18): a plain run would put the Essentials band back over PokéSprite's
+    if "--preview-only" not in sys.argv and "--essentials" not in sys.argv:
+        raise SystemExit("superseded by install_pokesprite_icons.py; pass --essentials to install the Essentials band "
+                         "anyway, or --preview-only for the preview")
     if "--preview-only" not in sys.argv:
         install_icon(band_icon())
     preview()

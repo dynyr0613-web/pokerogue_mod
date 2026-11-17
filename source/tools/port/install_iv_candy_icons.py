@@ -12,6 +12,9 @@ Output: assets/images/items/<name>_candy.png  32x32 palette PNG, the 16x16 candy
 
 Re-running is safe: existing frames are redrawn in place (pass --keep-pngs to only refresh the atlas from the
 PNGs in assets/images/items/), new ones are appended below the sheet (install_vest_icons.update_atlas).
+
+Local fork (2026-11-18): superseded. The six frames are PokéSprite's Let's Go candies (items/av-candy/{health,mighty,
+tough,smart,courage,quick}.png) since install_pokesprite_icons.py; this script stops unless --cobblemon is given.
 """
 
 import importlib.util
@@ -46,6 +49,10 @@ def make_pngs() -> None:
 
 
 if __name__ == "__main__":
+    # Local fork (2026-11-18): superseded by install_pokesprite_icons.py (the user: "아이콘 화풍은 포케스프라이트로
+    # 통일"); a plain run would put the Cobblemon candies back over PokéSprite's, so it needs --cobblemon
+    if "--cobblemon" not in sys.argv:
+        raise SystemExit("superseded by install_pokesprite_icons.py; pass --cobblemon to install the Cobblemon candies anyway")
     if "--keep-pngs" not in sys.argv:
         make_pngs()
     vest.update_atlas(NAMES)

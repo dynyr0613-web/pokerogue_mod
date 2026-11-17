@@ -15,10 +15,12 @@
  */
 
 import { globalScene } from "#app/global-scene";
+import { speciesDataRegistry } from "#app/global-species-data-registry"; // Local fork (2026-11-18): syncAlphaLineBoosts
 import { getWildRollSeedOffset } from "#data/pokemon-marks";
 import { PokemonMark } from "#enums/pokemon-mark";
+import type { SpeciesId } from "#enums/species-id";
 import type { Pokemon } from "#field/pokemon";
-import type { StarterDataEntry } from "#types/save-data";
+import type { StarterData, StarterDataEntry } from "#types/save-data";
 import { randSeedInt } from "#utils/common";
 
 /** The largest stat boost of an alpha, in percent; an alpha with it is a golden alpha */
@@ -129,7 +131,53 @@ export function registerAlpha(pokemon: Pokemon): boolean {
       raised = true;
     }
   }
+  // Local fork (2026-11-18): an alpha Pichu (whose two roots are both Pichu) reaches the Pikachu starter at once too, as
+  // it would on the next load (syncAlphaLineBoosts)
+  if (raised) {
+    syncAlphaLineBoosts(globalScene.gameData.starterData);
+  }
   return raised;
+}
+
+/**
+ * Local fork (2026-11-18): even out the alpha records of the lines with two starters (Pichu and Pikachu) in a save from
+ * before 11-17, when {@linkcode registerAlpha} credited the root of the line only: an alpha Pikachu or Raichu caught then
+ * was recorded for the Pichu starter and never for the Pikachu one. For each species whose root (`getRootSpeciesId()`)
+ * and starter (`getRootSpeciesId(true)`) differ, both starter entries get the larger of their two boosts (the user: "버그성
+ * 빈틈도 다 수정"). `alphaEnabled` stays as each entry has it (the starter select switch). Nothing is added to a line
+ * without an alpha, and running it again changes nothing.
+ *
+ * Meant for the save loading loop (`GameData.initParsedSystem`, next to `syncAchievedLineMarks`).
+ * @remarks The old records do not say which species of the line was caught, so the larger value goes to both starters.
+ * Run on every load, it also gives the Pikachu starter a Pichu alpha caught later (which `registerAlpha` records for
+ * Pichu only) from the next load on: an alpha Pichu evolves into an alpha Pikachu anyway.
+ * @param starterData - The save's starter data, changed in place
+ * @returns The starters whose boost went up
+ */
+export function syncAlphaLineBoosts(starterData: StarterData): SpeciesId[] {
+  const raised = new Set<SpeciesId>();
+  const pairs = new Set<string>();
+  for (const species of speciesDataRegistry.getAllSpecies()) {
+    const rootId = species.getRootSpeciesId();
+    const starterId = species.getRootSpeciesId(true);
+    const pairKey = `${rootId}:${starterId}`;
+    if (rootId === starterId || pairs.has(pairKey)) {
+      continue;
+    }
+    pairs.add(pairKey);
+    const entries = [rootId, starterId].map(id => [id, starterData[id]] as const);
+    const best = Math.max(...entries.map(([, entry]) => normalizeAlphaBoost(entry?.alphaBoost)));
+    if (best <= 0) {
+      continue;
+    }
+    for (const [id, entry] of entries) {
+      if (entry && normalizeAlphaBoost(entry.alphaBoost) < best) {
+        entry.alphaBoost = best;
+        raised.add(id);
+      }
+    }
+  }
+  return [...raised];
 }
 
 /**

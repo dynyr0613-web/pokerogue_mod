@@ -790,25 +790,21 @@ and [everyone else](https://github.com/pagefaultgames/pokerogue/graphs/contribut
 - Ydarissep (Creator of the now defunct "Yda's Dex")
 
 ## Local fork assets
-- The Cobblemon Team: the six IV Candy item icons (`assets/images/items/*_candy.png` except the Rare Candies), from
-  [Cobblemon](https://gitlab.com/cable-mc/cobblemon) 1.7.3, scaled 2x. Licensed under MPL-2.0 (`LICENSES/MPL-2.0.txt`).
+- Local fork (2026-11-18), item icons from [PokéSprite](https://github.com/msikma/pokesprite) (the sprites are
+  © Nintendo / Creatures Inc. / GAME FREAK inc., the main series' own art; the repository is MIT), 32x32 originals used
+  unedited (`D:/PokeRogueDev/tools/port/install_pokesprite_icons.py`, sources in `tools/port/item-icons/` there): the
+  six IV Candies (`items/av-candy`), the six EV items, Power Weight … Power Anklet (`items/ev-item`), Throat Spray,
+  Assault Vest, Life Orb and Choice Band (`items/hold-item`), the Z-Ring and the Mark Charm (`items/key-item`), the
+  Dynamax Candy (`items/other-item`) and the 34 Z crystals (`items/z-crystals/*-z--bag.png`). The Bulletproof Vest is
+  that Assault Vest recoloured grey. The Charizardite Z, Galladite Z, Baxcalibrite Z and Archaludonite icons are
+  PokéRogue's own Charizardite X, Galladite, Baxcalibrite and Garchompite icons recoloured. They are also packed into
+  `assets/images/items.png` (the user: "아이콘 화풍은 포케스프라이트로 통일").
 - The Cobblemon Team: the Punching Glove item icon (`assets/images/items/punching_glove.png`) and its black Rogue Ball
-  recolour for the Master Punching Glove (`master_punching_glove.png`), from Cobblemon 1.7.3, scaled 2x. MPL-2.0.
+  recolour for the Master Punching Glove (`master_punching_glove.png`), from
+  [Cobblemon](https://gitlab.com/cable-mc/cobblemon) 1.7.3, scaled 2x. Licensed under MPL-2.0 (`LICENSES/MPL-2.0.txt`).
   They are also packed into `assets/images/items.png`.
-- The Cobblemon Team: the Clear Amulet and Throat Spray item icons (`assets/images/items/clear_amulet.png`,
-  `throat_spray.png`), from Cobblemon 1.7.3, scaled 2x. MPL-2.0.
-  They are also packed into `assets/images/items.png`.
-- The Cobblemon Team: the six EV item icons, Power Weight, Power Bracer, Power Belt, Power Lens, Power Band and Power
-  Anklet (`assets/images/items/power_weight.png`, `power_bracer.png`, `power_belt.png`, `power_lens.png`,
-  `power_band.png`, `power_anklet.png`), from Cobblemon 1.7.3, scaled 2x. MPL-2.0.
-  They are also packed into `assets/images/items.png`.
-- Local fork (2026-11-16), Cobblemon: Mega Showdown (Yajat Kaul and contributors): the Z-Ring, Dynamax Candy and Z
-  crystal item icons (`assets/images/items/z_ring.png`, `dynamax_candy.png`, the 18 type crystals `normalium_z.png` …
-  `fairium_z.png`, the exclusive crystals `pikanium_z.png` … `lunalium_z.png` and `ultranecrozium_z_crystal.png`), from
-  [Cobblemon: Mega Showdown](https://github.com/yajatkaul/CobblemonMegaShowdown) 1.7.3, scaled 2x. Mega Showdown
-  License v2.1, under which its textures are licensed CC BY-NC-SA 4.0
-  (https://github.com/yajatkaul/CobblemonMegaShowdown/blob/main/LICENSE.md; `LICENSES/CC-BY-NC-SA-4.0.txt`).
-  They are also packed into `assets/images/items.png`.
+- The Cobblemon Team: the Clear Amulet item icon (`assets/images/items/clear_amulet.png`), from Cobblemon 1.7.3, scaled
+  2x. MPL-2.0. It is also packed into `assets/images/items.png`.
 - Local fork (2026-11-11), named trainer battle sprites, used unedited from the
   [Pokémon Showdown trainer sprite index](https://play.pokemonshowdown.com/sprites/trainers/?filter=credited)
   (`assets/images/trainer/<name>.png`; terms and SHA-256 sums in `tools/port_named_trainers/CREDITS_showdown.md`
@@ -822,17 +818,21 @@ and [everyone else](https://github.com/pagefaultgames/pokerogue/graphs/contribut
 - Local fork (2026-11-16), Z-Moves and Max Moves: the Max / Z power, Z-Power effect, G-Max and exclusive Z-Crystal
   tables in `src/data/moves/zmax-data.ts` are derived from [Pokémon Showdown](https://github.com/smogon/pokemon-showdown)
   (`data/moves.ts`, `sim/dex-moves.ts`), MIT License, (c) Guangcong Luo and contributors (`LICENSES/MIT.txt`). The
-  Z crystal, Z-Ring and Dynamax Candy item icons are Cobblemon: Mega Showdown's (above).
+  Z crystal, Z-Ring and Dynamax Candy item icons are PokéSprite's (above).
 - Local fork (2026-11-17), mark and ribbon icons (`assets/images/marks/marks.png`, built by
-  `D:/PokeRogueDev/tools/port/make_marks_atlas.py` from `tools/port/mark-icons/` there, outside the repository; imported 2026-11-17 from the `pokerogue_mod` repository): the 40x40 ribbon sprites of
-  [PKHeX](https://github.com/kwsch/PKHeX) (`PKHeX.Drawing.Misc/Resources/img/ribbons`), used unedited. GPL-3.0
-  (`LICENSES/GPL-3.0-only.txt`). The marks' and ribbons' Korean and English names are the main series' own.
-  The Golden Alpha Mark's icon is PKHeX's Alpha Mark recoloured, and the three shiny marks' icons are PokéRogue's
-  Shiny Charm item icon recoloured (`tools/port/mark-icons/ribbonmarkalphagold.png`, `ribbonmarkshiny*.png`).
-  Added the same night from the repository: the six stat Effort Ribbons are PKHeX's Effort Ribbon with recoloured
-  petals, the Grand Footprint Ribbon is its Footprint Ribbon recoloured violet, and the Endless Master Ribbon uses its
-  Tower Master Ribbon; the Egg Move, Perfect IV and Master Ball Marks are PokéRogue's Mystery Egg, HP Up (recoloured
-  gold) and Master Ball icons, and the Eternatus Mark is PokéRogue's Mini Black Hole icon recoloured.
-- Local fork (2026-11-17), the Mark Charm item icon (`mark_charm` in `assets/images/items.png`, installed by
-  `tools/port/install_mark_charm_icon.py`): the Mark Charm sprite of the [PokeAPI sprites](https://github.com/PokeAPI/sprites)
-  repository (`sprites/items/mark-charm.png`), halved to 32x32. The sprite itself is the main series' own art.
+  `D:/PokeRogueDev/tools/port/make_marks_atlas.py` from `tools/port/mark-icons/` there, outside the repository; imported
+  2026-11-17 from the `pokerogue_mod` repository): the 40x40 ribbon and mark sprites of
+  [PKHeX](https://github.com/kwsch/PKHeX) (`PKHeX.Drawing.Misc/Resources/img/ribbons`), GPL-3.0
+  (`LICENSES/GPL-3.0-only.txt`). Since 2026-11-18 they are cleaned into plain pixel art when the atlas is built (hard
+  edges, a small palette of each icon's own colours, no anti-aliasing steps: `tools/port/clean_mark_icons.py`; the
+  user: "도트 스프라이트에서 굳이 그런 애매한 색을 쓸 이유는 없으니까요"); the drawings are PKHeX's. The marks' and ribbons'
+  Korean and English names and titles are the main series' own (checked in
+  [Poké Corpus](https://abcboy101.github.io/poke-corpus/): Scarlet / Violet, Sword / Shield, HeartGold / SoulSilver).
+  - Recolours of PKHeX's: the Golden Alpha Mark (its Alpha Mark), the six stat Effort Ribbons (its Effort Ribbon's
+    petals) and the Grand Footprint Ribbon (its Footprint Ribbon, violet). The Endless Master Ribbon uses its Tower
+    Master Ribbon, and the six Endless milestone ribbons its Gen 4 Ability Ribbons (30x30, centred).
+  - From PokéRogue's own icons: the Egg Move and Master Ball Marks (Mystery Egg, Master Ball), the Eternatus Mark (Mini
+    Black Hole, recoloured) and the three shiny marks (the Shiny Charm with its stars in the tier's colour and its small
+    sparkles in an accent colour, grown 15% by doubling three rows and three columns:
+    `tools/port/make_shiny_mark_icons.py`).
+  - The Perfect IV Mark is PokéSprite's Gold Bottle Cap (`items/other-item/gold-bottle-cap.png`, above), doubled.

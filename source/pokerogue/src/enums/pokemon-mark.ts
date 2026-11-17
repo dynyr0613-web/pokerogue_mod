@@ -43,6 +43,23 @@ export enum PokemonMark {
   GRAND_FOOTPRINT_RIBBON = 19,
   /** The Endless Master Ribbon (엔드리스마스터리본), after the Tower Master Ribbon: the party that clears Endless */
   ENDLESS_MASTER_RIBBON = 20,
+  // #region Local fork (2026-11-18): hidden ribbons (the user: "새 히든 증표•리본"); see `COMPLETION_EXEMPT_MARKS`
+  // The Gen 4 Battle Tower's ability ribbons (어빌리티리본 ...) as Endless milestones: the party that clears Endless
+  // (or Spliced Endless) wave 500, 1000, 2000, 3000, 4000 and 5000 (`ENDLESS_MILESTONE_RIBBONS`)
+  ABILITY_RIBBON = 21,
+  GREAT_ABILITY_RIBBON = 22,
+  DOUBLE_ABILITY_RIBBON = 23,
+  MULTI_ABILITY_RIBBON = 24,
+  PAIR_ABILITY_RIBBON = 25,
+  WORLD_ABILITY_RIBBON = 26,
+  /** The Hisui Ribbon (히스이리본): the party that beats a named trainer from Hisui (`TRAINER_RIBBONS`) */
+  HISUI_RIBBON = 27,
+  /**
+   * The Master Rank Ribbon (마스터랭크리본): the party that beats a named trainer once the player has beaten all 11
+   * of them (`awardMasterRankRibbon`)
+   */
+  MASTER_RANK_RIBBON = 28,
+  // #endregion
   // #endregion
 
   // #region Marks a wild Pokémon may be met with (see `rollWildMark`)
@@ -123,6 +140,18 @@ export enum PokemonMark {
    * never met in the wild gets it when it is obtained
    */
   MASTER_BALL_MARK = 211,
+  // #endregion
+
+  // #region Local fork (2026-11-18): hidden marks of the main series (the user: "새 히든 증표•리본")
+  /**
+   * The Destiny Mark (운명의증표): a wild Pokémon whose National Pokédex number is the wave's (in Endless past wave
+   * 1025 also the wave's last three digits) carries it (`isDestinyWave`)
+   */
+  DESTINY_MARK = 212,
+  /** The Gourmand Mark (미식가의증표): a Pokémon that has eaten all six IV Candies up to its cap */
+  GOURMAND_MARK = 213,
+  /** The Itemfinder Mark (습득의증표): a player's Pokémon whose Pickup picks up an item */
+  ITEMFINDER_MARK = 214,
   // #endregion
 
   /**

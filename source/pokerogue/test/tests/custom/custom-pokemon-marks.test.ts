@@ -35,6 +35,7 @@ import {
 import { PokemonData } from "#system/pokemon-data";
 import { GameManager } from "#test/framework/game-manager";
 import { getAppRootDir } from "#test/utils/sprite-utils";
+import { FORK_NAMED_TRAINER_TYPES } from "#trainers/named-trainers";
 import type { EnemyBattleInfo } from "#ui/enemy-battle-info";
 import type { PokedexPageUiHandler } from "#ui/pokedex-page-ui-handler";
 import { getEnumValues } from "#utils/enums";
@@ -87,12 +88,18 @@ describe("Local fork - marks and ribbons", () => {
   it("gives ribbons only for champions, and every ribbon has a champion", () => {
     const ribbons = orderedPokemonMarks.filter(isRibbon);
     // The eight champions' ribbons, the Once-in-a-Lifetime Ribbon of the Hyper GTS, and the eleven that are bought or
-    // earned by raising a Pokémon (custom-mark-ribbons.test.ts)
-    expect(ribbons).toHaveLength(20);
+    // earned by raising a Pokémon (custom-mark-ribbons.test.ts); Local fork (2026-11-18): and the eight hidden ones,
+    // the six Endless milestones, the Hisui Ribbon and the Master Rank Ribbon (custom-hidden-marks-1118.test.ts)
+    expect(ribbons).toHaveLength(28);
     expect(new Set(Object.values(TRAINER_RIBBONS))).toEqual(
-      new Set(ribbons.filter(r => r < PokemonMark.ONCE_IN_A_LIFETIME_RIBBON)),
+      new Set([...ribbons.filter(r => r < PokemonMark.ONCE_IN_A_LIFETIME_RIBBON), PokemonMark.HISUI_RIBBON]),
     );
     for (const type of Object.keys(TRAINER_RIBBONS).map(Number)) {
+      // The champions, and the named trainers from Hisui
+      if (TRAINER_RIBBONS[type] === PokemonMark.HISUI_RIBBON) {
+        expect(FORK_NAMED_TRAINER_TYPES).toContain(type);
+        continue;
+      }
       expect(type).toBeGreaterThanOrEqual(TrainerType.BLUE);
       expect(type).toBeLessThanOrEqual(TrainerType.KIERAN);
     }

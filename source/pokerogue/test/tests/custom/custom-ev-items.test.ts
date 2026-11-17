@@ -45,7 +45,7 @@ import { PokemonData } from "#system/pokemon-data";
 import { GameManager } from "#test/framework/game-manager";
 import { runMysteryEncounterToEnd } from "#test/utils/encounter-test-utils";
 import type { WeightedModifierTypeWeightFunc } from "#types/modifier-types";
-import { EV_ITEM_ICON_SCALE, EV_ITEM_ICONS, getItemIconScale } from "#ui/item-icon-scale";
+import { EV_ITEM_ICONS, getItemIconScale, POKESPRITE_ITEM_ICONS } from "#ui/item-icon-scale";
 import { SummaryUiMode } from "#ui/summary-ui-handler";
 import { getModifierPoolForType } from "#utils/modifier-utils";
 import { existsSync, readFileSync } from "node:fs";
@@ -169,7 +169,9 @@ describe("Custom - EVs and the EV items", () => {
     expect(evs).toEqual([504, 5, 0, 0, 0, 252]);
   });
 
-  it("have Cobblemon icons at 0.7, Korean / English text, a save class, ROGUE pool entries, the full-item rule and the gate", () => {
+  // Local fork (2026-11-18): PokéSprite's icons (items/ev-item) at 1 instead of Cobblemon's at 0.7 ("아이콘 화풍은
+  // 포케스프라이트로 통일")
+  it("have PokéSprite icons at 1, Korean / English text, a save class, ROGUE pool entries, the full-item rule and the gate", () => {
     const atlas = JSON.parse(readFileSync("./assets/images/items.json", "utf8")).textures[0].frames as {
       filename: string;
       sourceSize: { w: number; h: number };
@@ -178,7 +180,6 @@ describe("Custom - EVs and the EV items", () => {
     const ko = JSON.parse(readFileSync("./locales/ko/modifier-type.json", "utf8")).ModifierType;
     const en = JSON.parse(readFileSync("./locales/en/modifier-type.json", "utf8")).ModifierType;
     expect(getCustomModifierClass("EvItemModifier")).toBe(EvItemModifier);
-    expect(EV_ITEM_ICON_SCALE).toBe(0.7);
     expect(EV_ITEM_ICONS).toEqual(ITEMS.map(([, , icon]) => icon));
     for (const [id, stat, icon, koName, enName] of ITEMS) {
       const type = itemType(id);
@@ -188,7 +189,8 @@ describe("Custom - EVs and the EV items", () => {
       expect(frame?.sourceSize, icon).toEqual({ w: 32, h: 32 });
       expect(frame?.trimmed, icon).toBe(false);
       expect(existsSync(`./assets/images/items/${icon}.png`), icon).toBe(true);
-      expect(getItemIconScale(icon), icon).toBe(EV_ITEM_ICON_SCALE);
+      expect(getItemIconScale(icon), icon).toBe(1);
+      expect(POKESPRITE_ITEM_ICONS.has(icon), icon).toBe(true);
       expect(ko[id]?.name, id).toBe(koName);
       // Local fork (2026-11-13): HP's item says 504
       expect(ko[id]?.description, id).toContain(`노력치가 1 오른다(최대 ${stat === Stat.HP ? 504 : 252}`);

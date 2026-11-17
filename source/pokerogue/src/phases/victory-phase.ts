@@ -1,12 +1,14 @@
 import { timedEventManager } from "#app/global-event-manager";
 import { globalScene } from "#app/global-scene";
 import { modifierTypes } from "#data/data-lists";
+import { awardEndlessMilestoneRibbon, getMarkName } from "#data/pokemon-marks";
 import { BattleType } from "#enums/battle-type";
 import type { BattlerIndex } from "#enums/battler-index";
 import { ClassicFixedBossWaves } from "#enums/fixed-boss-waves";
 import { ModifierTier } from "#enums/modifier-tier";
 import { handleMysteryEncounterVictory } from "#mystery-encounters/encounter-phase-utils";
 import { PokemonPhase } from "#phases/pokemon-phase";
+import i18next from "i18next";
 
 export class VictoryPhase extends PokemonPhase {
   public readonly phaseName = "VictoryPhase";
@@ -53,6 +55,17 @@ export class VictoryPhase extends PokemonPhase {
 
       const gameMode = globalScene.gameMode;
       const currentWaveIndex = globalScene.currentBattle.waveIndex;
+
+      // Local fork (2026-11-18): the party that clears Endless wave 500, 1000, 2000, 3000, 4000 or 5000 gets that
+      // milestone's hidden ability ribbon (pokemon-marks.ts; the user: "새 히든 증표•리본")
+      const milestoneRibbon = awardEndlessMilestoneRibbon(currentWaveIndex);
+      if (milestoneRibbon !== null) {
+        globalScene.phaseManager.queueMessage(
+          i18next.t("pokemonMarks:ribbonAwarded", { ribbonName: getMarkName(milestoneRibbon) }),
+          null,
+          true,
+        );
+      }
 
       if (gameMode.isEndless || !gameMode.isWaveFinal(currentWaveIndex)) {
         globalScene.phaseManager.pushNew("EggLapsePhase");

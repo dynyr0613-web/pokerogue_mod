@@ -6,7 +6,16 @@ PKHeX.Drawing.Misc/Resources/img/ribbons, GPL-3.0), named as there. Each atlas f
 recoloured for this fork's Golden Alpha Mark, and ribbonmarkshiny*.png are PokéRogue's Shiny Charm item icon
 recoloured for this fork's three shiny marks.
 
-    python -I make_marks_atlas.py <game folder>      e.g. the installed resources/game, or pokerogue/assets
+Local fork (2026-11-18): the Gen 4 ability ribbons (ribbonability*.png) are PKHeX's 30x30 (Multi: 30x31) sprites, kept
+as they are and centred in their 40x40 cell here; every other icon is 40x40. ribbonmarkperfectiv.png is PokéSprite's
+Gold Bottle Cap (https://github.com/msikma/pokesprite, items/other-item/gold-bottle-cap.png, 32x32): its 15x14 drawing
+doubled (nearest) to 30x28 and centred in the 40x40 cell.
+
+Local fork (2026-11-18): every icon is cleaned into plain pixel art as it goes into the atlas (clean_mark_icons.py:
+hard edges, a small palette of the icon's own colours, no anti-aliasing steps, the marks' drop shadow gone; the user:
+"도트 스프라이트에서 굳이 그런 애매한 색을 쓸 이유는 없으니까요"). The files in mark-icons/ stay the originals.
+
+    py make_marks_atlas.py <game folder>      e.g. the installed resources/game, or pokerogue/assets
 """
 import json
 import re
@@ -16,6 +25,8 @@ from pathlib import Path
 from PIL import Image
 
 HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE))
+import clean_mark_icons  # noqa: E402  (beside this script)
 ICONS = HERE / "mark-icons"
 SIZE = 40
 COLUMNS = 10
@@ -57,11 +68,26 @@ SOURCES = {
     "GRAND_FOOTPRINT_RIBBON": "footprintgrand",
     # This fork's own ribbon, with the Tower Master Ribbon's icon
     "ENDLESS_MASTER_RIBBON": "towermaster",
-    # This fork's own marks, from PokéRogue's own icons: the Mystery Egg item, the HP Up item recoloured gold and the
-    # Master Ball (mark-icons/ribbonmarkeggmoves.png, ribbonmarkperfectiv.png, ribbonmarkmasterball.png)
+    # This fork's own marks, from PokéRogue's own icons: the Mystery Egg item and the Master Ball
+    # (mark-icons/ribbonmarkeggmoves.png, ribbonmarkmasterball.png); 2026-11-18: the Perfect IV Mark has PokéSprite's
+    # Gold Bottle Cap, the main series' item for the best IVs, doubled (ribbonmarkperfectiv.png; until then PokéRogue's
+    # HP Up recoloured gold)
     "EGG_MOVES_MARK": "markeggmoves",
     "PERFECT_IV_MARK": "markperfectiv",
     "MASTER_BALL_MARK": "markmasterball",
+    # 2026-11-18: the hidden marks and ribbons of the main series, PKHeX's as they are (the user: "새 히든 증표•리본")
+    "DESTINY_MARK": "markdestiny",
+    "GOURMAND_MARK": "markgourmand",
+    "ITEMFINDER_MARK": "markitemfinder",
+    "HISUI_RIBBON": "hisui",
+    "MASTER_RANK_RIBBON": "masterrank",
+    # The Gen 4 Battle Tower's ability ribbons, 30x30, for the Endless milestones
+    "ABILITY_RIBBON": "ability",
+    "GREAT_ABILITY_RIBBON": "abilitygreat",
+    "DOUBLE_ABILITY_RIBBON": "abilitydouble",
+    "MULTI_ABILITY_RIBBON": "abilitymulti",
+    "PAIR_ABILITY_RIBBON": "abilitypair",
+    "WORLD_ABILITY_RIBBON": "abilityworld",
     # This fork's own hidden mark: PokéRogue's Mini Black Hole item icon recoloured in Eternatus' navy and crimson
     "ETERNATUS_MARK": "marketernatus",
 }
@@ -87,9 +113,11 @@ def main() -> None:
     frames = []
     for i, name in enumerate(names):
         icon = Image.open(ICONS / f"ribbon{SOURCES[name]}.png").convert("RGBA")
-        assert icon.size == (SIZE, SIZE), (name, icon.size)
+        icon, _, _ = clean_mark_icons.clean(icon, f"ribbon{SOURCES[name]}.png")
+        # 2026-11-18: a smaller icon (the Gen 4 ribbons, 30x30) is centred in its cell
+        assert icon.width <= SIZE and icon.height <= SIZE, (name, icon.size)
         x, y = (i % COLUMNS) * SIZE, (i // COLUMNS) * SIZE
-        sheet.paste(icon, (x, y))
+        sheet.paste(icon, (x + (SIZE - icon.width) // 2, y + (SIZE - icon.height) // 2))
         rect = {"x": x, "y": y, "w": SIZE, "h": SIZE}
         frames.append(
             {

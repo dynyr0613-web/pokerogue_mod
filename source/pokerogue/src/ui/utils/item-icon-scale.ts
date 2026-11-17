@@ -4,6 +4,8 @@
  * "저희가 추가한 사탕류는 유독 크네요, 크기를 10%정도 더 줄이기로".
  * Local fork (2026-11-11): per-icon scales for more of the fork's icons, picked by the user from a comparison sheet
  * (docs/item_icon_size_compare.png): "펀치글러브 0.7, 목스프레이 0.6, 프리즘 0.9, 개체값사탕 0.75로 합시다".
+ * Local fork (2026-11-18): the icons that came from Cobblemon / Mega Showdown (16x16 scaled 2x) are now PokéSprite's
+ * 32x32 originals (see {@linkcode POKESPRITE_ITEM_ICONS}) and draw at 1 like PokeRogue's own icons.
  * The atlas frames stay untouched (resampling 32x32 pixel art by 0.9 would blur it); each draw site scales its sprite.
  */
 
@@ -19,25 +21,6 @@ export const SUMMARY_ITEM_ICON_SCALE = 0.9;
 /** Extra scale for 사탕더미 (Candy Pile), which looks big next to the official icons (2026-11-08) */
 export const FORK_CANDY_ICON_SCALE = 0.9;
 
-/** Extra scale for the six IV candies: 0.9 on 2026-11-08, 0.75 since 2026-11-11 (the user: "개체값사탕 0.75") */
-export const IV_CANDY_ICON_SCALE = 0.75;
-
-/**
- * The fork's candy icons: the six IV candies (기력의사탕 … 속도의사탕, Cobblemon's 16x16 art scaled 2x by
- * tools/port/install_iv_candy_icons.py) and 사탕더미 (Candy Pile, tools/port/install_candy_pile_icon.py).
- * Kept as plain frame names so this module needs no modifier imports; a test keeps it in step with
- * `IvCandyModifierType.items` and the CANDY_PILE type.
- */
-export const FORK_CANDY_ICONS: ReadonlySet<string> = new Set([
-  "health_candy",
-  "mighty_candy",
-  "tough_candy",
-  "smart_candy",
-  "courage_candy",
-  "quick_candy",
-  "candy_pile",
-]);
-
 /**
  * Local fork (2026-11-12): the scale of 중량밴드 / 챔피언벨트 (Weight Band / Champion Belt), the user's own art ("여기
  * 파워웨이트랑 챔피언벨트 이미지입니다"). Both are 30 pixels wide in their 32x32 frames, where the official belts and
@@ -46,14 +29,23 @@ export const FORK_CANDY_ICONS: ReadonlySet<string> = new Set([
 export const HP_BELT_ICON_SCALE = 0.75;
 
 /**
- * Local fork (2026-11-12): the scale of the six EV items (파워웨이트 … 파워앵클릿), Cobblemon's textures scaled 2x (the
- * user: "아이콘은 또 코블버스에서 가져온 뒤 배율만 조정하면 됩니다"). Their rings are 28 pixels wide (파워렌즈 32) and solid,
- * where the official belts and bands are 21-22 and thin; 0.7, the Punching Glove's (also a solid 28-pixel Cobblemon
- * icon), brings them to about 20 (docs/ev_items_icon_preview.png shows 0.6 / 0.7 / 0.8 next to the atlas' items)
+ * Local fork (2026-11-18): the six IV candies' frame names (기력의사탕 … 속도의사탕, `IvCandyModifierType.items`; a test
+ * keeps them in step). PokéSprite's Let's Go candies (items/av-candy) since 2026-11-18; they were Cobblemon's drawn at
+ * 0.9 (2026-11-08) and 0.75 (2026-11-11, the user: "개체값사탕 0.75")
  */
-export const EV_ITEM_ICON_SCALE = 0.7;
+export const IV_CANDY_ICONS: readonly string[] = Object.freeze([
+  "health_candy",
+  "mighty_candy",
+  "tough_candy",
+  "smart_candy",
+  "courage_candy",
+  "quick_candy",
+]);
 
-/** Local fork (2026-11-12): the EV items' frame names (`EV_RULES.items` in ev-items.ts; a test keeps them in step) */
+/**
+ * Local fork (2026-11-12): the EV items' frame names (`EV_RULES.items` in ev-items.ts; a test keeps them in step).
+ * PokéSprite's items/ev-item since 2026-11-18; Cobblemon's textures scaled 2x and drawn at 0.7 before
+ */
 export const EV_ITEM_ICONS: readonly string[] = Object.freeze([
   "power_weight",
   "power_bracer",
@@ -64,31 +56,11 @@ export const EV_ITEM_ICONS: readonly string[] = Object.freeze([
 ]);
 
 /**
- * Local fork (2026-11-16): the scales of the Z-Moves and Max Moves rewards' icons, Cobblemon: Mega Showdown's 16x16
- * textures scaled 2x (tools/port_zmax_1116/make_cobbleverse_icons.py). The user: "아이콘은 언제나처럼 코블버스 쪽에서
- * 빼오면 됩니다 / 거기에 다이사탕이랑 z링, z 크리스탈들 도트 이미지가 다 있어요 / 이미지가 크지 않도록 배율 조절도
- * 해주세요". Measured in the 32x32 frames (visible width x height, opaque pixels; docs/zmax_icons_preview.png):
- * - Z crystals 32x18 (320-336 px) against the official crystal `ultranecrozium_z` 28x13 (208 px): 0.8 gives 25.6x14.4
- *   (205-215 px).
- */
-export const Z_CRYSTAL_ICON_SCALE = 0.8;
-
-/**
- * Local fork (2026-11-16): Z링 is a solid 28x28 disc (668 px) like the EV items (0.7); the official 다이맥스밴드 is 21x21
- * (295 px) and 메가링 18x14 (206 px): 0.7 gives 19.6x19.6 (327 px). See {@linkcode Z_CRYSTAL_ICON_SCALE}
- */
-export const Z_RING_ICON_SCALE = 0.7;
-
-/**
- * Local fork (2026-11-16): 다이사탕 is a star that fills the whole 32x32 frame (604 px, with gaps between its arms); the
- * official 이상한사탕 is 21x21 (209 px): 0.65 gives 20.8x20.8 (255 px). See {@linkcode Z_CRYSTAL_ICON_SCALE}
- */
-export const DYNAMAX_CANDY_ICON_SCALE = 0.65;
-
-/**
  * Local fork (2026-11-16): the frame names of the 18 type Z crystals and the 16 exclusive ones (`Z_TYPE_CRYSTAL_ICONS`
  * in zmax-items.ts and `EXCLUSIVE_Z[].icon` in zmax-data.ts; a test keeps them in step). `ultranecrozium_z`, Necrozma's
- * form change item, keeps PokeRogue's own icon and scale; the reward crystal is `ultranecrozium_z_crystal`
+ * form change item, keeps PokeRogue's own icon; the reward crystal is `ultranecrozium_z_crystal`.
+ * Local fork (2026-11-18): PokéSprite's items/z-crystals/<name>-z--bag.png; Mega Showdown's textures scaled 2x and drawn
+ * at 0.8 before
  */
 export const Z_CRYSTAL_ICONS: readonly string[] = Object.freeze([
   "normalium_z",
@@ -128,33 +100,49 @@ export const Z_CRYSTAL_ICONS: readonly string[] = Object.freeze([
 ]);
 
 /**
- * Every icon drawn at another scale than 1, by frame name. The candies as above; the Cobblemon icons that fill the
- * whole 32x32 frame (펀치글러브 and 마스터 펀치글러브 share one drawing) and 프리즘 as the user chose on 2026-11-11;
- * 클리어참 0.7 (2026-11-13);
- * the two HP belts (2026-11-12, {@linkcode HP_BELT_ICON_SCALE}); the six EV items (2026-11-12,
- * {@linkcode EV_ITEM_ICON_SCALE}); Z링, 다이사탕 and the Z crystals (2026-11-16, {@linkcode Z_CRYSTAL_ICON_SCALE}).
+ * Local fork (2026-11-18): the fork's icons that are PokéSprite's 32x32 originals (https://github.com/msikma/pokesprite,
+ * the set PokeRogue's own item icons come from), installed by tools/port/install_pokesprite_icons.py. The user:
+ * "아이콘은 전부 수정하고" / "아이콘 화풍은 포케스프라이트로 통일". They draw at 1 like PokeRogue's own icons, so none has an
+ * entry in {@linkcode ITEM_ICON_SCALES} any more (before: IV candies 0.75, EV items 0.7, 목스프레이 0.6, Z링 0.7,
+ * 다이사탕 0.65, Z crystals 0.8). 방탄조끼 is the new 돌격조끼 recoloured grey (not a main-series item). The four custom
+ * Mega Stones are recolours of PokeRogue's own 14x14 stones and also draw at 1.
+ */
+/** Local fork (2026-11-18): the IV candies' scale (see {@linkcode ITEM_ICON_SCALES}) */
+export const IV_CANDY_ICON_SCALE = 1.5;
+
+export const POKESPRITE_ITEM_ICONS: ReadonlySet<string> = new Set([
+  ...IV_CANDY_ICONS,
+  ...EV_ITEM_ICONS,
+  "throat_spray",
+  "assault_vest",
+  "bulletproof_vest",
+  "life_orb",
+  "choice_band",
+  "z_ring",
+  "dynamax_candy",
+  ...Z_CRYSTAL_ICONS,
+  "mark_charm",
+]);
+
+/**
+ * Every icon drawn at another scale than 1, by frame name: 사탕더미 as above; the Cobblemon icons PokéSprite has no art for,
+ * which fill the whole 32x32 frame (펀치글러브 and 마스터 펀치글러브 share one drawing; 클리어참 0.7 since 2026-11-13), and
+ * 프리즘 as the user chose on 2026-11-11; the two HP belts (2026-11-12, {@linkcode HP_BELT_ICON_SCALE}).
+ * Local fork (2026-11-18): the PokéSprite icons ({@linkcode POKESPRITE_ITEM_ICONS}) lost their entries.
  */
 export const ITEM_ICON_SCALES: ReadonlyMap<string, number> = new Map([
-  ["health_candy", IV_CANDY_ICON_SCALE],
-  ["mighty_candy", IV_CANDY_ICON_SCALE],
-  ["tough_candy", IV_CANDY_ICON_SCALE],
-  ["smart_candy", IV_CANDY_ICON_SCALE],
-  ["courage_candy", IV_CANDY_ICON_SCALE],
-  ["quick_candy", IV_CANDY_ICON_SCALE],
   ["candy_pile", FORK_CANDY_ICON_SCALE],
+  // Local fork (2026-11-18): PokéSprite's IV candies are an 11x11 drawing in the 32x32 frame (Let's Go's), half the
+  // size of the other candies; drawn at 1.5 they keep the size the user chose for them on 11-11 (22x22 at 0.75), the
+  // pixels themselves unchanged
+  ...IV_CANDY_ICONS.map(icon => [icon, IV_CANDY_ICON_SCALE] as [string, number]),
   ["punching_glove", 0.7],
   ["master_punching_glove", 0.7],
-  ["throat_spray", 0.6],
   ["prism", 0.9],
   // Local fork (2026-11-13): the user: "저희 클리어참도 0.7배로 해둡시다 크기" (a Cobblemon icon that fills the frame)
   ["clear_amulet", 0.7],
   ["weight_band", HP_BELT_ICON_SCALE],
   ["champion_belt", HP_BELT_ICON_SCALE],
-  ...EV_ITEM_ICONS.map(icon => [icon, EV_ITEM_ICON_SCALE] as const),
-  // Local fork (2026-11-16): the Cobbleverse (Mega Showdown) icons of the Z-Moves and Max Moves rewards
-  ["z_ring", Z_RING_ICON_SCALE],
-  ["dynamax_candy", DYNAMAX_CANDY_ICON_SCALE],
-  ...Z_CRYSTAL_ICONS.map(icon => [icon, Z_CRYSTAL_ICON_SCALE] as const),
 ]);
 
 /**

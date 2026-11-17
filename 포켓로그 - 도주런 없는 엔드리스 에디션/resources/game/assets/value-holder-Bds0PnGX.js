@@ -1,2 +1,0 @@
-import{n as e}from"./rolldown-runtime-BsASzDio.js";var ValueHolder,NumberHolder,BooleanHolder;function init_value_holder(){return(init_value_holder=e((()=>{ValueHolder=class{value;constructor(e){this.value=e}},NumberHolder=class extends ValueHolder{},BooleanHolder=class extends ValueHolder{}})))()}export{init_value_holder as i,NumberHolder as n,ValueHolder as r,BooleanHolder as t};
-//# sourceMappingURL=value-holder-Bds0PnGX.js.map

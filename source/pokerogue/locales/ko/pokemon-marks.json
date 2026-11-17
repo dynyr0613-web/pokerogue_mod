@@ -386,5 +386,60 @@
     "name": "마스터볼의증표",
     "description": "마스터볼로 잡은 포켓몬이라는 증표.",
     "title": "마스터볼의"
+  },
+  "destinyMark": {
+    "name": "운명의증표",
+    "description": "도감 번호와 같은 웨이브에서 만난 포켓몬이라는 증표.",
+    "title": "운명을 느끼는"
+  },
+  "gourmandMark": {
+    "name": "미식가의증표",
+    "description": "개체값사탕 6종을 모두 끝까지 먹은 포켓몬이라는 증표.",
+    "title": "미식가"
+  },
+  "itemfinderMark": {
+    "name": "습득의증표",
+    "description": "물건줍기로 물건을 주운 포켓몬이라는 증표.",
+    "title": "트레져헌터"
+  },
+  "hisuiRibbon": {
+    "name": "히스이리본",
+    "description": "히스이의 트레이너에게 승리한 기념 리본.",
+    "title": "먼 옛날의"
+  },
+  "masterRankRibbon": {
+    "name": "마스터랭크리본",
+    "description": "네임드 트레이너 11명을 모두 이겨 낸 기념 리본.",
+    "title": "랭크 마스터"
+  },
+  "abilityRibbon": {
+    "name": "어빌리티리본",
+    "description": "엔드리스 500웨이브를 돌파한 포켓몬에게 주어지는 리본.",
+    "title": "500웨이브를 돌파한"
+  },
+  "greatAbilityRibbon": {
+    "name": "그레이트어빌리티리본",
+    "description": "엔드리스 1000웨이브를 돌파한 포켓몬에게 주어지는 리본.",
+    "title": "1000웨이브를 돌파한"
+  },
+  "doubleAbilityRibbon": {
+    "name": "더블어빌리티리본",
+    "description": "엔드리스 2000웨이브를 돌파한 포켓몬에게 주어지는 리본.",
+    "title": "2000웨이브를 돌파한"
+  },
+  "multiAbilityRibbon": {
+    "name": "멀티어빌리티리본",
+    "description": "엔드리스 3000웨이브를 돌파한 포켓몬에게 주어지는 리본.",
+    "title": "3000웨이브를 돌파한"
+  },
+  "pairAbilityRibbon": {
+    "name": "페어어빌리티리본",
+    "description": "엔드리스 4000웨이브를 돌파한 포켓몬에게 주어지는 리본.",
+    "title": "4000웨이브를 돌파한"
+  },
+  "worldAbilityRibbon": {
+    "name": "월드어빌리티리본",
+    "description": "엔드리스 5000웨이브를 돌파한 포켓몬에게 주어지는 리본.",
+    "title": "5000웨이브를 돌파한"
   }
 }

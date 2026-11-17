@@ -189,11 +189,23 @@ describe("Local fork - earned ribbons, the worn mark and the line's collection",
 
   it("a collection is complete with every mark but the hidden ones", () => {
     const needed = orderedPokemonMarks.filter(m => !COMPLETION_EXEMPT_MARKS.includes(m));
+    // Local fork (2026-11-18): the hidden marks and ribbons added then, in the order of the mark Pokédex's hidden page
     expect(COMPLETION_EXEMPT_MARKS).toEqual([
       PokemonMark.ONCE_IN_A_LIFETIME_RIBBON,
       PokemonMark.MIGHTIEST_MARK,
-      PokemonMark.ENDLESS_MASTER_RIBBON,
       PokemonMark.EPIC_SHINY_MARK,
+      PokemonMark.DESTINY_MARK,
+      PokemonMark.GOURMAND_MARK,
+      PokemonMark.ITEMFINDER_MARK,
+      PokemonMark.HISUI_RIBBON,
+      PokemonMark.MASTER_RANK_RIBBON,
+      PokemonMark.ABILITY_RIBBON,
+      PokemonMark.GREAT_ABILITY_RIBBON,
+      PokemonMark.DOUBLE_ABILITY_RIBBON,
+      PokemonMark.MULTI_ABILITY_RIBBON,
+      PokemonMark.PAIR_ABILITY_RIBBON,
+      PokemonMark.WORLD_ABILITY_RIBBON,
+      PokemonMark.ENDLESS_MASTER_RIBBON,
     ]);
     expect(isMarkCollectionComplete(needed)).toBe(true);
     expect(isMarkCollectionComplete(needed.slice(1))).toBe(false);

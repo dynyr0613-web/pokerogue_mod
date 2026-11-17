@@ -3025,75 +3025,75 @@
   },
   "maxFlare": {
     "name": "Max Flare",
-    "effect": "This is a Fire-type attack Dynamax Pokémon use. The user intensifies the sun for 5 turns."
+    "effect": "This is a Fire-type attack powered by Dynamax energy. The user intensifies the sun for 5 turns."
   },
   "maxFlutterby": {
     "name": "Max Flutterby",
-    "effect": "This is a Bug-type attack Dynamax Pokémon use. This lowers the target’s Sp. Atk stat."
+    "effect": "This is a Bug-type attack powered by Dynamax energy. This lowers opposing Pokémon’s Sp. Atk stats."
   },
   "maxLightning": {
     "name": "Max Lightning",
-    "effect": "This is an Electric-type attack Dynamax Pokémon use. The user turns the ground into Electric Terrain for 5 turns."
+    "effect": "This is an Electric-type attack powered by Dynamax energy. The user turns the ground into Electric Terrain for 5 turns."
   },
   "maxStrike": {
     "name": "Max Strike",
-    "effect": "This is a Normal-type attack Dynamax Pokémon use. This lowers the target’s Speed stat."
+    "effect": "This is a Normal-type attack powered by Dynamax energy. This lowers opposing Pokémon’s Speed stats."
   },
   "maxKnuckle": {
     "name": "Max Knuckle",
-    "effect": "This is a Fighting-type attack Dynamax Pokémon use. This boosts ally Pokémon’s Attack stats."
+    "effect": "This is a Fighting-type attack powered by Dynamax energy. This boosts ally Pokémon’s Attack stats."
   },
   "maxPhantasm": {
     "name": "Max Phantasm",
-    "effect": "This is a Ghost-type attack Dynamax Pokémon use. This lowers the target’s Defense stat."
+    "effect": "This is a Ghost-type attack powered by Dynamax energy. This lowers opposing Pokémon’s Defense stats."
   },
   "maxHailstorm": {
     "name": "Max Hailstorm",
-    "effect": "This is an Ice-type attack Dynamax Pokémon use. The user summons a hailstorm lasting 5 turns."
+    "effect": "This is an Ice-type attack powered by Dynamax energy. The user summons a hailstorm lasting 5 turns."
   },
   "maxOoze": {
     "name": "Max Ooze",
-    "effect": "This is a Poison-type attack Dynamax Pokémon use. This boosts ally Pokémon’s Sp. Atk stats."
+    "effect": "This is a Poison-type attack powered by Dynamax energy. This boosts ally Pokémon’s Sp. Atk stats."
   },
   "maxGeyser": {
     "name": "Max Geyser",
-    "effect": "This is a Water-type attack Dynamax Pokémon use. The user summons a heavy rain that falls for 5 turns."
+    "effect": "This is a Water-type attack powered by Dynamax energy. The user summons a heavy rain that falls for 5 turns."
   },
   "maxAirstream": {
     "name": "Max Airstream",
-    "effect": "This is a Flying-type attack Dynamax Pokémon use. This boosts ally Pokémon’s Speed stats."
+    "effect": "This is a Flying-type attack powered by Dynamax energy. This boosts ally Pokémon’s Speed stats."
   },
   "maxStarfall": {
     "name": "Max Starfall",
-    "effect": "This is a Fairy-type attack Dynamax Pokémon use. The user turns the ground into Misty Terrain for 5 turns."
+    "effect": "This is a Fairy-type attack powered by Dynamax energy. The user turns the ground into Misty Terrain for 5 turns."
   },
   "maxWyrmwind": {
     "name": "Max Wyrmwind",
-    "effect": "This is a Dragon-type attack Dynamax Pokémon use. This lowers the target’s Attack stat."
+    "effect": "This is a Dragon-type attack powered by Dynamax energy. This lowers opposing Pokémon’s Attack stats."
   },
   "maxMindstorm": {
     "name": "Max Mindstorm",
-    "effect": "This is a Psychic-type attack Dynamax Pokémon use. The user turns the ground into Psychic Terrain for 5 turns."
+    "effect": "This is a Psychic-type attack powered by Dynamax energy. The user turns the ground into Psychic Terrain for 5 turns."
   },
   "maxRockfall": {
     "name": "Max Rockfall",
-    "effect": "This is a Rock-type attack Dynamax Pokémon use. The user summons a sandstorm lasting 5 turns."
+    "effect": "This is a Rock-type attack powered by Dynamax energy. The user summons a sandstorm lasting 5 turns."
   },
   "maxQuake": {
     "name": "Max Quake",
-    "effect": "This is a Ground-type attack Dynamax Pokémon use. This boosts ally Pokémon’s Sp. Def stats."
+    "effect": "This is a Ground-type attack powered by Dynamax energy. This boosts ally Pokémon’s Sp. Def stats."
   },
   "maxDarkness": {
     "name": "Max Darkness",
-    "effect": "This is a Dark-type attack Dynamax Pokémon use. This lowers the target’s Sp. Def stat."
+    "effect": "This is a Dark-type attack powered by Dynamax energy. This lowers opposing Pokémon’s Sp. Def stats."
   },
   "maxOvergrowth": {
     "name": "Max Overgrowth",
-    "effect": "This is a Grass-type attack Dynamax Pokémon use. The user turns the ground into Grassy Terrain for 5 turns."
+    "effect": "This is a Grass-type attack powered by Dynamax energy. The user turns the ground into Grassy Terrain for 5 turns."
   },
   "maxSteelspike": {
     "name": "Max Steelspike",
-    "effect": "This is a Steel-type attack Dynamax Pokémon use. This boosts ally Pokémon’s Defense stats."
+    "effect": "This is a Steel-type attack powered by Dynamax energy. This boosts ally Pokémon’s Defense stats."
   },
   "clangorousSoul": {
     "name": "Clangorous Soul",
@@ -3401,135 +3401,135 @@
   },
   "gMaxWildfire": {
     "name": "G-Max Wildfire",
-    "effect": "A Fire-type attack that Gigantamax Charizard use. For 4 turns, this move continues to deal damage to non-Fire type opponents equal to 1/6 of their max HP at the end of every turn."
+    "effect": "A Fire-type attack that Gigantamax-capable Charizard use. For 4 turns, this move continues to deal damage to non-Fire type opponents equal to 1/6 of their max HP at the end of every turn."
   },
   "gMaxBefuddle": {
     "name": "G-Max Befuddle",
-    "effect": "A Bug-type attack that Gigantamax Butterfree use. This move inflicts the poisoned, paralyzed, or asleep status condition on opponents."
+    "effect": "A Bug-type attack that Gigantamax-capable Butterfree use. This move inflicts the poisoned, paralyzed, or asleep status condition on opponents."
   },
   "gMaxVoltCrash": {
     "name": "G-Max Volt Crash",
-    "effect": "An Electric-type attack that Gigantamax Pikachu use. This move paralyzes opponents."
+    "effect": "An Electric-type attack that Gigantamax-capable Pikachu use. This move paralyzes opponents."
   },
   "gMaxGoldRush": {
     "name": "G-Max Gold Rush",
-    "effect": "A Normal-type attack that Gigantamax Meowth use. This move confuses opponents and also earns extra money."
+    "effect": "A Normal-type attack that Gigantamax-capable Meowth use. This move confuses opponents and also earns extra money."
   },
   "gMaxChiStrike": {
     "name": "G-Max Chi Strike",
-    "effect": "A Fighting-type attack that Gigantamax Machamp use. This move pumps up the user and its allies, boosting the critical-hit ratio of moves by 1 stage."
+    "effect": "A Fighting-type attack that Gigantamax-capable Machamp use. This move pumps up the user and its allies, boosting the critical-hit ratio of moves by 1 stage."
   },
   "gMaxTerror": {
     "name": "G-Max Terror",
-    "effect": "A Ghost-type attack that Gigantamax Gengar use. This Pokémon steps on the opposing Pokémon’s shadow to prevent them from escaping."
+    "effect": "A Ghost-type attack that Gigantamax-capable Gengar use. This Pokémon steps on the opposing Pokémon’s shadow to prevent them from escaping."
   },
   "gMaxResonance": {
     "name": "G-Max Resonance",
-    "effect": "An Ice-type attack that Gigantamax Lapras use. This move halves the damage taken from physical and special moves for 5 turns."
+    "effect": "An Ice-type attack that Gigantamax-capable Lapras use. This move halves the damage taken from physical and special moves for 5 turns."
   },
   "gMaxCuddle": {
     "name": "G-Max Cuddle",
-    "effect": "A Normal-type attack that Gigantamax Eevee use. This move infatuates opponents."
+    "effect": "A Normal-type attack that Gigantamax-capable Eevee use. This move infatuates opponents."
   },
   "gMaxReplenish": {
     "name": "G-Max Replenish",
-    "effect": "A Normal-type attack that Gigantamax Snorlax use. This move has a 50% chance to restore Berries consumed by the user or its allies."
+    "effect": "A Normal-type attack that Gigantamax-capable Snorlax use. This move has a 50% chance to restore Berries consumed by the user or its allies."
   },
   "gMaxMalodor": {
     "name": "G-Max Malodor",
-    "effect": "A Poison-type attack that Gigantamax Garbodor use. This move poisons opponents."
+    "effect": "A Poison-type attack that Gigantamax-capable Garbodor use. This move poisons opponents."
   },
   "gMaxStonesurge": {
     "name": "G-Max Stonesurge",
-    "effect": "A Water-type attack that Gigantamax Drednaw use. This move scatters sharp rocks around the field, inflicting damage to opposing Pokémon that switch into battle equal to 1/8 of their max HP. The damage of these rocks differ depending on the Pokémon’s type matchup with the Rock type."
+    "effect": "A Water-type attack that Gigantamax-capable Drednaw use. This move scatters sharp rocks around the field, inflicting damage to opposing Pokémon that switch into battle equal to 1/8 of their max HP. The damage of these rocks differ depending on the Pokémon’s type matchup with the Rock type."
   },
   "gMaxWindRage": {
     "name": "G-Max Wind Rage",
-    "effect": "A Flying-type attack that Gigantamax Corviknight use. This move removes the target’s barriers such as Light Screen, Reflect, Aurora Veil, or Safeguard, as well as any entry hazards or terrain from the field. This can also clear deep fog."
+    "effect": "A Flying-type attack that Gigantamax-capable Corviknight use. This move removes the target’s barriers such as Light Screen, Reflect, Aurora Veil, or Safeguard, as well as any entry hazards or terrain from the field. This can also clear deep fog."
   },
   "gMaxStunShock": {
     "name": "G-Max Stun Shock",
-    "effect": "An Electric-type attack that Gigantamax Toxtricity use. This move poisons or paralyzes opponents."
+    "effect": "An Electric-type attack that Gigantamax-capable Toxtricity use. This move poisons or paralyzes opponents."
   },
   "gMaxFinale": {
     "name": "G-Max Finale",
-    "effect": "A Fairy-type attack that Gigantamax Alcremie use. This move restores 1/6 of the max HP of the user and its allies."
+    "effect": "A Fairy-type attack that Gigantamax-capable Alcremie use. This move restores 1/6 of the max HP of the user and its allies."
   },
   "gMaxDepletion": {
     "name": "G-Max Depletion",
-    "effect": "A Dragon-type attack that Gigantamax Duraludon use. Reduces the PP of the move last used by the target by 2."
+    "effect": "A Dragon-type attack that Gigantamax-capable Duraludon use. Reduces the PP of the move last used by the target by 2."
   },
   "gMaxGravitas": {
     "name": "G-Max Gravitas",
-    "effect": "A Psychic-type attack that Gigantamax Orbeetle use. This move changes gravity for 5 turns, boosting the accuracy of moves by 67% and grounding Flying types or Pokémon with Levitate."
+    "effect": "A Psychic-type attack that Gigantamax-capable Orbeetle use. This move changes gravity for 5 turns, boosting the accuracy of moves by 67% and grounding Flying types or Pokémon with Levitate."
   },
   "gMaxVolcalith": {
     "name": "G-Max Volcalith",
-    "effect": "A Rock-type attack that Gigantamax Coalossal use. For 4 turns, this move continues to deal damage to non-Rock type opponents equal to 1/6 of their max HP at the end of every turn."
+    "effect": "A Rock-type attack that Gigantamax-capable Coalossal use. For 4 turns, this move continues to deal damage to non-Rock type opponents equal to 1/6 of their max HP at the end of every turn."
   },
   "gMaxSandblast": {
     "name": "G-Max Sandblast",
-    "effect": "A Ground-type attack that Gigantamax Sandaconda use. Opponents are trapped in a raging sandstorm that inflicts damage equal to 1/8 of their max HP for 4-5 turns"
+    "effect": "A Ground-type attack that Gigantamax-capable Sandaconda use. Opponents are trapped in a raging sandstorm that inflicts damage equal to 1/8 of their max HP for 4-5 turns"
   },
   "gMaxSnooze": {
     "name": "G-Max Snooze",
-    "effect": "A Dark-type attack that Gigantamax Grimmsnarl use. The user lets loose a huge yawn that lulls the targets into falling asleep on the next turn."
+    "effect": "A Dark-type attack that Gigantamax-capable Grimmsnarl use. The user lets loose a huge yawn that lulls the targets into falling asleep on the next turn."
   },
   "gMaxTartness": {
     "name": "G-Max Tartness",
-    "effect": "A Grass-type attack that Gigantamax Flapple use. This move reduces the opponents’ evasiveness."
+    "effect": "A Grass-type attack that Gigantamax-capable Flapple use. This move reduces the opponents’ evasiveness."
   },
   "gMaxSweetness": {
     "name": "G-Max Sweetness",
-    "effect": "A Grass-type attack that Gigantamax Appletun use. This move heals the status conditions of allies."
+    "effect": "A Grass-type attack that Gigantamax-capable Appletun use. This move heals the status conditions of allies."
   },
   "gMaxSmite": {
     "name": "G-Max Smite",
-    "effect": "A Fairy-type attack that Gigantamax Hatterene use. This move confuses opponents."
+    "effect": "A Fairy-type attack that Gigantamax-capable Hatterene use. This move confuses opponents."
   },
   "gMaxSteelsurge": {
     "name": "G-Max Steelsurge",
-    "effect": "A Steel-type attack that Gigantamax Copperajah use. This move scatters sharp spikes around the field, inflicting damage to opposing Pokémon that switch into battle equal to 1/8 of their max HP. The damage of these spikes differ depending on the Pokémon’s type matchup with the Steel type."
+    "effect": "A Steel-type attack that Gigantamax-capable Copperajah use. This move scatters sharp spikes around the field, inflicting damage to opposing Pokémon that switch into battle equal to 1/8 of their max HP. The damage of these spikes differ depending on the Pokémon’s type matchup with the Steel type."
   },
   "gMaxMeltdown": {
     "name": "G-Max Meltdown",
-    "effect": "A Steel-type attack that Gigantamax Melmetal use. This move makes opponents incapable of using the same move twice in a row."
+    "effect": "A Steel-type attack that Gigantamax-capable Melmetal use. This move makes opponents incapable of using the same move twice in a row."
   },
   "gMaxFoamBurst": {
     "name": "G-Max Foam Burst",
-    "effect": "A Water-type attack that Gigantamax Kingler use. This move harshly lowers the Speed of opponents."
+    "effect": "A Water-type attack that Gigantamax-capable Kingler use. This move harshly lowers the Speed of opponents."
   },
   "gMaxCentiferno": {
     "name": "G-Max Centiferno",
-    "effect": "A Fire-type attack that Gigantamax Centiskorch use. For 4-5 turns, this move traps opponents in flames that inflict damage equal to 1/8 of their max HP at the end of every turn."
+    "effect": "A Fire-type attack that Gigantamax-capable Centiskorch use. For 4-5 turns, this move traps opponents in flames that inflict damage equal to 1/8 of their max HP at the end of every turn."
   },
   "gMaxVineLash": {
     "name": "G-Max Vine Lash",
-    "effect": "A Grass-type attack that Gigantamax Venusaur use. For 4 turns, this move continues to deal damage to non-Grass type opponents equal to 1/6 of their max HP at the end of every turn."
+    "effect": "A Grass-type attack that Gigantamax-capable Venusaur use. For 4 turns, this move continues to deal damage to non-Grass type opponents equal to 1/6 of their max HP at the end of every turn."
   },
   "gMaxCannonade": {
     "name": "G-Max Cannonade",
-    "effect": "A Water-type attack that Gigantamax Blastoise use. For 4 turns, this move continues to deal damage to non-Water type opponents equal to 1/6 of their max HP at the end of every turn."
+    "effect": "A Water-type attack that Gigantamax-capable Blastoise use. For 4 turns, this move continues to deal damage to non-Water type opponents equal to 1/6 of their max HP at the end of every turn."
   },
   "gMaxDrumSolo": {
     "name": "G-Max Drum Solo",
-    "effect": "A Grass-type attack that Gigantamax Rillaboom use. This move can ignore the effect of the target’s Ability (with certain exceptions)."
+    "effect": "A Grass-type attack that Gigantamax-capable Rillaboom use. This move can ignore the effect of the target’s Ability (with certain exceptions)."
   },
   "gMaxFireball": {
     "name": "G-Max Fireball",
-    "effect": "A Fire-type attack that Gigantamax Cinderace use. This move can ignore the effect of the target’s Ability (with certain exceptions)."
+    "effect": "A Fire-type attack that Gigantamax-capable Cinderace use. This move can ignore the effect of the target’s Ability (with certain exceptions)."
   },
   "gMaxHydrosnipe": {
     "name": "G-Max Hydrosnipe",
-    "effect": "A Water-type attack that Gigantamax Inteleon use. This move can ignore the effect of the target’s Ability (with certain exceptions)."
+    "effect": "A Water-type attack that Gigantamax-capable Inteleon use. This move can ignore the effect of the target’s Ability (with certain exceptions)."
   },
   "gMaxOneBlow": {
     "name": "G-Max One Blow",
-    "effect": "A Dark-type attack that Gigantamax Urshifu use. This single-strike move can hit a target using a move such as Protect or Detect."
+    "effect": "A Dark-type attack that Gigantamax-capable Urshifu use. This single-strike move can hit a target using a move such as Protect or Detect."
   },
   "gMaxRapidFlow": {
     "name": "G-Max Rapid Flow",
-    "effect": "A Water-type attack that Gigantamax Urshifu use. This rapid-strike move can hit a target using a move such as Protect or Detect."
+    "effect": "A Water-type attack that Gigantamax-capable Urshifu use. This rapid-strike move can hit a target using a move such as Protect or Detect."
   },
   "teraBlast": {
     "name": "Tera Blast",

@@ -2338,8 +2338,17 @@ export function initAbilities() {
       .condition(getOncePerBattleCondition(AbilityId.WAR_MACHINE))
       .build(),
     new AbBuilder(AbilityId.FROSTFIRE, 9) //
-      .attr(MoveTypeChangeAbAttr, PokemonType.ICE, (_user, _target, move) => move.type === PokemonType.FIRE)
-      .attr(MovePowerBoostAbAttr, (_user, _target, move) => move.type === PokemonType.FIRE, 1.2)
+      // Local fork (2026-11-18): Z / Max moves keep their own type (anyTypeMoveConversionCondition)
+      .attr(
+        MoveTypeChangeAbAttr,
+        PokemonType.ICE,
+        (user, target, move) => move.type === PokemonType.FIRE && anyTypeMoveConversionCondition(user, target, move),
+      )
+      .attr(
+        MovePowerBoostAbAttr,
+        (user, target, move) => move.type === PokemonType.FIRE && anyTypeMoveConversionCondition(user, target, move),
+        1.2,
+      )
       .build(),
     new AbBuilder(AbilityId.HILT_CANNON, 9) //
       .attr(

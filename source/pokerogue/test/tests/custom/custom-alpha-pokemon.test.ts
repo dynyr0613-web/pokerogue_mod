@@ -376,10 +376,11 @@ describe("Local fork - alpha Pokémon", () => {
       ({ alphaBoost: boost, species: speciesDataRegistry.getSpecies(speciesId) }) as unknown as Pokemon;
     starterData[SpeciesId.PIKACHU].alphaBoost = undefined;
     starterData[SpeciesId.PICHU].alphaBoost = undefined;
-    // A Pichu is only the Pichu starter's, an evolved one both starters'
+    // Local fork (2026-11-18): a Pichu reaches both starters too (syncAlphaLineBoosts right away, not only on the next
+    // load); an evolved one has always been both starters'
     expect(registerAlpha(alphaOf(SpeciesId.PICHU, 5))).toBe(true);
     expect(starterData[SpeciesId.PICHU].alphaBoost).toBe(5);
-    expect(starterData[SpeciesId.PIKACHU].alphaBoost).toBeUndefined();
+    expect(starterData[SpeciesId.PIKACHU].alphaBoost).toBe(5);
     expect(registerAlpha(alphaOf(SpeciesId.RAICHU, 7))).toBe(true);
     expect(starterData[SpeciesId.PICHU].alphaBoost).toBe(7);
     expect(starterData[SpeciesId.PIKACHU].alphaBoost).toBe(7);

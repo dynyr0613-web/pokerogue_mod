@@ -16,6 +16,7 @@ import { EFFECTIVE_STATS, type EffectiveStat } from "#enums/stat";
 import { WeatherType } from "#enums/weather-type";
 import type { Pokemon } from "#field/pokemon";
 import { noAbilityTypeOverrideMoves } from "#moves/invalid-moves";
+import { isZMaxOnlyMove } from "#moves/zmax-data"; // Local fork (2026-11-18): Z / Max moves keep their own type
 import type { AbAttrCondition, AiMovegenMoveStatsAbAttrParams, PokemonAttackCondition } from "#types/ability-types";
 import i18next from "i18next";
 
@@ -63,13 +64,24 @@ export const footworkMoves: ReadonlySet<MoveId> = new Set([
  * Condition function checking whether a move can have its type changed by an ability.
  * - Variable-type moves (e.g. {@linkcode MoveId.MULTI_ATTACK}) can't have their type changed.
  * - Tera-based moves can't have their type changed if the move's type would be changed due to the user being Terastallized.
+ * - Local fork (2026-11-18): Z-Moves and Max Moves (a converted slot's move, {@linkcode isZMaxOnlyMove}) keep their own
+ *   type. Pixilate used to turn Max Strike Fairy while its effect stayed Max Strike's (Speed drop, not Misty Terrain),
+ *   so the name, the type and the effect disagreed (the user: "버그성 빈틈도 다 수정"). A Z status move (Z칼춤) is the
+ *   base move itself plus its Z-Power and is not one of them: it is treated like its base move.
  * @returns Whether the move can have its type changed by an ability
  * @remarks
  * Used for {@link https://bulbapedia.bulbagarden.net/wiki/Normalize_(Ability) | Normalize}
- * and as part of the conditions for similar type-changing abilities
+ * and as part of the conditions for similar type-changing abilities (the -ate abilities through
+ * {@linkcode normalTypeMoveConversionCondition}, Liquid Voice, and the fork's Vocal Sac / Chime Voice)
  */
 export const anyTypeMoveConversionCondition: PokemonAttackCondition = (user, _target, move): boolean => {
   if (noAbilityTypeOverrideMoves.has(move.id)) {
+    return false;
+  }
+
+  // Local fork (2026-11-18): Z-Moves and Max Moves are never re-typed (nor boosted by the -ate abilities' 1.2x, which
+  // asks the same condition)
+  if (isZMaxOnlyMove(move.id)) {
     return false;
   }
 

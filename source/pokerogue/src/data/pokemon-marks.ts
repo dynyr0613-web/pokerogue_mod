@@ -3,7 +3,7 @@
  * carries. Only the ones this game can give are here:
  *
  * - Marks: a wild Pokémon may be met with one (`rollWildMark`, the Sword / Shield odds). The Cloudy, Fishing, Curry,
- *   Destiny, size and picnic marks have nothing to stand for here and are left out.
+ *   size and picnic marks have nothing to stand for here and are left out.
  * - Ribbons: the party that beats a champion gets that champion's ribbon (`TRAINER_RIBBONS`). Lance, Alder and Iris
  *   have none because the main series has no Johto or Unova champion ribbon.
  * - The Alpha, Golden Alpha and Jumbo Marks belong to alpha Pokémon, the Mini Mark to a wild Pokémon met small
@@ -18,6 +18,13 @@
  * - The Best Friends Ribbon is bought after the Partner Mark; the six stat effort ribbons, the Effort Ribbon and the
  *   two footprint ribbons are earned during a run (`awardProgressRibbons`); the Endless Master Ribbon goes to the
  *   party that clears Endless (`awardPartyRibbon`).
+ * - Local fork (2026-11-18), more hidden ones (the user: "새 히든 증표•리본"): the Destiny Mark comes with a wild
+ *   Pokémon met on the wave of its National Pokédex number (`isDestinyWave`), the Gourmand Mark with all six IV
+ *   Candies eaten up to the cap (`awardProgressRibbons`), the Itemfinder Mark with the first item Pickup picks up
+ *   (`awardItemfinderMark`); the Gen 4 ability ribbons go to the party that clears Endless wave 500, 1000, 2000, 3000,
+ *   4000 and 5000 (`awardEndlessMilestoneRibbon`), the Hisui Ribbon to the party that beats a named trainer from
+ *   Hisui (`TRAINER_RIBBONS`) and the Master Rank Ribbon to the party that beats a named trainer once all 11 have
+ *   been beaten (`awardMasterRankRibbon`).
  *
  * One mark can be worn (`Pokemon.equippedMark`): its title goes before the Pokémon's name (`getPokemonTitle`). Each
  * starter line remembers the marks its Pokémon have collected (`StarterDataEntry.marks`), and a starter can be taken
@@ -39,8 +46,10 @@ import { TrainerType } from "#enums/trainer-type";
 import { WeatherType } from "#enums/weather-type";
 import type { Pokemon } from "#field/pokemon";
 import { getEvCap } from "#modifiers/ev-items";
+import { FORK_NAMED_TRAINER_TYPES } from "#trainers/named-trainers";
 import type { StarterDataEntry } from "#types/save-data";
 import { NumberHolder, randSeedInt, randSeedItem } from "#utils/common";
+import { getDexNumber } from "#utils/pokemon-utils";
 import { toCamelCase } from "#utils/strings";
 import i18next from "i18next";
 import Phaser from "phaser";
@@ -58,7 +67,17 @@ export const orderedPokemonMarks: readonly PokemonMark[] = [
   PokemonMark.GALAR_CHAMPION_RIBBON,
   PokemonMark.PALDEA_CHAMPION_RIBBON,
   PokemonMark.LEGEND_RIBBON,
+  // Local fork (2026-11-18): the named trainers' ribbons
+  PokemonMark.HISUI_RIBBON,
+  PokemonMark.MASTER_RANK_RIBBON,
   PokemonMark.ONCE_IN_A_LIFETIME_RIBBON,
+  // Local fork (2026-11-18): the Endless milestones, before the Endless Master Ribbon of its end
+  PokemonMark.ABILITY_RIBBON,
+  PokemonMark.GREAT_ABILITY_RIBBON,
+  PokemonMark.DOUBLE_ABILITY_RIBBON,
+  PokemonMark.MULTI_ABILITY_RIBBON,
+  PokemonMark.PAIR_ABILITY_RIBBON,
+  PokemonMark.WORLD_ABILITY_RIBBON,
   PokemonMark.ENDLESS_MASTER_RIBBON,
   PokemonMark.BEST_FRIENDS_RIBBON,
   PokemonMark.FOOTPRINT_RIBBON,
@@ -82,6 +101,10 @@ export const orderedPokemonMarks: readonly PokemonMark[] = [
   PokemonMark.EGG_MOVES_MARK,
   PokemonMark.PERFECT_IV_MARK,
   PokemonMark.MASTER_BALL_MARK,
+  // Local fork (2026-11-18): the hidden marks of the main series
+  PokemonMark.DESTINY_MARK,
+  PokemonMark.GOURMAND_MARK,
+  PokemonMark.ITEMFINDER_MARK,
   PokemonMark.LUNCHTIME_MARK,
   PokemonMark.SLEEPY_TIME_MARK,
   PokemonMark.DUSK_MARK,
@@ -145,6 +168,8 @@ const SHINY_MARKS: readonly PokemonMark[] = [
  * Jumbo Mark is left to the Alpha Mark it always comes with.
  */
 const TITLE_MARKS: readonly PokemonMark[] = [
+  // Local fork (2026-11-18): a Pokémon met on its own wave is announced as such ("운명을 느끼는 피카츄")
+  PokemonMark.DESTINY_MARK,
   ...WILD_MARKS,
   PokemonMark.MINI_MARK,
   PokemonMark.GOLDEN_ALPHA_MARK,
@@ -208,6 +233,24 @@ export const TRAINER_RIBBONS: Partial<Record<TrainerType, PokemonMark>> = {
   [TrainerType.GEETA]: PokemonMark.PALDEA_CHAMPION_RIBBON,
   [TrainerType.NEMONA]: PokemonMark.PALDEA_CHAMPION_RIBBON,
   [TrainerType.KIERAN]: PokemonMark.PALDEA_CHAMPION_RIBBON,
+  // Local fork (2026-11-18): the named trainers from Hisui (named-trainers.ts), a hidden ribbon
+  [TrainerType.VOLO]: PokemonMark.HISUI_RIBBON,
+  [TrainerType.IRIDA]: PokemonMark.HISUI_RIBBON,
+  [TrainerType.ADAMAN]: PokemonMark.HISUI_RIBBON,
+  [TrainerType.KAMADO]: PokemonMark.HISUI_RIBBON,
+};
+
+/**
+ * Local fork (2026-11-18): the hidden Endless milestone ribbons, the Gen 4 Battle Tower's ability ribbons, by the wave
+ * of Endless (and Spliced Endless) whose clearing earns them ({@linkcode awardEndlessMilestoneRibbon})
+ */
+export const ENDLESS_MILESTONE_RIBBONS: Readonly<Partial<Record<number, PokemonMark>>> = {
+  500: PokemonMark.ABILITY_RIBBON,
+  1000: PokemonMark.GREAT_ABILITY_RIBBON,
+  2000: PokemonMark.DOUBLE_ABILITY_RIBBON,
+  3000: PokemonMark.MULTI_ABILITY_RIBBON,
+  4000: PokemonMark.PAIR_ABILITY_RIBBON,
+  5000: PokemonMark.WORLD_ABILITY_RIBBON,
 };
 
 /** @returns The mark's title on its own ("장난꾸러기"), or an empty string if it has none */
@@ -258,13 +301,27 @@ export function getCollectedMarks(entry: StarterDataEntry | undefined): PokemonM
  * 제외)" and "히든 증표(이것들은 안모아도 위의 증표들이 황금 테두리를 갖는 것에 영향을 안끼치고, 다른 증표들보다 획득
  * 난이도 높음) ... 최강의 증표나 천재일우의 증표"): the Once-in-a-Lifetime Ribbon, which only a traded Pokémon has,
  * and the Mightiest Mark of the raid at the end of Endless. The mark Pokédex shows them on its page below the list.
+ * Local fork (2026-11-18): in the order of that page, eight to a row: the marks and the trainers' ribbons, then the
+ * Endless ribbons on a row of their own (mark-dex-ui-handler.ts); the secret achievement asks for all of them.
  */
 export const COMPLETION_EXEMPT_MARKS: readonly PokemonMark[] = [
   PokemonMark.ONCE_IN_A_LIFETIME_RIBBON,
   PokemonMark.MIGHTIEST_MARK,
   // The user: "엔드리스 마스터 리본, 눈부신증표 넣어두죠": clearing Endless, and an epic shiny
-  PokemonMark.ENDLESS_MASTER_RIBBON,
   PokemonMark.EPIC_SHINY_MARK,
+  // Local fork (2026-11-18): the user: "새 히든 증표•리본"
+  PokemonMark.DESTINY_MARK,
+  PokemonMark.GOURMAND_MARK,
+  PokemonMark.ITEMFINDER_MARK,
+  PokemonMark.HISUI_RIBBON,
+  PokemonMark.MASTER_RANK_RIBBON,
+  PokemonMark.ABILITY_RIBBON,
+  PokemonMark.GREAT_ABILITY_RIBBON,
+  PokemonMark.DOUBLE_ABILITY_RIBBON,
+  PokemonMark.MULTI_ABILITY_RIBBON,
+  PokemonMark.PAIR_ABILITY_RIBBON,
+  PokemonMark.WORLD_ABILITY_RIBBON,
+  PokemonMark.ENDLESS_MASTER_RIBBON,
 ];
 
 /** @returns Whether the marks are every mark and ribbon there is, but for {@linkcode COMPLETION_EXEMPT_MARKS} */
@@ -446,14 +503,32 @@ export function getWildMarkRolls(): number {
 }
 
 /**
+ * Local fork (2026-11-18): whether a wild Pokémon of the species met on the wave carries the hidden Destiny Mark: its
+ * National Pokédex number is the wave's (Pikachu, 25, on wave 25), and in Endless past the last number (1025, which
+ * is Pecharunt's wave) also the wave's last three digits (Pikachu on waves 2025, 3025 ...; Raichu on 1026, 2026 ...).
+ * A regional form counts as its species. No roll: the same wave always gives the same answer.
+ * @param speciesId - The Pokémon's species
+ * @param waveIndex - The wave
+ * @param isEndless - Whether the run is Endless or Spliced Endless
+ */
+export function isDestinyWave(speciesId: SpeciesId, waveIndex: number, isEndless: boolean): boolean {
+  const dexNumber = getDexNumber(speciesId);
+  return dexNumber === waveIndex || (isEndless && waveIndex > SpeciesId.PECHARUNT && dexNumber === waveIndex % 1000);
+}
+
+/**
  * Give a freshly generated wild Pokémon its mark, if the roll says so. The roll has its own seed
  * ({@linkcode getWildRollSeedOffset}), so it changes nothing else the wave generates.
+ * Local fork (2026-11-18): and the Destiny Mark on its own wave ({@linkcode isDestinyWave}), which needs no roll.
  * @param pokemon - The wild Pokémon
  */
 export function applyWildMark(pokemon: Pokemon): void {
   const battle = globalScene.currentBattle;
   if (!battle || !globalScene.arena) {
     return;
+  }
+  if (isDestinyWave(pokemon.species.speciesId, battle.waveIndex, globalScene.gameMode.isEndless)) {
+    pokemon.addMark(PokemonMark.DESTINY_MARK);
   }
   globalScene.executeWithSeedOffset(
     () => {
@@ -511,9 +586,108 @@ export function awardPartyRibbon(ribbon: PokemonMark): boolean {
 }
 
 /**
+ * Local fork (2026-11-18): give the player's whole party the hidden ability ribbon of the Endless milestone it has
+ * just cleared ({@linkcode ENDLESS_MILESTONE_RIBBONS}). Called when the last enemy of a wave is defeated.
+ * @param waveIndex - The cleared wave
+ * @returns The ribbon if at least one party member did not have it yet, otherwise `null`
+ */
+export function awardEndlessMilestoneRibbon(waveIndex: number): PokemonMark | null {
+  if (!globalScene.gameMode.isEndless) {
+    return null;
+  }
+  const ribbon = ENDLESS_MILESTONE_RIBBONS[waveIndex];
+  return ribbon !== undefined && awardPartyRibbon(ribbon) ? ribbon : null;
+}
+
+/**
+ * Local fork (2026-11-18): whether the player has beaten each of the 11 named trainers at least once. A named
+ * trainer's first win unlocks its voucher (`initForForkNamedTrainer` gives each one), and the system save keeps the
+ * unlocked vouchers (`GameData.voucherUnlocks`), so this needs no save data of its own; a save from before the
+ * named trainers has none of them.
+ */
+export function hasBeatenAllNamedTrainers(): boolean {
+  const { voucherUnlocks } = globalScene.gameData;
+  return FORK_NAMED_TRAINER_TYPES.every(type => Object.hasOwn(voucherUnlocks, TrainerType[type]));
+}
+
+/**
+ * Local fork (2026-11-18): give the player's whole party the hidden Master Rank Ribbon for beating a named trainer,
+ * once every named trainer has been beaten at least once ({@linkcode hasBeatenAllNamedTrainers}); the win that beats
+ * the last of them for the first time already counts. Call it after the beaten trainer's voucher is validated.
+ * @param trainerType - The beaten trainer
+ * @returns Whether at least one party member did not have it yet
+ */
+export function awardMasterRankRibbon(trainerType: TrainerType): boolean {
+  return (
+    FORK_NAMED_TRAINER_TYPES.includes(trainerType)
+    && hasBeatenAllNamedTrainers()
+    && awardPartyRibbon(PokemonMark.MASTER_RANK_RIBBON)
+  );
+}
+
+/**
+ * Local fork (2026-11-18): give one of the player's Pokémon a mark or ribbon it has earned, count it for the
+ * collection and say so ("{{pokemonName}}는 {{ribbonName}}를 받았다!").
+ * @param pokemon - The Pokémon
+ * @param mark - The mark or ribbon
+ * @returns Whether it did not have it yet
+ */
+export function awardPokemonMark(pokemon: Pokemon, mark: PokemonMark): boolean {
+  if (!pokemon.isPlayer() || !pokemon.addMark(mark)) {
+    return false;
+  }
+  globalScene.gameData.registerMarks([mark], pokemon);
+  globalScene.phaseManager.queueMessage(
+    i18next.t("pokemonMarks:ribbonEarned", {
+      pokemonName: pokemon.getNameToRender(),
+      ribbonName: getMarkName(mark),
+    }),
+  );
+  return true;
+}
+
+/**
+ * Local fork (2026-11-18): the hidden Itemfinder Mark, for a player's Pokémon whose Pickup has just picked up an item
+ * (`PostBattleLootAbAttr`); only the first item gives it.
+ * @param pokemon - The Pokémon with Pickup
+ * @returns Whether it got the mark now
+ */
+export function awardItemfinderMark(pokemon: Pokemon): boolean {
+  return awardPokemonMark(pokemon, PokemonMark.ITEMFINDER_MARK);
+}
+
+/** Local fork (2026-11-18): the modifier type id of the IV Candies (modifier-type.ts), looked up by id like the charm */
+export const IV_CANDY_ID = "IV_CANDY";
+
+/** Local fork (2026-11-18): what the Gourmand Mark reads of a held IV Candy (`IvCandyModifier`, custom-held-items.ts) */
+interface HeldIvCandy {
+  readonly pokemonId: number;
+  getStat(): PermanentStat;
+  getStackCount(): number;
+}
+
+/**
+ * Local fork (2026-11-18): whether the Pokémon has eaten every one of the six IV Candies up to its cap, its IV in that
+ * stat (`IvCandyModifier.getMaxHeldItemCount`), at least one in all. A stat whose IV is 0 takes none and so is full.
+ * @param pokemon - The Pokémon
+ */
+export function hasEatenAllIvCandies(pokemon: Pokemon): boolean {
+  const eaten = new Map<PermanentStat, number>();
+  for (const modifier of globalScene.findModifiers(
+    m => m.type.id === IV_CANDY_ID && (m as unknown as HeldIvCandy).pokemonId === pokemon.id,
+    pokemon.isPlayer(),
+  )) {
+    const candy = modifier as unknown as HeldIvCandy;
+    eaten.set(candy.getStat(), candy.getStackCount());
+  }
+  return eaten.size > 0 && PERMANENT_STATS.every(stat => (eaten.get(stat) ?? 0) >= pokemon.ivs[stat]);
+}
+
+/**
  * The ribbons a party member has earned by how it was raised and does not carry yet: a stat's effort ribbon for that
  * stat's EVs at their cap (ev-items.ts), the Effort Ribbon for all six, the Footprint Ribbon at level 200 and
- * the Grand Footprint Ribbon at level 100,000 in Endless.
+ * the Grand Footprint Ribbon at level 100,000 in Endless. Local fork (2026-11-18): and the hidden Gourmand Mark for
+ * all six IV Candies eaten up to the cap ({@linkcode hasEatenAllIvCandies}).
  * @param pokemon - The player's Pokémon
  */
 export function getEarnedProgressRibbons(pokemon: Pokemon): PokemonMark[] {
@@ -533,6 +707,9 @@ export function getEarnedProgressRibbons(pokemon: Pokemon): PokemonMark[] {
   if (pokemon.level >= GRAND_FOOTPRINT_LEVEL && globalScene.gameMode.isEndless) {
     earned.push(PokemonMark.GRAND_FOOTPRINT_RIBBON);
   }
+  if (!pokemon.marks.includes(PokemonMark.GOURMAND_MARK) && hasEatenAllIvCandies(pokemon)) {
+    earned.push(PokemonMark.GOURMAND_MARK);
+  }
   return earned.filter(r => !pokemon.marks.includes(r));
 }
 
@@ -543,14 +720,8 @@ export function getEarnedProgressRibbons(pokemon: Pokemon): PokemonMark[] {
 export function awardProgressRibbons(): void {
   for (const pokemon of globalScene.getPlayerParty()) {
     for (const ribbon of getEarnedProgressRibbons(pokemon)) {
-      pokemon.addMark(ribbon);
-      globalScene.gameData.registerMarks([ribbon], pokemon);
-      globalScene.phaseManager.queueMessage(
-        i18next.t("pokemonMarks:ribbonEarned", {
-          pokemonName: pokemon.getNameToRender(),
-          ribbonName: getMarkName(ribbon),
-        }),
-      );
+      // Local fork (2026-11-18): the same steps as before, shared with the Itemfinder Mark
+      awardPokemonMark(pokemon, ribbon);
     }
   }
 }

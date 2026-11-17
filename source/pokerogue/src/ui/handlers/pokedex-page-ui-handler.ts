@@ -875,6 +875,23 @@ export class PokedexPageUiHandler extends MessageUiHandler {
     };
   }
 
+  /**
+   * Local fork (2026-11-18): while the marks' tray is open its two-line description box covers the menu's last line,
+   * which is the "증표/리본" item itself (seen in the offline app's self-test screenshots); the menu then shows its lines
+   * from the second on, so that item stays above the box.
+   */
+  private setMenuScrolledForMarks(scrolled: boolean): void {
+    const text = this.getMenuText();
+    this.optionSelectText.setText(scrolled ? text.split("\n").slice(1).join("\n") : text);
+    // and the cursor goes up a line with its item (setCursor puts it back on closing)
+    const line = scrolled ? this.cursor - 1 : this.cursor;
+    this.cursorObj?.setPositionRelative(
+      this.menuBg,
+      7,
+      6 + (18 + line * (MENU_LINE_HEIGHT + this.menuLineSpacing)) * this.scale,
+    );
+  }
+
   private getMenuText(): string {
     const isSeen = this.isSeen();
     const isStarterCaught = !!this.isCaught(speciesDataRegistry.getStarter(this.species.speciesId, true));
@@ -1274,6 +1291,7 @@ export class PokedexPageUiHandler extends MessageUiHandler {
       if (button === Button.CANCEL) {
         this.isMarkTrayOpen = false;
         this.markContainer.close();
+        this.setMenuScrolledForMarks(false);
         this.setCursor(MenuOptions.MARKS);
         ui.playSelect();
         return success;
@@ -1932,6 +1950,7 @@ export class PokedexPageUiHandler extends MessageUiHandler {
             // The tray lists every mark, the ones not obtained greyed out, so it opens for any Pokémon
             this.markContainer.open(this.getMarkTraySource());
             this.isMarkTrayOpen = true;
+            this.setMenuScrolledForMarks(true);
             success = true;
             break;
 

@@ -45,6 +45,16 @@ const MISSING_ALPHA = 0.5;
 const DARK_TINT = 0x4a4a58;
 /** The header line with the count, above the icons */
 const HEADER_HEIGHT = 9;
+
+/**
+ * Local fork (2026-11-18): the tray's height, with every mark and ribbon in rows of ten. With the hidden marks and
+ * ribbons of 2026-11-18 there are 84: nine rows, 125 px from the top of the Pokédex page, above the two-line message
+ * box (42 px at the bottom of the 180 px screen) that describes the mark under the cursor; up to 90 still fit
+ * (custom-hidden-marks-1118.test.ts checks it).
+ */
+export function getMarkTrayHeight(): number {
+  return HEADER_HEIGHT + 8 + Math.ceil(orderedPokemonMarks.length / COLUMNS) * ICON_PITCH;
+}
 /** The frame around the worn mark */
 const EQUIPPED_TINT = 0xf8d030;
 
@@ -226,8 +236,7 @@ export class MarkTray extends Phaser.GameObjects.Container {
     this.bringToTop(this.equippedFrame);
     this.bringToTop(this.trayCursorObj);
 
-    const rows = Math.ceil(orderedPokemonMarks.length / COLUMNS);
-    this.trayBg.setSize(8 + COLUMNS * ICON_PITCH, HEADER_HEIGHT + 8 + rows * ICON_PITCH);
+    this.trayBg.setSize(8 + COLUMNS * ICON_PITCH, getMarkTrayHeight());
     this.headerText.setText(
       i18next.t("pokemonMarks:count", {
         count: orderedPokemonMarks.filter(m => source.owned.includes(m)).length,

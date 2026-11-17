@@ -3,8 +3,9 @@ import { timedEventManager } from "#app/global-event-manager";
 import { globalScene } from "#app/global-scene";
 import { modifierTypes } from "#data/data-lists";
 import { getCharVariantFromDialogue } from "#data/dialogue";
-import { awardTrainerRibbon, getMarkName } from "#data/pokemon-marks";
+import { awardMasterRankRibbon, awardTrainerRibbon, getMarkName } from "#data/pokemon-marks";
 import { BiomeId } from "#enums/biome-id";
+import { PokemonMark } from "#enums/pokemon-mark";
 import { TrainerSlot } from "#enums/trainer-slot";
 import { TrainerType } from "#enums/trainer-type";
 import { BattlePhase } from "#phases/battle-phase";
@@ -64,6 +65,15 @@ export class TrainerVictoryPhase extends BattlePhase {
     if (ribbon !== null) {
       globalScene.phaseManager.queueMessage(
         i18next.t("pokemonMarks:ribbonAwarded", { ribbonName: getMarkName(ribbon) }),
+        null,
+        true,
+      );
+    }
+    // Local fork (2026-11-18): and a named trainer's party, once every named trainer has been beaten (their vouchers,
+    // validated above), the hidden Master Rank Ribbon (the user: "새 히든 증표•리본")
+    if (awardMasterRankRibbon(trainerType)) {
+      globalScene.phaseManager.queueMessage(
+        i18next.t("pokemonMarks:ribbonAwarded", { ribbonName: getMarkName(PokemonMark.MASTER_RANK_RIBBON) }),
         null,
         true,
       );

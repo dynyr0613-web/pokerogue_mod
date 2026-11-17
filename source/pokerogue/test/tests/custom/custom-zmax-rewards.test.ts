@@ -38,13 +38,7 @@ import { EXCLUSIVE_Z } from "#moves/zmax-data";
 import { GameManager } from "#test/framework/game-manager";
 import type { WeightedModifierTypeWeightFunc } from "#types/modifier-types";
 import type { ConfirmUiHandler } from "#ui/confirm-ui-handler";
-import {
-  DYNAMAX_CANDY_ICON_SCALE,
-  getItemIconScale,
-  ITEM_ICON_SOURCE_SIZE,
-  Z_CRYSTAL_ICON_SCALE,
-  Z_RING_ICON_SCALE,
-} from "#ui/item-icon-scale";
+import { getItemIconScale, ITEM_ICON_SOURCE_SIZE, POKESPRITE_ITEM_ICONS } from "#ui/item-icon-scale";
 import type { ModifierSelectUiHandler } from "#ui/modifier-select-ui-handler";
 import { getMoveConversionLabel } from "#ui/move-conversion-picker";
 import type { OptionSelectUiHandler } from "#ui/option-select-ui-handler";
@@ -361,26 +355,35 @@ describe("Custom items - Z-Ring, Dynamax Candy, Z crystals (Z링 / 다이사탕 
     expect(getCustomModifierClass("ZRingModifier")).toBe(ZRingModifier);
   });
 
-  // Local fork (2026-11-16): the icons are Cobblemon: Mega Showdown's 16x16 textures scaled 2x, from the user's
-  // Cobbleverse modpack (tools/port_zmax_1116/make_cobbleverse_icons.py), drawn smaller; the user: "아이콘은 언제나처럼
-  // 코블버스 쪽에서 빼오면 됩니다 / 거기에 다이사탕이랑 z링, z 크리스탈들 도트 이미지가 다 있어요 / 이미지가 크지 않도록
-  // 배율 조절도 해주세요". The first placeholders (recolours of ultranecrozium_z, mega_bracelet and rare_candy) had boxes
-  // of 28x13, 18x14 and 21x21.
-  it("has the Cobbleverse icons in the atlas and as loose copies, drawn at their smaller scales", () => {
+  // Local fork (2026-11-16): the icons were Cobblemon: Mega Showdown's 16x16 textures scaled 2x, from the user's
+  // Cobbleverse modpack (tools/port_zmax_1116/make_cobbleverse_icons.py), drawn smaller (boxes 28x28, 32x32 and 32x18).
+  // Local fork (2026-11-18): PokéSprite's 32x32 originals now (tools/port/install_pokesprite_icons.py; the user: "아이콘
+  // 화풍은 포케스프라이트로 통일"), drawn at 1: z-ring.png, dynamax-candy.png and z-crystals/<name>-z--bag.png, whose type
+  // crystals are 24x13 and whose spiky exclusive crystals (Kommo-o, Lycanroc, Mimikyu, the Necrozma three) are 28x13
+  it("has PokéSprite's icons in the atlas and as loose copies, drawn at 1", () => {
     const atlas = JSON.parse(readFileSync("./assets/images/items.json", "utf8")).textures[0].frames as {
       filename: string;
       frame: { x: number; y: number; w: number; h: number };
     }[];
     const sheet = decodePng(readFileSync("./assets/images/items.png"));
-    const icons: [icon: string, box: [number, number, number, number], scale: number][] = [
-      ["z_ring", [2, 2, 28, 28], Z_RING_ICON_SCALE],
-      ["dynamax_candy", [0, 0, 32, 32], DYNAMAX_CANDY_ICON_SCALE],
+    const spiky = new Set([
+      "kommonium_z",
+      "lycanium_z",
+      "mimikium_z",
+      "solganium_z",
+      "lunalium_z",
+      "ultranecrozium_z_crystal",
+    ]);
+    const icons: [icon: string, box: [number, number, number, number]][] = [
+      ["z_ring", [6, 6, 22, 22]],
+      ["dynamax_candy", [6, 6, 20, 21]],
       ...[...Z_TYPE_CRYSTAL_TYPES.map(t => Z_TYPE_CRYSTAL_ICONS[t]!), ...EXCLUSIVE_Z.map(info => info.icon)].map(
-        icon => [icon, [0, 8, 32, 18], Z_CRYSTAL_ICON_SCALE] as [string, [number, number, number, number], number],
+        icon =>
+          [icon, spiky.has(icon) ? [2, 9, 28, 13] : [4, 10, 24, 13]] as [string, [number, number, number, number]],
       ),
     ];
     expect(icons).toHaveLength(2 + 18 + 16);
-    for (const [icon, box, scale] of icons) {
+    for (const [icon, box] of icons) {
       const { x, y, w, h } = atlas.find(f => f.filename === icon)!.frame;
       expect([w, h], icon).toEqual([ITEM_ICON_SOURCE_SIZE, ITEM_ICON_SOURCE_SIZE]);
       const frame = cropPng(sheet, x, y, w, h);
@@ -393,9 +396,9 @@ describe("Custom items - Z-Ring, Dynamax Candy, Z crystals (Z링 / 다이사탕 
       const loose = decodePng(readFileSync(`./assets/images/items/${icon}.png`));
       expect([loose.width, loose.height], icon).toEqual([w, h]);
       expect(Buffer.from(loose.rgba).equals(Buffer.from(frame.rgba)), `${icon}: loose copy = atlas frame`).toBe(true);
-      expect(getItemIconScale(icon), icon).toBe(scale);
+      expect(getItemIconScale(icon), icon).toBe(1);
+      expect(POKESPRITE_ITEM_ICONS.has(icon), icon).toBe(true);
     }
-    expect([Z_CRYSTAL_ICON_SCALE, Z_RING_ICON_SCALE, DYNAMAX_CANDY_ICON_SCALE]).toEqual([0.8, 0.7, 0.65]);
     // the official crystal of Necrozma's form change keeps PokeRogue's own pixels (trimmed 30x15) and scale
     const necrozma = atlas.find(f => f.filename === "ultranecrozium_z")!.frame;
     expect([necrozma.w, necrozma.h]).toEqual([30, 15]);

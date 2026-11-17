@@ -1,5 +1,6 @@
 import { CLASSIC_MODE_MYSTERY_ENCOUNTER_WAVES } from "#app/constants";
 import { globalScene } from "#app/global-scene";
+import { isForkItemLocked } from "#balance/fork-unlock"; // Local fork (2026-11-18): the Z-Ring reward
 import { allMoves, modifierTypes } from "#data/data-lists";
 import { ModifierTier } from "#enums/modifier-tier";
 import { MoveId } from "#enums/move-id";
@@ -21,6 +22,7 @@ import {
   MegaEvolutionAccessModifier,
 } from "#modifiers/modifier";
 import type { AttackTypeBoosterModifierType, ModifierTypeOption } from "#modifiers/modifier-type";
+import { hasZRing } from "#modifiers/zmax-items"; // Local fork (2026-11-18): the Z-Ring reward
 import { PokemonMove } from "#moves/pokemon-move";
 import { getEncounterText, showEncounterDialogue } from "#mystery-encounters/encounter-dialogue-utils";
 import type { EnemyPartyConfig } from "#mystery-encounters/encounter-phase-utils";
@@ -329,6 +331,12 @@ export const BugTypeSuperfanEncounter: MysteryEncounter = MysteryEncounterBuilde
           }
           if (!globalScene.findModifier(m => m instanceof GigantamaxAccessModifier)) {
             modifierOptions.push(generateModifierTypeOption(modifierTypes.DYNAMAX_BAND)!);
+          }
+          // Local fork (2026-11-18): the Z-Ring (Z링) too, the same way: only if the player does not have it yet, and only
+          // once the fork content is unlocked (Z_RING is a gated item, fork-unlock.ts). It was the one key item missing
+          // here, which left the Rogue reward as its only source (the user: "버그성 빈틈도 다 수정")
+          if (!hasZRing() && !isForkItemLocked("Z_RING")) {
+            modifierOptions.push(generateModifierTypeOption(modifierTypes.Z_RING)!);
           }
           const nonRareEvolutionModifier = generateModifierTypeOption(modifierTypes.EVOLUTION_ITEM);
           if (nonRareEvolutionModifier) {

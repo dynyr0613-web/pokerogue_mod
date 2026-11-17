@@ -483,11 +483,14 @@ describe("Bug-Type Superfan - Mystery Encounter", () => {
       const modifierSelectHandler = scene.ui.handlers.find(
         h => h instanceof ModifierSelectUiHandler,
       ) as ModifierSelectUiHandler;
-      expect(modifierSelectHandler.options.length).toEqual(4);
+      // Local fork (2026-11-18): the Z-Ring after the Dynamax Band (tests run with the fork content unlocked; the other
+      // cases are in test/tests/custom/custom-gaps-1118.test.ts)
+      expect(modifierSelectHandler.options.length).toEqual(5);
       expect(modifierSelectHandler.options[0].modifierTypeOption.type.id).toBe("MASTER_BALL");
       expect(modifierSelectHandler.options[1].modifierTypeOption.type.id).toBe("MEGA_BRACELET");
       expect(modifierSelectHandler.options[2].modifierTypeOption.type.id).toBe("DYNAMAX_BAND");
-      expect(modifierSelectHandler.options[3].modifierTypeOption.type.id).toBe("FORM_CHANGE_ITEM");
+      expect(modifierSelectHandler.options[3].modifierTypeOption.type.id).toBe("Z_RING");
+      expect(modifierSelectHandler.options[4].modifierTypeOption.type.id).toBe("FORM_CHANGE_ITEM");
     });
 
     it("should leave encounter without battle", async () => {

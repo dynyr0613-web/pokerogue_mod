@@ -10,6 +10,7 @@ import { getBerryEffectFunc } from "#data/berry";
 import { allAbilities, allMoves } from "#data/data-lists";
 import { SpeciesFormChangeAbilityTrigger, SpeciesFormChangeWeatherTrigger } from "#data/form-change-triggers";
 import { getPokeballName } from "#data/pokeball";
+import { awardItemfinderMark } from "#data/pokemon-marks"; // Local fork (2026-11-18): Pickup's Itemfinder Mark
 import type { PokemonSpecies } from "#data/pokemon-species";
 import { getStatusEffectDescriptor, getStatusEffectHealText } from "#data/status-effect";
 import { TerrainType } from "#data/terrain";
@@ -5161,6 +5162,9 @@ export class PostBattleLootAbAttr extends PostBattleAbAttr {
           itemName: this.randItem.type.name,
         }),
       );
+      // Local fork (2026-11-18): a player's Pokémon that picks up its first item gets the hidden Itemfinder Mark
+      // (pokemon-marks.ts; the user: "새 히든 증표•리본"), its message after the item's
+      awardItemfinderMark(pokemon);
     }
     this.randItem = undefined;
   }

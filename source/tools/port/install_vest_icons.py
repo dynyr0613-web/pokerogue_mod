@@ -10,6 +10,11 @@ Output: assets/images/items/assault_vest.png     32x32 palette PNG, the vest shr
 Re-running is safe: existing frames are redrawn in place (so the image session can drop better PNGs into
 assets/images/items/ and re-run with --keep-pngs to only refresh the atlas), new ones are appended below
 the sheet. items.json keeps its TexturePacker style (tab indent, CRLF, the original final newline).
+
+Local fork (2026-11-18): superseded as an installer. Both vests are PokéSprite's Assault Vest (items/hold-item/
+assault-vest.png) since install_pokesprite_icons.py, the Bulletproof Vest with this script's red -> grey mapping keyed to
+PokéSprite's colours; a plain run stops unless --essentials is given. The helpers (update_atlas, to_palette_png, centre,
+shrink_majority) stay for the scripts that import them.
 """
 
 import json
@@ -141,6 +146,10 @@ def update_atlas(names: list) -> None:
 
 
 if __name__ == "__main__":
+    # Local fork (2026-11-18): superseded by install_pokesprite_icons.py (the user: "아이콘 화풍은 포케스프라이트로
+    # 통일"); a plain run would put the Essentials vests back over PokéSprite's, so it needs --essentials
+    if "--essentials" not in sys.argv:
+        raise SystemExit("superseded by install_pokesprite_icons.py; pass --essentials to install the Essentials vests anyway")
     if "--keep-pngs" not in sys.argv:
         make_pngs()
     update_atlas(["assault_vest", "bulletproof_vest"])

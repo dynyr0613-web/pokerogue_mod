@@ -20,6 +20,10 @@
  *   다른 증표를 모두 모으면 무한다이노의 증표에도 황금색이 붙게").
  * - "Every Pokémon" for the marks' shares and outlines leaves Eternatus out ("모든 포켓몬의 기준은 무한다이노는
  *   빼고"); it is still listed in the second view.
+ * - Local fork (2026-11-18): with the new hidden marks and ribbons ("새 히든 증표•리본") the page below holds fifteen of
+ *   them, so they stand eight to a row (the marks and trainers' ribbons, then the Endless ribbons), and the Eternatus
+ *   Mark alone in the middle of a row below them, a little apart and larger. Up and down move between the rows (up
+ *   from the first goes back to the list), left and right go through them all.
  *
  * The data is each starter line's collection (`StarterDataEntry.marks`, pokemon-marks.ts).
  */
@@ -55,14 +59,29 @@ const MARK_SIZE = 40;
 const MARK_SCALE = 0.45;
 const MARK_COLS = 14;
 const MARK_PITCH = 20;
-/** The hidden marks stand apart, a little larger */
-const HIDDEN_MARK_SCALE = 0.7;
-const HIDDEN_MARK_PITCH = 44;
+/**
+ * Local fork (2026-11-18): the hidden marks stand apart, a little larger (24 px), eight to a row; the Eternatus Mark
+ * larger still (28 px, the size all of them had while they were five) on a row of its own, a little further down
+ */
+const HIDDEN_MARK_SCALE = 0.6;
+const HIDDEN_MARK_COLS = 8;
+const HIDDEN_MARK_PITCH_X = 32;
+const HIDDEN_MARK_PITCH_Y = 30;
+const ETERNATUS_MARK_SCALE = 0.7;
+const ETERNATUS_MARK_GAP = 8;
 
 /** The listed marks: all but the hidden ones */
 const LISTED_MARKS: readonly PokemonMark[] = orderedPokemonMarks.filter(m => !COMPLETION_EXEMPT_MARKS.includes(m));
-/** The marks of the page below the list */
-const HIDDEN_PAGE_MARKS: readonly PokemonMark[] = [...COMPLETION_EXEMPT_MARKS, PokemonMark.ETERNATUS_MARK];
+/**
+ * Local fork (2026-11-18): the rows of the page below the list: the hidden marks in their order, eight to a row, and
+ * the Eternatus Mark on its own
+ */
+export const HIDDEN_PAGE_ROWS: readonly (readonly PokemonMark[])[] = [
+  ...Array.from({ length: Math.ceil(COMPLETION_EXEMPT_MARKS.length / HIDDEN_MARK_COLS) }, (_, row) =>
+    COMPLETION_EXEMPT_MARKS.slice(row * HIDDEN_MARK_COLS, (row + 1) * HIDDEN_MARK_COLS),
+  ),
+  [PokemonMark.ETERNATUS_MARK],
+];
 
 /** One mark of the first view: its dark base, the bright part that fills up over it, and its golden outline */
 interface MarkCell {
@@ -73,6 +92,9 @@ interface MarkCell {
   outline: Phaser.GameObjects.Image[];
   obtained: boolean;
   golden: boolean;
+  /** Local fork (2026-11-18): its row on its page (the hidden page's cursor moves by rows), and its icon's scale */
+  row: number;
+  scale: number;
 }
 /** The Pokémon icons are shown at half size (20 x 15), fifteen to a row and six rows at a time */
 const SPECIES_COLS = 15;
@@ -151,11 +173,11 @@ export class MarkDexUiHandler extends MessageUiHandler {
       (WIDTH - 2 - MARK_COLS * MARK_PITCH) / 2,
       gridBg.y + (gridBg.height - markRows * MARK_PITCH) / 2,
     );
-    const addCell = (mark: PokemonMark, x: number, y: number, scale: number): MarkCell => {
+    const addCell = (mark: PokemonMark, x: number, y: number, scale: number, row: number): MarkCell => {
       const base = globalScene.add.image(x, y, MARKS_ATLAS_KEY, getMarkKey(mark)).setScale(scale);
       const fill = globalScene.add.image(x, y, MARKS_ATLAS_KEY, getMarkKey(mark)).setScale(scale);
       this.markContainer.add([base, fill]);
-      return { mark, base, fill, outline: [], obtained: false, golden: false };
+      return { mark, base, fill, outline: [], obtained: false, golden: false, row, scale };
     };
     this.listedCells = LISTED_MARKS.map((mark, index) =>
       addCell(
@@ -163,15 +185,28 @@ export class MarkDexUiHandler extends MessageUiHandler {
         (index % MARK_COLS) * MARK_PITCH + MARK_PITCH / 2,
         Math.floor(index / MARK_COLS) * MARK_PITCH + MARK_PITCH / 2,
         MARK_SCALE,
+        Math.floor(index / MARK_COLS),
       ),
     );
-    this.hiddenCells = HIDDEN_PAGE_MARKS.map((mark, index) =>
-      addCell(
-        mark,
-        (MARK_COLS * MARK_PITCH) / 2 + (index - (HIDDEN_PAGE_MARKS.length - 1) / 2) * HIDDEN_MARK_PITCH,
-        (markRows * MARK_PITCH) / 2,
-        HIDDEN_MARK_SCALE,
-      ),
+    // Local fork (2026-11-18): the hidden marks' rows, each centred, and the Eternatus Mark's row a little apart; all
+    // of it in the middle of where the list stands
+    const markRowCount = HIDDEN_PAGE_ROWS.length - 1;
+    const eternatusSize = MARK_SIZE * ETERNATUS_MARK_SCALE;
+    const hiddenHeight = markRowCount * HIDDEN_MARK_PITCH_Y + ETERNATUS_MARK_GAP + eternatusSize;
+    const hiddenTop = (markRows * MARK_PITCH - hiddenHeight) / 2;
+    this.hiddenCells = HIDDEN_PAGE_ROWS.flatMap((marks, row) =>
+      marks.map((mark, index) => {
+        const isEternatusRow = row === markRowCount;
+        return addCell(
+          mark,
+          (MARK_COLS * MARK_PITCH) / 2 + (index - (marks.length - 1) / 2) * HIDDEN_MARK_PITCH_X,
+          isEternatusRow
+            ? hiddenTop + markRowCount * HIDDEN_MARK_PITCH_Y + ETERNATUS_MARK_GAP + eternatusSize / 2
+            : hiddenTop + row * HIDDEN_MARK_PITCH_Y + HIDDEN_MARK_PITCH_Y / 2,
+          isEternatusRow ? ETERNATUS_MARK_SCALE : HIDDEN_MARK_SCALE,
+          row,
+        );
+      }),
     );
     this.scrollHint = addTextObject(gridBg.width / 2, 0, "", TextStyle.WINDOW, { fontSize: "40px" })
       .setOrigin(0.5, 0)
@@ -340,7 +375,8 @@ export class MarkDexUiHandler extends MessageUiHandler {
     const changed = cursor !== this.hiddenCursor;
     this.hiddenCursor = cursor;
     const cell = this.hiddenCells[cursor];
-    const size = MARK_SIZE * HIDDEN_MARK_SCALE;
+    // Local fork (2026-11-18): the cell's own size (the Eternatus Mark is larger)
+    const size = MARK_SIZE * cell.scale;
     this.cursorObj
       .setScale((size + 4) / 16)
       .setPosition(
@@ -366,6 +402,26 @@ export class MarkDexUiHandler extends MessageUiHandler {
         })}\n${getMarkDescription(cell.mark)}`,
       );
     }
+  }
+
+  /**
+   * Local fork (2026-11-18): the hidden mark in the next row up or down nearest to the one under the cursor
+   * @param direction - -1 for up, 1 for down
+   * @returns Its index, or `null` past the first or last row
+   */
+  private getHiddenCursorInRow(direction: -1 | 1): number | null {
+    const current = this.hiddenCells[this.hiddenCursor];
+    let best: number | null = null;
+    for (const [index, cell] of this.hiddenCells.entries()) {
+      if (
+        cell.row === current.row + direction
+        && (best === null
+          || Math.abs(cell.base.x - current.base.x) < Math.abs(this.hiddenCells[best].base.x - current.base.x))
+      ) {
+        best = index;
+      }
+    }
+    return best;
   }
 
   private setMarkCursor(cursor: number): boolean {
@@ -425,7 +481,10 @@ export class MarkDexUiHandler extends MessageUiHandler {
       } else {
         // Local fork (2026-11-17): opaque over a golden outline, which would shine through a faded grey icon
         const complete = isMarkCollectionComplete(this.collected.get(id) ?? []);
-        icon.setTint(MISSING_TINT).setTintMode(Phaser.TintModes.FILL).setAlpha(complete ? 1 : MISSING_ALPHA);
+        icon
+          .setTint(MISSING_TINT)
+          .setTintMode(Phaser.TintModes.FILL)
+          .setAlpha(complete ? 1 : MISSING_ALPHA);
       }
       // A line that has collected everything but the hidden marks is outlined in gold
       if (isMarkCollectionComplete(this.collected.get(id) ?? [])) {
@@ -500,10 +559,22 @@ export class MarkDexUiHandler extends MessageUiHandler {
           success = true;
           globalScene.ui.revertMode();
           break;
-        case Button.UP:
+        case Button.UP: {
+          // Local fork (2026-11-18): up a row, and from the first back up to the list
+          const above = this.getHiddenCursorInRow(-1);
           success = true;
-          this.setHiddenPage(false);
+          if (above === null) {
+            this.setHiddenPage(false);
+          } else {
+            this.setHiddenCursor(above);
+          }
           break;
+        }
+        case Button.DOWN: {
+          const below = this.getHiddenCursorInRow(1);
+          success = below !== null && this.setHiddenCursor(below);
+          break;
+        }
         case Button.LEFT:
           success = this.setHiddenCursor(cursor === 0 ? count - 1 : cursor - 1);
           break;

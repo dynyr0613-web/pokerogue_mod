@@ -386,5 +386,60 @@
     "name": "Master Ball Mark",
     "description": "A mark for a Pokémon caught in a Master Ball.",
     "title": "the Master Ball"
+  },
+  "destinyMark": {
+    "name": "Destiny Mark",
+    "description": "A mark for a Pokémon met on the wave of its Pokédex number.",
+    "title": "the Chosen One"
+  },
+  "gourmandMark": {
+    "name": "Gourmand Mark",
+    "description": "A mark for a Pokémon that ate all six IV Candies to the full.",
+    "title": "the Gourmet"
+  },
+  "itemfinderMark": {
+    "name": "Itemfinder Mark",
+    "description": "A mark for a Pokémon that picked up an item with Pickup.",
+    "title": "the Treasure Hunter"
+  },
+  "hisuiRibbon": {
+    "name": "Hisui Ribbon",
+    "description": "A Ribbon for beating a Trainer from Hisui.",
+    "title": "of the Distant Past"
+  },
+  "masterRankRibbon": {
+    "name": "Master Rank Ribbon",
+    "description": "A Ribbon for beating all 11 named Trainers.",
+    "title": "the Rank Master"
+  },
+  "abilityRibbon": {
+    "name": "Ability Ribbon",
+    "description": "A Ribbon for a Pokémon that cleared wave 500 in Endless.",
+    "title": "the 500-Wave Victor"
+  },
+  "greatAbilityRibbon": {
+    "name": "Great Ability Ribbon",
+    "description": "A Ribbon for a Pokémon that cleared wave 1000 in Endless.",
+    "title": "the 1000-Wave Victor"
+  },
+  "doubleAbilityRibbon": {
+    "name": "Double Ability Ribbon",
+    "description": "A Ribbon for a Pokémon that cleared wave 2000 in Endless.",
+    "title": "the 2000-Wave Victor"
+  },
+  "multiAbilityRibbon": {
+    "name": "Multi Ability Ribbon",
+    "description": "A Ribbon for a Pokémon that cleared wave 3000 in Endless.",
+    "title": "the 3000-Wave Victor"
+  },
+  "pairAbilityRibbon": {
+    "name": "Pair Ability Ribbon",
+    "description": "A Ribbon for a Pokémon that cleared wave 4000 in Endless.",
+    "title": "the 4000-Wave Victor"
+  },
+  "worldAbilityRibbon": {
+    "name": "World Ability Ribbon",
+    "description": "A Ribbon for a Pokémon that cleared wave 5000 in Endless.",
+    "title": "the 5000-Wave Victor"
   }
 }

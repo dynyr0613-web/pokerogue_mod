@@ -54,8 +54,13 @@ function getMarkCount(mark: PokemonMark): number {
   return globalScene.gameData.markCounts[mark] ?? 0;
 }
 
-/** Local fork (2026-11-17): the ribbons the champions give (the ribbon achievements) */
-const CHAMPION_RIBBONS: readonly PokemonMark[] = [...new Set(Object.values(TRAINER_RIBBONS))];
+/**
+ * Local fork (2026-11-17): the ribbons the champions give (the ribbon achievements). Local fork (2026-11-18): but for
+ * the hidden ones, the named trainers' Hisui Ribbon: no collection asks for a hidden mark.
+ */
+const CHAMPION_RIBBONS: readonly PokemonMark[] = [...new Set(Object.values(TRAINER_RIBBONS))].filter(
+  m => !COMPLETION_EXEMPT_MARKS.includes(m),
+);
 
 /**
  * Local fork (2026-11-17): the marks the "every kind" achievement asks for: the 41 wild marks and the Jumbo, Mini,

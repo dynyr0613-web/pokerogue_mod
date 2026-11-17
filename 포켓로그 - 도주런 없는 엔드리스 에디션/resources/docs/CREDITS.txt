@@ -35,26 +35,22 @@ Additions in this modified build
       Gen 9: ezerart, JordanosArt, Axel Loquendo, CarmaNekko, Divaruta 666, Okyo, JLauz735, ClaraDragon
       Legends Z-A: ezerart, camiloveso, Caruban
       Shiny icons: StarrWolf, Pokemon Shattered Light Team
-- New Mega Stone icons: recoloured from item icons of Pokémon Essentials and the Generation 9 Pack.
-- Assault Vest / Bulletproof Vest icons: reduced and recoloured from the Pokémon Essentials v21.1
-  item icon (Maruno and contributors, https://github.com/Maruno17/pokemon-essentials).
+- New Mega Stone icons: PokeRogue's own Mega Stone icons recoloured.
+- Item icons from PokéSprite (https://github.com/msikma/pokesprite; the sprites are (c) Nintendo / Creatures Inc. /
+  GAME FREAK inc.), used unedited: the six IV Candies, the six EV items, Throat Spray, Assault Vest (and its grey
+  Bulletproof Vest recolour), Life Orb, Choice Band, Z-Ring, Dynamax Candy, the Z crystals and the Mark Charm.
 - Item icons from Cobblemon 1.7.3 by the Cobblemon Team (https://gitlab.com/cable-mc/cobblemon), scaled 2x,
-  licensed under MPL-2.0 (licenses/code/MPL-2.0.txt): the six IV Candies, Punching Glove (and its black recolour
-  for the Master Punching Glove), Clear Amulet, Throat Spray, and the six EV items (Power Weight, Power Bracer,
-  Power Belt, Power Lens, Power Band, Power Anklet).
-- Z-Ring, Dynamax Candy and Z crystal item icons from Cobblemon: Mega Showdown 1.7.3 by Yajat Kaul and
-  contributors (https://github.com/yajatkaul/CobblemonMegaShowdown), scaled 2x. Mega Showdown License v2.1, under
-  which its textures are licensed CC BY-NC-SA 4.0 (https://github.com/yajatkaul/CobblemonMegaShowdown/blob/main/LICENSE.md;
-  licenses/code/CC-BY-NC-SA-4.0.txt).
-- Mark and ribbon icons (images/marks/marks.png): the 40x40 ribbon sprites of PKHeX
-  (https://github.com/kwsch/PKHeX, PKHeX.Drawing.Misc/Resources/img/ribbons), used unedited. GPL-3.0
-  (licenses/code/GPL-3.0-only.txt). The Golden Alpha Mark is PKHeX's Alpha Mark recoloured, and the three
-  shiny marks are PokeRogue's Shiny Charm item icon recoloured.
-  The six stat Effort Ribbons and the Grand Footprint Ribbon are PKHeX's Effort and Footprint Ribbons
-  recoloured, the Endless Master Ribbon uses its Tower Master Ribbon; the Egg Move, Perfect IV, Master Ball
-  and Eternatus Marks are PokeRogue's Mystery Egg, HP Up (gold), Master Ball and Mini Black Hole icons.
-- Mark Charm item icon: the Mark Charm sprite of the PokeAPI sprites repository
-  (https://github.com/PokeAPI/sprites, sprites/items/mark-charm.png), halved to 32x32.
+  licensed under MPL-2.0 (licenses/code/MPL-2.0.txt): Punching Glove (and its black recolour for the Master
+  Punching Glove) and Clear Amulet.
+- Mark and ribbon icons (images/marks/marks.png): the 40x40 ribbon and mark sprites of PKHeX
+  (https://github.com/kwsch/PKHeX, PKHeX.Drawing.Misc/Resources/img/ribbons), GPL-3.0
+  (licenses/code/GPL-3.0-only.txt), cleaned into plain pixel art (hard edges, a small palette of each icon's own
+  colours). Recoloured from PKHeX's: the Golden Alpha Mark, the six stat Effort Ribbons, the Grand Footprint Ribbon;
+  the Endless Master Ribbon uses its Tower Master Ribbon and the Endless milestone ribbons its Gen 4 Ability
+  Ribbons. From PokeRogue's own icons: the Egg Move, Master Ball and Eternatus Marks and the three shiny marks
+  (the Shiny Charm recoloured, grown 15%). The Perfect IV Mark is PokéSprite's Gold Bottle Cap, doubled.
+  Mark and ribbon names and titles are the main series' own (checked in Poké Corpus,
+  https://abcboy101.github.io/poke-corpus/).
 - Named trainer battle sprites, used unedited from the Pokémon Showdown trainer sprite index
   (https://play.pokemonshowdown.com/sprites/trainers/?filter=credited):
     Brumirage: Volo, Irida, Adaman, Sonia, Hop, Peony. Free to use with credit

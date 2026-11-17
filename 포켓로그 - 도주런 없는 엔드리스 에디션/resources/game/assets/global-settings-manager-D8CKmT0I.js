@@ -1,0 +1,1 @@
+import{n as e,t}from"./global-settings-manager-Cv_5NVsm.js";e();export{t as initSettingsManager};

@@ -176,6 +176,7 @@ import type { HitsTagAttr, Move } from "#moves/move";
 import { getAnimMoveId, getSlotMove } from "#moves/move-transform"; // Local fork (2026-11-16): Z / Max moves
 import { getMoveTargets } from "#moves/move-utils";
 import { PokemonMove } from "#moves/pokemon-move";
+import { isZMaxOnlyMove } from "#moves/zmax-data"; // Local fork (2026-11-18)
 import { loadMoveAnimations } from "#sprites/pokemon-asset-loader";
 import type { Variant } from "#sprites/variant";
 import { populateVariantColors, variantColorCache, variantData } from "#sprites/variant";
@@ -2997,6 +2998,12 @@ export abstract class Pokemon extends Phaser.GameObjects.Container {
       && (move.id === MoveId.TERA_BLAST
         || (move.id === MoveId.TERA_STARSTORM && moveTypeHolder.value === PokemonType.STELLAR))
     ) {
+      return moveTypeHolder.value as PokemonType;
+    }
+
+    // Local fork (2026-11-18): Z / Max moves keep their own type under Ion Deluge / Plasma Fists and Electrify too, as
+    // they do against type-changing abilities (custom-ability-helpers.ts)
+    if (isZMaxOnlyMove(move.id)) {
       return moveTypeHolder.value as PokemonType;
     }
 

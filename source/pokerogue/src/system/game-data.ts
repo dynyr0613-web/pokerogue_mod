@@ -13,7 +13,7 @@ import { Tutorial } from "#app/tutorial";
 import { speciesEggMoves } from "#balance/egg-moves";
 import { bypassLogin, isBeta, isDev, systemSaveShortKeyMap } from "#constants/app-constants";
 import { MAX_STARTER_CANDY_COUNT } from "#constants/game-constants";
-import { registerAlpha } from "#data/alpha-pokemon";
+import { registerAlpha, syncAlphaLineBoosts } from "#data/alpha-pokemon";
 import { EntryHazardTag } from "#data/arena-tag";
 import { getSerializedDailyRunConfig, parseDailySeed } from "#data/daily-seed-utils";
 import { allMoves } from "#data/data-lists";
@@ -433,6 +433,8 @@ export class GameData {
     for (const id of Object.keys(this.starterData)) {
       this.syncAchievedLineMarks(Number(id), false);
     }
+    // Local fork (2026-11-18): an older save's alphas of the Pichu / Pikachu line reach both starters (alpha-pokemon.ts)
+    syncAlphaLineBoosts(this.starterData);
     this.consolidateDexData(this.dexData);
     this.defaultDexData = null;
 
