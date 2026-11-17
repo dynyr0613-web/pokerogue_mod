@@ -1,0 +1,9 @@
+rows 792; species in table 1083; inherited 474
+
+No PokeRogue form:
+폼 KYUREM,5 퍼펙트큐레무 (Perfect Kyurem) -> SLUSH_RUSH
+분기 진화 BYZANTEDGE Byzantedge () -> SHARPNESS
+폼 MEWTWO,3 아머드뮤츠 (Armored Mewtwo) -> WAR_MACHINE
+
+No such ability:
+

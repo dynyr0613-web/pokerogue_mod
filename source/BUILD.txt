@@ -1,0 +1,6 @@
+How this build was made
+1. pokerogue/: pnpm install, then `pnpm exec vite build --mode app` (output: pokerogue/dist).
+   The game art and audio come from https://github.com/pagefaultgames/pokerogue-assets
+   (commit in pokerogue/.gitmodules + the submodule pointer); the fork's own extra images are
+   written into that folder by tools/port/*.py.
+2. offline-app/: npm install, python prepare.py, npm run dist (Electron + electron-builder).

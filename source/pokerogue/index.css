@@ -1,0 +1,767 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Pagefault Games
+ *
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
+/* Global */
+:root {
+  --color-base: hsl(0, 0%, 55%);
+  --color-light: hsl(0, 0%, 90%);
+  --color-dark: hsl(0, 0%, 10%);
+}
+
+html,
+body,
+#app,
+#touchControls {
+  touch-action: none;
+}
+
+html[data-ui-theme="DEFAULT"][data-window-type="RED_ORANGE"] {
+  --color-base: #6b5a73;
+  --color-light: #DD5748;
+  --color-dark: #7E4955;
+}
+
+html[data-ui-theme="DEFAULT"][data-window-type="TEAL"] {
+  --color-base: #6b5a73;
+  --color-light: #48DDAA;
+  --color-dark: #4D7574;
+}
+
+html[data-ui-theme="DEFAULT"][data-window-type="LIGHT_GRAY"] {
+  --color-base: #6b5a73;
+  --color-light: #C5C5C5;
+  --color-dark: #766D7E;
+}
+
+html[data-ui-theme="DEFAULT"][data-window-type="GOLDENROD"] {
+  --color-base: #6b5a73;
+  --color-light: #EBC07C;
+  --color-dark: #836C66;
+}
+
+html[data-ui-theme="DEFAULT"][data-window-type="MEDIUM_GRAY"] {
+  --color-base: #686868;
+  --color-light: #E8E8E8;
+  --color-dark: #919191;
+}
+
+html[data-ui-theme="LEGACY"][data-window-type="RED_ORANGE"] {
+  --color-base: #706880;
+  --color-light: #8888c8;
+  --color-dark: #484868;
+}
+
+html[data-ui-theme="LEGACY"][data-window-type="TEAL"] {
+  --color-base: #d04028;
+  --color-light: #e0a028;
+  --color-dark: #902008;
+}
+
+html[data-ui-theme="LEGACY"][data-window-type="LIGHT_GRAY"] {
+  --color-base: #48b840;
+  --color-light: #88d880;
+  --color-dark: #089040;
+}
+
+html[data-ui-theme="LEGACY"][data-window-type="GOLDENROD"] {
+  --color-base: #2068d0;
+  --color-light: #80b0e0;
+  --color-dark: #104888;
+}
+
+html[data-ui-theme="LEGACY"][data-window-type="MEDIUM_GRAY"] {
+  --color-base: #706880;
+  --color-light: #8888c8;
+  --color-dark: #484868;
+}
+
+body {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: #484050;
+
+  /*
+    Keep the game canvas out of display cutouts (notches, punch-holes) while retaining
+    viewport-fit=cover in the meta viewport tag.
+    Phaser sizes the canvas to #app, which fills body's content box, so padding body shrinks the
+    space the canvas is fitted into. border-box keeps the padding inside body's 100% height.
+    Sides use the larger inset on both edges so a centered canvas only moves or shrinks when it
+    would actually overlap a cutout. Touch controls are position: fixed and are unaffected.
+  */
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top);
+  padding-left: max(env(safe-area-inset-left), env(safe-area-inset-right));
+  padding-right: max(env(safe-area-inset-left), env(safe-area-inset-right));
+}
+
+@media (display-mode: fullscreen) {
+  body {
+    background: #000000;
+  }
+}
+
+#app {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+#app > div:first-child {
+  transform-origin: center !important;
+}
+
+/*
+  Supports automatic vertical centering as suggested in PR#1114, but only via CSS
+
+  Condition factorized to deduce CSS rules:
+  true if (isLandscape && !isMobile() && !hasTouchscreen() || (hasTouchscreen() && !isTouchControlsEnabled))
+*/
+
+/* isLandscape && !isMobile() && !hasTouchscreen() */
+@media (orientation: landscape) and (pointer: fine) {
+  #app {
+    align-items: center;
+  }
+}
+
+@media (pointer: coarse) {
+  /* hasTouchscreen() && !isTouchControlsEnabled */
+  body:has(> #touchControls.visible) #app {
+    align-items: start;
+  }
+
+  body:has(> #touchControls.visible) #app > div:first-child {
+    transform-origin: top !important;
+  }
+}
+
+#layout:fullscreen #dpad,
+#layout:fullscreen {
+  bottom: 6rem;
+}
+
+input:-internal-autofill-selected {
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+input:-webkit-autofill {
+  -webkit-text-fill-color: #a1a1a1;
+}
+
+/* Need adjust input font-size */
+input {
+  font-size: 3.2rem;
+}
+
+.hidden {
+  display: none !important;
+}
+
+input:-internal-autofill-selected {
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+/* Touch Controls: */
+
+#touchControls {
+  --text-shadow-size: 0.65vh;
+  --controls-size: 10vh;
+  --touch-control-opacity: 0.6;
+
+  --controls-padding: 1rem;
+
+  --controls-size-with-padding: calc(
+    var(--controls-size) +
+    var(--controls-padding)
+  );
+  --controls-size-with-wide-padding: calc(
+    var(--controls-size) *
+    1.2 +
+    var(--controls-padding)
+  );
+  --control-group-extra-size: calc(var(--controls-size) * 0.8);
+  --control-group-extra-wide-size: calc(var(--controls-size) * 1.2);
+
+  --control-group-extra-2-offset: calc(
+    var(--controls-size-with-padding) +
+    (var(--controls-size) - var(--control-group-extra-size)) /
+    2
+  );
+  --control-group-extra-1-offset: calc(
+    var(--controls-padding) +
+    (var(--controls-size) - var(--control-group-extra-size)) /
+    2
+  );
+
+  --small-control-size: calc(var(--controls-size) / 3);
+  --rect-control-size: calc(var(--controls-size) * 0.74);
+
+  font-family: "emerald";
+  font-size: var(--controls-size);
+  text-shadow: var(--color-dark) var(--text-shadow-size) var(--text-shadow-size);
+  color: var(--color-light);
+}
+
+@media (orientation: landscape) {
+  #touchControls {
+    --controls-size: 20vh;
+    --text-shadow-size: 1.3vh;
+    --small-button-offset: 4vh;
+  }
+}
+
+#touchControls:not(.visible) {
+  display: none;
+}
+
+#touchControls .active {
+  opacity: var(--touch-control-opacity);
+}
+
+.control-group {
+  position: fixed;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-around;
+  align-items: center;
+  width: var(--controls-size);
+}
+
+.control-group-dpad {
+  width: calc(2 * var(--controls-size));
+  height: calc(2 * var(--controls-size));
+}
+
+.control-group-extra {
+  width: var(--control-group-extra-size);
+  height: var(--control-group-extra-size);
+}
+
+/* Hide buttons on specific UIs */
+
+/* Show #apadPreviousTab and #apadNextTab only in settings, except in touch configuration panel */
+#touchControls:not([data-ui-mode^="SETTINGS"], [data-ui-mode="CHALLENGE_SELECT"]) #apadPreviousTab,
+#touchControls:not([data-ui-mode^="SETTINGS"], [data-ui-mode="CHALLENGE_SELECT"]) #apadNextTab,
+#touchControls:is([data-configuring]) #apadPreviousTab,
+#touchControls:is([data-configuring]) #apadNextTab {
+  display: none;
+}
+
+/* Show #apadInfo only in battle */
+#touchControls:not([data-ui-mode="COMMAND"]):not([data-ui-mode="FIGHT"]):not(
+    [data-ui-mode="BALL"]
+  ):not([data-ui-mode="TARGET_SELECT"])
+  #apadInfo {
+  display: none;
+}
+
+/* Show #apadStats only in battle and shop */
+#touchControls:not([data-ui-mode="COMMAND"]):not([data-ui-mode="FIGHT"]):not(
+    [data-ui-mode="BALL"]
+  ):not([data-ui-mode="TARGET_SELECT"]):not([data-ui-mode="MODIFIER_SELECT"])
+  #apadStats {
+  display: none;
+}
+
+/* Show cycle buttons only on the UIs that use them (starter select, Pokedex, run info) and on touch configuration panel */
+#touchControls:not([data-configuring]):not(
+    [data-ui-mode="STARTER_SELECT"],
+    [data-ui-mode="POKEDEX"],
+    [data-ui-mode="POKEDEX_PAGE"]
+  )
+  #apadOpenFilters,
+#touchControls:not([data-configuring]):not(
+    [data-ui-mode="STARTER_SELECT"],
+    [data-ui-mode="POKEDEX"],
+    [data-ui-mode="POKEDEX_PAGE"],
+    [data-ui-mode="RUN_INFO"]
+  )
+  #apadCycleForm,
+#touchControls:not([data-configuring]):not(
+    [data-ui-mode="STARTER_SELECT"],
+    [data-ui-mode="POKEDEX"],
+    [data-ui-mode="POKEDEX_PAGE"],
+    [data-ui-mode="RUN_INFO"]
+  )
+  #apadCycleShiny,
+#touchControls:not([data-configuring]):not([data-ui-mode="STARTER_SELECT"])
+  #apadCycleNature,
+#touchControls:not([data-configuring]):not(
+    [data-ui-mode="STARTER_SELECT"],
+    [data-ui-mode="POKEDEX_PAGE"],
+    [data-ui-mode="RUN_INFO"]
+  )
+  #apadCycleAbility,
+#touchControls:not([data-configuring]):not(
+    [data-ui-mode="STARTER_SELECT"],
+    [data-ui-mode="POKEDEX_PAGE"]
+  )
+  #apadCycleGender,
+#touchControls:not([data-configuring]):not(
+    [data-ui-mode="STARTER_SELECT"],
+    [data-ui-mode="POKEDEX"],
+    [data-ui-mode="POKEDEX_PAGE"]
+  )
+  #apadCycleTera {
+  display: none;
+}
+
+/* Configuration toolbar */
+
+#configToolbar {
+  width: 100%;
+  position: fixed;
+  /* Fixed to the viewport, so it doesn't pick up body's safe-area padding */
+  top: calc(1rem + env(safe-area-inset-top));
+  left: 0;
+  z-index: 9;
+  user-select: none;
+}
+
+#configToolbar .column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10%;
+  padding: 0 var(--controls-padding);
+}
+
+#configToolbar .button-row {
+  display: flex;
+  justify-content: space-evenly;
+  width: 100%;
+}
+
+#configToolbar .info-row {
+  display: flex;
+  justify-content: flex-start;
+  width: 100%;
+}
+
+#configToolbar .button {
+  z-index: 3;
+  background-color: var(--color-base);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  border-radius: 10%;
+  height: var(--small-control-size);
+  font-size: var(--small-control-size);
+  border-radius: 8px;
+  padding: 2px 8px;
+  text-shadow: var(--color-dark) calc(var(--text-shadow-size) / 3)
+    calc(var(--text-shadow-size) / 3);
+}
+
+#configToolbar .button:active {
+  opacity: var(--touch-control-opacity);
+}
+
+#configToolbar .orientation-label {
+  font-size: var(--small-control-size);
+  text-shadow: var(--color-dark) calc(var(--text-shadow-size) / 3)
+    calc(var(--text-shadow-size) / 3);
+}
+
+/* dpad */
+#dpad {
+  z-index: 3;
+  opacity: 0.8;
+}
+
+#dpad svg {
+  width: calc(2 * var(--controls-size));
+  height: calc(2 * var(--controls-size));
+  fill: var(--color-base);
+}
+
+/* apad buttons */
+
+.apad-button {
+  background-color: var(--color-base);
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  right: 0;
+  bottom: 0;
+  width: var(--controls-size);
+  height: var(--controls-size);
+  opacity: 0.8;
+  border-radius: 8px;
+}
+
+.apad-small {
+  width: var(--small-control-size);
+  height: var(--small-control-size);
+}
+
+.apad-label {
+  user-select: none;
+  height: 100%;
+  margin-right: -2px;
+}
+
+.apad-small > .apad-label {
+  font-size: var(--small-control-size);
+  text-shadow: var(--color-dark) calc(var(--text-shadow-size) / 3)
+    calc(var(--text-shadow-size) / 3);
+}
+
+.apad-rectangle {
+  text-align: center;
+  width: var(--rect-control-size);
+  height: var(--small-control-size);
+}
+
+.apad-square {
+  width: var(--small-control-size);
+  height: var(--small-control-size);
+}
+
+.apad-circle {
+  width: var(--controls-size);
+  height: var(--controls-size);
+  border-radius: 50%;
+}
+
+/* Defaults:*/
+
+#control-group-dpad {
+  left: var(--controls-padding);
+  bottom: var(--controls-padding);
+}
+
+#control-group-action {
+  right: var(--controls-padding);
+  bottom: var(--controls-size-with-padding);
+}
+
+#control-group-cancel {
+  right: var(--controls-size-with-wide-padding);
+  bottom: var(--controls-padding);
+}
+
+#control-group-extra-1 {
+  right: var(--control-group-extra-1-offset);
+  bottom: var(--control-group-extra-1-offset);
+}
+
+#control-group-extra-2 {
+  width: var(--control-group-extra-wide-size);
+  right: var(--control-group-extra-2-offset);
+  bottom: var(--control-group-extra-2-offset);
+}
+
+/*
+  Fork: portrait phone layout. The game fills the width at the top (16:9), so the space below it is
+  sized from the viewport: the pad grows to use it and is lifted off the bottom edge instead of leaving
+  the middle of the screen empty. Positions saved with "Move Touch Controls" are inline and still win for the
+  D-pad and A/B (the named rows stay put). Phone-shaped screens only (width/height <= 3/5); tablets keep the
+  upstream layout. touch-choices.ts uses the same query (PORTRAIT_PHONE_QUERY).
+*/
+@media (orientation: portrait) and (pointer: coarse) and (max-aspect-ratio: 3/5) {
+  #touchControls {
+    --game-height: calc(100vw * 9 / 16);
+    --space-below-game: calc(100vh - var(--game-height));
+    /* 20vw keeps a gap between the D-pad and B (the row is about 4.2 buttons + 3 paddings wide) */
+    /* 20vw is a hard cap (clamp's minimum would win on screens taller than 2:1 and push B onto the D-pad) */
+    --controls-size: min(20vw, max(10vh, calc(var(--space-below-game) * 0.2)));
+    --controls-padding: max(4vw, 1rem);
+    --text-shadow-size: calc(var(--controls-size) * 0.065);
+    /*
+      the pad cluster is about two buttons tall; lift it 10% of the leftover space (at least 12px, clear of the
+      gesture bar). It sat at 40% before step 3; the choice panel now uses the space between the rows and the pad.
+    */
+    --pad-lift: max(
+      12px,
+      calc((var(--space-below-game) - 2 * var(--controls-size-with-padding) - env(safe-area-inset-bottom)) * 0.1)
+    );
+    --pad-bottom: calc(var(--pad-lift) + env(safe-area-inset-bottom));
+  }
+
+  #control-group-dpad {
+    bottom: calc(var(--controls-padding) + var(--pad-bottom));
+  }
+
+  #control-group-action {
+    bottom: calc(var(--controls-size-with-padding) + var(--pad-bottom));
+  }
+
+  #control-group-cancel {
+    bottom: calc(var(--controls-padding) + var(--pad-bottom));
+  }
+
+  /*
+    Fork step 2: the small buttons become two rows of named buttons right under the game.
+    Row 1 (extra-1) = tools that are almost always there: Menu (Start in starter select), fullscreen, vibration,
+    plus the settings tabs / filter where those screens use them. Row 2 (extra-2) = the current screen's buttons
+    (starter select: form/gender/shiny/ability/nature/tera, battle: info/stats). The keyboard letter stays in the
+    HTML for landscape; touch-controls.ts writes the name into data-long.
+  */
+  #touchControls {
+    --row-height: 10.5vw;
+    --row-gap: 2vw;
+    --row-font: 4.4vw;
+    --row-top: calc(var(--game-height) + env(safe-area-inset-top) + 3vw);
+  }
+
+  #control-group-extra-1,
+  #control-group-extra-2 {
+    left: var(--controls-padding) !important;
+    right: var(--controls-padding) !important;
+    bottom: auto !important;
+    width: auto;
+    height: var(--row-height);
+    flex-wrap: nowrap;
+    justify-content: center;
+    gap: var(--row-gap);
+  }
+
+  #control-group-extra-1 {
+    top: var(--row-top);
+  }
+
+  #control-group-extra-2 {
+    top: calc(var(--row-top) + var(--row-height) + var(--row-gap));
+  }
+
+  #touchControls .control-group-extra > .apad-small {
+    flex: 0 1 19vw;
+    min-width: 0;
+    width: auto;
+    height: var(--row-height);
+    /* the window colour as an outline, like the game's own message boxes */
+    box-shadow: inset 0 0 0 max(1px, 0.5vw) var(--color-light);
+  }
+
+  #touchControls .apad-small > .apad-label[data-long] {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 0;
+    font-size: 0;
+    white-space: nowrap;
+  }
+
+  /* white text with a one-game-pixel shadow, like the text inside the game (the window colour was hard to read) */
+  #touchControls .apad-small > .apad-label[data-long]::after {
+    content: attr(data-long);
+    font-size: var(--row-font);
+    line-height: 1;
+    color: #f8f8f8;
+    text-shadow: var(--color-dark) 0.3vw 0.3vw 0;
+  }
+
+  #touchControls .apad-fork-only {
+    display: flex;
+  }
+
+  /*
+    Fork step 3: the choice panel between the named rows and the pad. touch-choices.ts fills it with one button
+    per choice of the current menu (battle commands, moves, yes/no, option lists, rewards, party) and sets
+    --choice-columns. Tapping a button moves the game's cursor there and presses A.
+  */
+  #touchControls > #touchChoices {
+    position: fixed;
+    z-index: 0;
+    touch-action: pan-y;
+    left: var(--controls-padding);
+    right: var(--controls-padding);
+    top: calc(var(--row-top) + 2 * (var(--row-height) + var(--row-gap)) + var(--row-gap));
+    bottom: calc(var(--pad-bottom) + var(--controls-padding) + 2 * var(--controls-size) + 2vw);
+    display: grid;
+    grid-template-columns: repeat(var(--choice-columns, 2), minmax(0, 1fr));
+    grid-auto-rows: var(--choice-row-height, 13vw);
+    align-content: start;
+    align-content: safe center;
+    gap: var(--row-gap);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    font-family: "emerald";
+  }
+
+  #touchControls > #touchChoices.dense {
+    --choice-font: 3.9vw;
+    --choice-row-height: 11.5vw;
+  }
+
+  #touchControls > #touchChoices.busy .choice {
+    opacity: 0.5;
+  }
+
+  #touchChoices .choice.wide {
+    grid-column: 1 / -1;
+  }
+
+  /* armed (tapped once, tap again to pick) beats "selected" */
+  #touchControls #touchChoices .choice.armed {
+    box-shadow: inset 0 0 0 max(2px, 1vw) #f8d030;
+    opacity: 1;
+  }
+
+  #touchChoices .choice {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    min-width: 0;
+    padding: 0 1.5vw;
+    border-radius: 8px;
+    background-color: var(--color-base);
+    box-shadow: inset 0 0 0 max(1px, 0.5vw) var(--color-light);
+    opacity: 0.85;
+    color: #f8f8f8;
+    text-shadow: var(--color-dark) 0.3vw 0.3vw 0;
+    line-height: 1.05;
+    user-select: none;
+    overflow: hidden;
+  }
+
+  #touchChoices .choice.selected {
+    box-shadow: inset 0 0 0 max(2px, 1vw) #f8f8f8;
+    opacity: 1;
+  }
+
+  #touchChoices .choice.disabled {
+    color: #a89cae;
+  }
+
+  #touchChoices .choice.active {
+    opacity: 0.6;
+  }
+
+  #touchChoices .choice-label {
+    font-size: var(--choice-font, 4.6vw);
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  #touchChoices .choice-sub {
+    margin-top: 0.8vw;
+    font-size: calc(var(--choice-font, 4.6vw) * 0.72);
+    color: #d8d0dc;
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* vibration off: only the text dims, so the button stays easy to find */
+  #touchControls #apadVibrate.apad-off > .apad-label[data-long]::after {
+    color: #a89cae;
+  }
+}
+
+@supports (height: 100dvh) {
+  @media (orientation: portrait) and (pointer: coarse) and (max-aspect-ratio: 3/5) {
+    #touchControls {
+      --space-below-game: calc(100dvh - var(--game-height));
+    }
+  }
+}
+
+/* Fork: the fullscreen and vibration toggles and the choice panel only exist in the portrait phone layout */
+.apad-fork-only,
+#touchChoices {
+  display: none;
+}
+
+/* Layout */
+
+#layout:fullscreen #dpad,
+#layout:fullscreen #apad {
+  bottom: 6rem;
+}
+
+input:-internal-autofill-selected {
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+#banner {
+  display: none;
+  position: absolute;
+  top: 33.2%;
+  left: 0;
+  text-align: center;
+  z-index: 1000; /* Ensures the banner is on top of other elements */
+  & > img {
+    opacity: 50%;
+  }
+}
+
+#tnc-links {
+  font-size: xx-small;
+  position: relative;
+}
+
+a {
+  color: #328cea;
+  margin-right: 4px;
+  margin-left: 4px;
+}
+
+/* Firefox old*/
+@-moz-keyframes blink {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@-webkit-keyframes blink {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+/* IE */
+@-ms-keyframes blink {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+/* Opera and prob css3 final iteration */
+@keyframes blink {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+.blink-image {
+  -moz-animation: blink normal 4s infinite ease-in-out; /* Firefox */
+  -webkit-animation: blink normal 4s infinite ease-in-out; /* Webkit */
+  -ms-animation: blink normal 4s infinite ease-in-out; /* IE */
+  animation: blink normal 4s infinite ease-in-out; /* Opera and prob css3 final iteration */
+}

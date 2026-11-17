@@ -1,0 +1,29 @@
+{
+  "intro": "자판기가 서 있다!",
+  "title": "자판기",
+  "description": "자판기입니다. 돈을 넣으면 아이템이 나오죠!",
+  "query": "어떻게 하시겠습니까?",
+  "option": {
+    "1": {
+      "label": "약간의 돈을 낸다",
+      "tooltip": "(-) {{option1Money, money}}\n(+) 쓸만한 아이템",
+      "disabledTooltip": "(-) 돈이 부족하거나\n품절이다"
+    },
+    "2": {
+      "label": "많은 돈을 낸다",
+      "tooltip": "(-) {{option2Money, money}}\n(+) 엄청난 아이템",
+      "disabledTooltip": "(-) 돈이 부족하거나\n품절이다"
+    },
+    "3": {
+      "label": "터무니없이 많은 돈을 낸다",
+      "tooltip": "(-) {{option3Money, money}}\n(+) 최고의 아이템",
+      "disabledTooltip": "(-) 돈이 부족하거나\n품절이다"
+    },
+    "4": {
+      "label": "자판기 밑을 뒤져본다",
+      "tooltip": "(+) 동전",
+      "selected": "자판기 밑을 뒤져 보니...$떨어진 동전이 잔뜩 있었다!"
+    }
+  },
+  "dispensed": "덜컹! 무언가가 나왔다!"
+}

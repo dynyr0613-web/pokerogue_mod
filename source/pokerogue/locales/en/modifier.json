@@ -1,0 +1,26 @@
+{
+  "surviveDamageApply": "{{pokemonNameWithAffix}} hung on\nusing its {{typeName}}!",
+  "turnHealApply": "{{pokemonNameWithAffix}} restored a little HP using\nits {{typeName}}!",
+  "hitHealApply": "{{pokemonNameWithAffix}} restored a little HP using\nits {{typeName}}!",
+  "lifeOrbApply": "{{pokemonNameWithAffix}} lost some of its HP\nto its {{typeName}}!",
+  "prismApply": "The {{typeName}}’s light also reached\n{{pokemonNameWithAffix}}!",
+  "powerHerbApply": "{{pokemonNameWithAffix}} became fully charged\ndue to its {{typeName}}!",
+  "seedPouchApply": "Seeds scattered from\n{{pokemonNameWithAffix}}’s {{typeName}}!",
+  "clearAmuletApply": "The effects of {{pokemonNameWithAffix}}’s {{typeName}}\nprevent its stats from being lowered!",
+  "throatSprayApply": "The {{typeName}} raised\n{{pokemonNameWithAffix}}’s {{statName}}!",
+  "pokemonInstantReviveApply": "{{pokemonNameWithAffix}} was revived\nby its {{typeName}}!",
+  "resetNegativeStatStageApply": "{{pokemonNameWithAffix}}’s lowered stats were restored\nby its {{typeName}}!",
+  "moneyInterestApply": "You received interest of ₽{{moneyAmount}}\nfrom the {{typeName}}!",
+  "turnHeldItemTransferApply": "{{pokemonNameWithAffix}}’s {{itemName}} was absorbed\nby {{pokemonName}}’s {{typeName}}!",
+  "contactHeldItemTransferApply": "{{pokemonNameWithAffix}}’s {{itemName}} was snatched\nby {{pokemonName}}’s {{typeName}}!",
+  "enemyTurnHealApply": "{{pokemonNameWithAffix}}\nrestored some HP!",
+  "bypassSpeedChanceApply": "{{pokemonName}} can act faster than normal, thanks to its {{itemName}}!",
+  "tier": {
+    "common": "Common",
+    "great": "Great",
+    "ultra": "Ultra",
+    "rogue": "Rogue",
+    "master": "Master",
+    "luxury": "Luxury"
+  }
+}

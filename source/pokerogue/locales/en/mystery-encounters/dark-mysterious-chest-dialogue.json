@@ -1,0 +1,26 @@
+{
+  "intro": "What's this…@d{32} a pitch-black chest?",
+  "title": "Mysterious Chest?",
+  "description": "A pitch-black chest sits here... Something jingles inside?",
+  "query": "What will you do?",
+  "option": {
+    "1": {
+      "label": "Open the chest...",
+      "tooltip": "(-) ???\n(+) ???",
+      "selected": "You slowly lift the lid\nof the pitch-black chest...",
+      "trap": "It's a trap!${{gholdengoName}} leaps out of the chest\nand pounces on {{trapPokemon}}!${{trapPokemon}} lost half of its HP!$Worse, it must fight with all of its stats\nlowered by one stage!",
+      "treasure": "The chest is full of treasure!"
+    },
+    "2": {
+      "label": "Throw coins into the chest",
+      "tooltip": "(-) Pay {{option2Money, money}}\n(+) ???",
+      "disabledTooltip": "(-) Not enough money",
+      "coins": "You throw in the coins,\nand the chest quietly opens..."
+    },
+    "3": {
+      "label": "A bad feeling... Leave",
+      "tooltip": "(-) ???\n(+) ???",
+      "selected": "You had a bad feeling\nand hurried away...$...Huh? Some Relic Gold\nis lying at your feet!"
+    }
+  }
+}

@@ -1,0 +1,866 @@
+﻿diff --git a/assets b/assets
+--- a/assets
++++ b/assets
+@@ -1 +1 @@
+-Subproject commit fb8ccb6d0703ffe48cdf80a8102d5ed943c82dba
++Subproject commit fb8ccb6d0703ffe48cdf80a8102d5ed943c82dba-dirty
+diff --git a/locales b/locales
+--- a/locales
++++ b/locales
+@@ -1 +1 @@
+-Subproject commit 616cf3eb6b1b15e48784ff138ca7748ea63ed258
++Subproject commit 616cf3eb6b1b15e48784ff138ca7748ea63ed258-dirty
+diff --git a/src/@types/save-data.ts b/src/@types/save-data.ts
+index 910a37b..e1b285a 100644
+--- a/src/@types/save-data.ts
++++ b/src/@types/save-data.ts
+@@ -183,6 +183,7 @@ export interface Starter {
+   female?: boolean | undefined;
+   abilityIndex: number;
+   passive: boolean;
++  usesCustomPassive?: boolean | undefined;
+   nature: Nature;
+   moveset?: StarterMoveset | undefined;
+   pokerus: boolean;
+diff --git a/src/battle-scene.ts b/src/battle-scene.ts
+index 9051d30..00a0f9d 100644
+--- a/src/battle-scene.ts
++++ b/src/battle-scene.ts
+@@ -5,6 +5,7 @@ import {
+   ANTI_VARIANCE_WEIGHT_MODIFIER,
+   AVERAGE_ENCOUNTERS_PER_RUN_TARGET,
+   BASE_MYSTERY_ENCOUNTER_SPAWN_WEIGHT,
++  CLASSIC_MODE_MYSTERY_ENCOUNTER_WAVES,
+   MYSTERY_ENCOUNTER_SPAWN_MAX_WEIGHT,
+ } from "#app/constants";
+ import { eventBus } from "#app/event-bus";
+@@ -3459,9 +3460,12 @@ export class BattleScene extends SceneBase {
+     // If total number of encounters is lower than expected for the run, slightly favor a new encounter spawn (reverse as well)
+     // Reduces occurrence of runs with total encounters significantly different from AVERAGE_ENCOUNTERS_PER_RUN_TARGET
+     // Favored rate changes can never exceed 50%. So if base rate is 15/256 and favored rate would add 200/256, result will be (15 + 128)/256
++    // Endless has no last wave, so it keeps Classic's encounters-per-wave density
++    const encounterWaveSpan = this.gameMode.isEndless
++      ? CLASSIC_MODE_MYSTERY_ENCOUNTER_WAVES[1] - CLASSIC_MODE_MYSTERY_ENCOUNTER_WAVES[0]
++      : highestMysteryEncounterWave - lowestMysteryEncounterWave;
+     const expectedEncountersByFloor =
+-      (AVERAGE_ENCOUNTERS_PER_RUN_TARGET / (highestMysteryEncounterWave - lowestMysteryEncounterWave))
+-      * (waveIndex - lowestMysteryEncounterWave);
++      (AVERAGE_ENCOUNTERS_PER_RUN_TARGET / encounterWaveSpan) * (waveIndex - lowestMysteryEncounterWave);
+     const currentRunDiffFromAvg = expectedEncountersByFloor - encounteredEvents.length;
+     const favoredEncounterRate =
+       sessionEncounterRate
+@@ -3552,11 +3556,14 @@ export class BattleScene extends SceneBase {
+     ];
+ 
+     // Adjust tier weights by previously encountered events to lower odds of only Common/Great in run
+-    for (const seenEncounterData of this.mysteryEncounterSaveData.encounteredEvents) {
+-      if (seenEncounterData.tier === MysteryEncounterTier.COMMON) {
+-        tierWeights[0] -= 6;
+-      } else if (seenEncounterData.tier === MysteryEncounterTier.GREAT) {
+-        tierWeights[1] -= 4;
++    // Repeats are allowed, so the count can outgrow the weights: Endless skips this and the weights stop at 0
++    if (!this.gameMode.isEndless) {
++      for (const seenEncounterData of this.mysteryEncounterSaveData.encounteredEvents) {
++        if (seenEncounterData.tier === MysteryEncounterTier.COMMON) {
++          tierWeights[0] = Math.max(tierWeights[0] - 6, 0);
++        } else if (seenEncounterData.tier === MysteryEncounterTier.GREAT) {
++          tierWeights[1] = Math.max(tierWeights[1] - 4, 0);
++        }
+       }
+     }
+ 
+@@ -3579,7 +3586,6 @@ export class BattleScene extends SceneBase {
+     }
+ 
+     let availableEncounters: MysteryEncounter[] = [];
+-    const previousEncounter = this.mysteryEncounterSaveData.encounteredEvents.at(-1)?.type ?? null; // TODO: This being `null` is a bit weird
+     const disabledEncounters = timedEventManager.getEventMysteryEncountersDisabled();
+     const biomeMysteryEncounters =
+       mysteryEncountersByBiome.get(this.arena.biomeId)?.filter(enc => !disabledEncounters.includes(enc)) ?? [];
+@@ -3607,19 +3613,8 @@ export class BattleScene extends SceneBase {
+           if (encounterCandidate.disallowedChallenges?.some(challenge => this.gameMode.hasChallenge(challenge))) {
+             return false;
+           }
+-          if (!encounterCandidate.meetsRequirements()) {
+-            return false;
+-          }
+-          if (previousEncounter !== null && encounterType === previousEncounter) {
+-            return false;
+-          }
+-          return !(
+-            this.mysteryEncounterSaveData.encounteredEvents.length > 0
+-            && encounterCandidate.maxAllowedEncounters
+-            && encounterCandidate.maxAllowedEncounters > 0
+-            && this.mysteryEncounterSaveData.encounteredEvents.filter(e => e.type === encounterType).length
+-              >= encounterCandidate.maxAllowedEncounters
+-          );
++          // The same encounter may repeat within a run, even back to back
++          return encounterCandidate.meetsRequirements();
+         })
+         .map(m => allMysteryEncounters[m]);
+       // Decrement tier
+diff --git a/src/data/abilities/ab-attrs.ts b/src/data/abilities/ab-attrs.ts
+index 9853947..cb212e9 100644
+--- a/src/data/abilities/ab-attrs.ts
++++ b/src/data/abilities/ab-attrs.ts
+@@ -786,6 +786,16 @@ export class PostDefendHpGatedStatStageChangeAbAttr extends PostDefendAbAttr {
+   }
+ }
+ 
++/** Last Stand: crossing the HP gate also traps the user like No Retreat. */
++export class PostDefendLastStandAbAttr extends PostDefendHpGatedStatStageChangeAbAttr {
++  override apply(params: PostMoveInteractionAbAttrParams): void {
++    super.apply(params);
++    if (!params.simulated) {
++      params.pokemon.addTag(BattlerTagType.NO_RETREAT, 0, undefined, params.pokemon.id);
++    }
++  }
++}
++
+ export class PostDefendApplyArenaTrapTagAbAttr extends PostDefendAbAttr {
+   private readonly condition: PokemonDefendCondition;
+   private readonly arenaTagType: ArenaTagType;
+@@ -2339,6 +2349,54 @@ export class PostSummonAddArenaTagAbAttr extends PostSummonAbAttr {
+   }
+ }
+ 
++/** Adds an arena tag on the side of whichever Pokemon has the ability, if that side doesn't have it yet. */
++export class PostSummonAddUserSideTagAbAttr extends PostSummonAbAttr {
++  private readonly tagType: ArenaTagType;
++  private readonly turnCount: number;
++
++  constructor(tagType: ArenaTagType, turnCount: number) {
++    super(true);
++    this.tagType = tagType;
++    this.turnCount = turnCount;
++  }
++
++  private getSide(pokemon: Pokemon): ArenaTagSide {
++    return pokemon.isPlayer() ? ArenaTagSide.PLAYER : ArenaTagSide.ENEMY;
++  }
++
++  public override canApply({ pokemon }: AbAttrBaseParams): boolean {
++    return !globalScene.arena.getTagOnSide(this.tagType, this.getSide(pokemon));
++  }
++
++  public override apply({ pokemon, simulated }: AbAttrBaseParams): void {
++    if (!simulated) {
++      globalScene.arena.addTag(this.tagType, this.turnCount, undefined, pokemon.id, this.getSide(pokemon));
++    }
++  }
++}
++
++/** Light Thief: takes every raised stat stage from the opposing side, up to the usual cap of 6. */
++export class PostSummonStealStatStagesAbAttr extends PostSummonAbAttr {
++  public override canApply({ pokemon }: AbAttrBaseParams): boolean {
++    return pokemon.getOpponents().some(opponent => opponent.getStatStages().some(stage => stage > 0));
++  }
++
++  public override apply({ pokemon, simulated }: AbAttrBaseParams): void {
++    if (simulated) {
++      return;
++    }
++    for (const opponent of pokemon.getOpponents()) {
++      for (const stat of BATTLE_STATS) {
++        const stolen = opponent.getStatStage(stat);
++        if (stolen > 0) {
++          opponent.setStatStage(stat, 0);
++          pokemon.setStatStage(stat, Math.min(pokemon.getStatStage(stat) + stolen, 6));
++        }
++      }
++    }
++  }
++}
++
+ export class PostSummonMessageAbAttr extends PostSummonAbAttr {
+   private readonly messageFunc: (pokemon: Pokemon) => string;
+ 
+@@ -6135,6 +6193,9 @@ export function getWeatherCondition(...weatherTypes: WeatherType[]): AbAttrCondi
+ 
+ /** Map of all ability attribute constructors, for use with the `.is` method. */
+ export const AbilityAttrs = Object.freeze({
++  PostDefendLastStandAbAttr,
++  PostSummonAddUserSideTagAbAttr,
++  PostSummonStealStatStagesAbAttr,
+   AddSecondStrikeAbAttr,
+   AlliedFieldDamageReductionAbAttr,
+   AllyMoveCategoryPowerBoostAbAttr,
+diff --git a/src/data/abilities/init-abilities.ts b/src/data/abilities/init-abilities.ts
+index e5392a5..0615f15 100644
+--- a/src/data/abilities/init-abilities.ts
++++ b/src/data/abilities/init-abilities.ts
+@@ -93,6 +93,9 @@ import {
+   PostDefendContactApplyTagChanceAbAttr,
+   PostDefendContactDamageAbAttr,
+   PostDefendHpGatedStatStageChangeAbAttr,
++  PostDefendLastStandAbAttr,
++  PostSummonAddUserSideTagAbAttr,
++  PostSummonStealStatStagesAbAttr,
+   PostDefendMoveDisableAbAttr,
+   PostDefendPerishSongAbAttr,
+   PostDefendStatStageChangeAbAttr,
+@@ -2210,9 +2213,130 @@ export function initAbilities() {
+       )
+       .ignorable()
+       .build(),
++    // #region Custom abilities
++    new AbBuilder(AbilityId.STEEL_BODY, 9) //
++      .attr(IgnoreOpponentStatStagesAbAttr, [Stat.ATK, Stat.DEF, Stat.SPATK, Stat.SPDEF, Stat.ACC, Stat.EVA])
++      .attr(
++        MoveImmunityAbAttr,
++        (pokemon, attacker, move) =>
++          pokemon !== attacker
++          && move.category === MoveCategory.STATUS
++          && ![MoveTarget.ENEMY_SIDE, MoveTarget.BOTH_SIDES, MoveTarget.USER_SIDE].includes(move.moveTarget),
++      )
++      .ignorable()
++      .build(),
++    new AbBuilder(AbilityId.FORTITUDE, 9) //
++      .attr(
++        PostDefendStatStageChangeAbAttr,
++        (_target, _user, move) => move.category !== MoveCategory.STATUS,
++        Stat.SPDEF,
++        1,
++      )
++      .build(),
++    new AbBuilder(AbilityId.DEADEYE, 9) //
++      .attr(BonusCritAbAttr)
++      .attr(BonusCritAbAttr)
++      .build(),
++    new AbBuilder(AbilityId.GALE_HERALD, 9) //
++      .attr(PostSummonAddUserSideTagAbAttr, ArenaTagType.TAILWIND, 4)
++      .build(),
++    new AbBuilder(AbilityId.POLAR_LIGHT, 9) //
++      .attr(PostSummonAddUserSideTagAbAttr, ArenaTagType.AURORA_VEIL, 5)
++      .build(),
++    new AbBuilder(AbilityId.FOOTWORK, 9) //
++      .attr(MovePowerBoostAbAttr, (_user, _target, move) => footworkMoves.has(move.id), 1.2)
++      .build(),
++    new AbBuilder(AbilityId.SCORCH, 9) //
++      .attr(PostWeatherLapseDamageAbAttr, 2, WeatherType.SUNNY, WeatherType.HARSH_SUN)
++      .attr(StatMultiplierAbAttr, Stat.ATK, 1.5)
++      .condition(getWeatherCondition(WeatherType.SUNNY, WeatherType.HARSH_SUN))
++      .build(),
++    new AbBuilder(AbilityId.TURBO_ENGINE, 9) //
++      .attr(PostSummonWeatherChangeAbAttr, WeatherType.SUNNY)
++      .attr(PostBiomeChangeWeatherChangeAbAttr, WeatherType.SUNNY)
++      .conditionalAttr(
++        getWeatherCondition(WeatherType.SUNNY, WeatherType.HARSH_SUN),
++        StatMultiplierAbAttr,
++        Stat.SPATK,
++        4 / 3,
++      )
++      .build(),
++    new AbBuilder(AbilityId.GOLDEN_PULSE, 9) //
++      .attr(PostSummonTerrainChangeAbAttr, TerrainType.ELECTRIC)
++      .attr(PostBiomeChangeTerrainChangeAbAttr, TerrainType.ELECTRIC)
++      .conditionalAttr(getTerrainCondition(TerrainType.ELECTRIC), StatMultiplierAbAttr, Stat.ATK, 4 / 3)
++      .build(),
++    new AbBuilder(AbilityId.OVERAWE, 9) //
++      .attr(PostSummonStatStageChangeAbAttr, [{ stat: Stat.SPATK, stages: -1 }], false, true)
++      .build(),
++    new AbBuilder(AbilityId.LAST_STAND, 9) //
++      .attr(PostDefendLastStandAbAttr, 0.5, groupStatChange([Stat.ATK, Stat.DEF, Stat.SPATK, Stat.SPDEF, Stat.SPD], 1))
++      .condition(sheerForceHitDisableAbCondition)
++      .build(),
++    new AbBuilder(AbilityId.LIGHT_THIEF, 9) //
++      .attr(PostSummonStealStatStagesAbAttr)
++      .build(),
++    new AbBuilder(AbilityId.BLADE_DANCE, 9) //
++      .attr(PostSummonStatStageChangeAbAttr, [{ stat: Stat.ATK, stages: 2 }], true)
++      .condition(getOncePerBattleCondition(AbilityId.BLADE_DANCE))
++      .build(),
++    new AbBuilder(AbilityId.IRON_FORTRESS, 9) //
++      .attr(PostSummonStatStageChangeAbAttr, [{ stat: Stat.DEF, stages: 2 }], true)
++      .condition(getOncePerBattleCondition(AbilityId.IRON_FORTRESS))
++      .build(),
++    new AbBuilder(AbilityId.SHRAPNEL, 9) //
++      .attr(
++        PostDefendApplyArenaTrapTagAbAttr,
++        (_target, _user, move) => move.category === MoveCategory.PHYSICAL,
++        ArenaTagType.STEALTH_ROCK,
++      )
++      .bypassFaint()
++      .build(),
++    new AbBuilder(AbilityId.WAR_MACHINE, 9) //
++      .attr(
++        PostSummonStatStageChangeAbAttr,
++        groupStatChange([Stat.ATK, Stat.DEF, Stat.SPATK, Stat.SPDEF, Stat.SPD], 1),
++        true,
++      )
++      .condition(getOncePerBattleCondition(AbilityId.WAR_MACHINE))
++      .build(),
++    new AbBuilder(AbilityId.FROSTFIRE, 9) //
++      .attr(MoveTypeChangeAbAttr, PokemonType.ICE, (_user, _target, move) => move.type === PokemonType.FIRE)
++      .attr(MovePowerBoostAbAttr, (_user, _target, move) => move.type === PokemonType.FIRE, 1.2)
++      .build(),
++    new AbBuilder(AbilityId.HILT_CANNON, 9) //
++      .attr(
++        MovePowerBoostAbAttr,
++        (_user, _target, move) => move.hasFlag(MoveFlags.PULSE_MOVE) || MoveId[move.id].endsWith("BEAM"),
++        1.5,
++      )
++      .build(),
++    // Physical slicing moves use Sp. Atk: see `Pokemon.getBaseDamage`
++    new AbBuilder(AbilityId.MIND_BLADE, 9).build(),
++    // #endregion Custom abilities
+   );
+ }
+ 
++/** Kicking moves boosted by Footwork. */
++const footworkMoves: ReadonlySet<MoveId> = new Set([
++  MoveId.DOUBLE_KICK,
++  MoveId.MEGA_KICK,
++  MoveId.JUMP_KICK,
++  MoveId.ROLLING_KICK,
++  MoveId.LOW_KICK,
++  MoveId.HIGH_JUMP_KICK,
++  MoveId.TRIPLE_KICK,
++  MoveId.BLAZE_KICK,
++  MoveId.LOW_SWEEP,
++  MoveId.STOMP,
++  MoveId.TROP_KICK,
++  MoveId.TRIPLE_AXEL,
++  MoveId.THUNDEROUS_KICK,
++  MoveId.AXE_KICK,
++  MoveId.PYRO_BALL,
++  MoveId.GUNK_SHOT,
++]);
++
+ /**
+  * Creates an ability condition that causes the ability to fail if that ability
+  * has already been used by that pokemon that battle. It requires an ability to
+diff --git a/src/data/balance/species/generation-01.ts b/src/data/balance/species/generation-01.ts
+index e6eeabc..a7a5c88 100644
+--- a/src/data/balance/species/generation-01.ts
++++ b/src/data/balance/species/generation-01.ts
+@@ -627,11 +627,38 @@ export function initGenerationOne(): SpeciesDataMapConfig {
+           baseFriendship: 50,
+           baseExp: 267,
+         }),
++        new PokemonForm({
++          formName: "Mega Z",
++          formKey: SpeciesFormKey.MEGA_Z,
++          type1: PokemonType.ICE,
++          type2: PokemonType.FLYING,
++          height: 1.7,
++          weight: 95,
++          ability1: AbilityId.FROSTFIRE,
++          ability2: AbilityId.NONE,
++          abilityHidden: AbilityId.FROSTFIRE,
++          baseTotal: 634,
++          baseHp: 78,
++          baseAtk: 94,
++          baseDef: 88,
++          baseSpatk: 149,
++          baseSpdef: 95,
++          baseSpd: 130,
++          catchRate: 45,
++          baseFriendship: 50,
++          baseExp: 267,
++        }),
+       ],
+     }),
+     starter: SpeciesId.CHARMANDER,
+     evolutions: [],
+     formChanges: [
++      new SpeciesFormChange({
++        speciesId: SpeciesId.CHARIZARD,
++        preFormKey: "",
++        evoFormKey: SpeciesFormKey.MEGA_Z,
++        trigger: new SpeciesFormChangeItemTrigger(FormChangeItem.CHARIZARDITE_Z),
++      }),
+       new SpeciesFormChange({
+         speciesId: SpeciesId.CHARIZARD,
+         preFormKey: "",
+diff --git a/src/data/balance/species/generation-04.ts b/src/data/balance/species/generation-04.ts
+index e123860..c958e92 100644
+--- a/src/data/balance/species/generation-04.ts
++++ b/src/data/balance/species/generation-04.ts
+@@ -8210,11 +8210,38 @@ export function initGenerationFour(): SpeciesDataMapConfig {
+           baseFriendship: 35,
+           baseExp: 259,
+         }),
++        new PokemonForm({
++          formName: "Mega Z",
++          formKey: SpeciesFormKey.MEGA_Z,
++          type1: PokemonType.PSYCHIC,
++          type2: PokemonType.FIGHTING,
++          height: 1.6,
++          weight: 56.4,
++          ability1: AbilityId.MIND_BLADE,
++          ability2: AbilityId.NONE,
++          abilityHidden: AbilityId.MIND_BLADE,
++          baseTotal: 618,
++          baseHp: 68,
++          baseAtk: 95,
++          baseDef: 75,
++          baseSpatk: 150,
++          baseSpdef: 115,
++          baseSpd: 115,
++          catchRate: 45,
++          baseFriendship: 35,
++          baseExp: 259,
++        }),
+       ],
+     }),
+     starter: SpeciesId.RALTS,
+     evolutions: [],
+     formChanges: [
++      new SpeciesFormChange({
++        speciesId: SpeciesId.GALLADE,
++        preFormKey: "",
++        evoFormKey: SpeciesFormKey.MEGA_Z,
++        trigger: new SpeciesFormChangeItemTrigger(FormChangeItem.GALLADITE_Z),
++      }),
+       new SpeciesFormChange({
+         speciesId: SpeciesId.GALLADE,
+         preFormKey: "",
+diff --git a/src/data/balance/species/generation-07.ts b/src/data/balance/species/generation-07.ts
+index 66033b6..9e009e6 100644
+--- a/src/data/balance/species/generation-07.ts
++++ b/src/data/balance/species/generation-07.ts
+@@ -10325,11 +10325,38 @@ export function initGenerationSeven(): SpeciesDataMapConfig {
+           baseFriendship: 0,
+           baseExp: 300,
+         }),
++        new PokemonForm({
++          formName: "Mega",
++          formKey: SpeciesFormKey.MEGA,
++          type1: PokemonType.STEEL,
++          type2: null,
++          height: 3,
++          weight: 1200,
++          ability1: AbilityId.IRON_FIST,
++          ability2: AbilityId.NONE,
++          abilityHidden: AbilityId.IRON_FIST,
++          baseTotal: 700,
++          baseHp: 135,
++          baseAtk: 173,
++          baseDef: 173,
++          baseSpatk: 80,
++          baseSpdef: 120,
++          baseSpd: 19,
++          catchRate: 3,
++          baseFriendship: 0,
++          baseExp: 300,
++        }),
+       ],
+     }),
+     starter: SpeciesId.MELTAN,
+     evolutions: [],
+     formChanges: [
++      new SpeciesFormChange({
++        speciesId: SpeciesId.MELMETAL,
++        preFormKey: "",
++        evoFormKey: SpeciesFormKey.MEGA,
++        trigger: new SpeciesFormChangeItemTrigger(FormChangeItem.MELMETALITE),
++      }),
+       new SpeciesFormChange({
+         speciesId: SpeciesId.MELMETAL,
+         preFormKey: "",
+diff --git a/src/data/balance/species/generation-09.ts b/src/data/balance/species/generation-09.ts
+index 2d27e53..c9a48ff 100644
+--- a/src/data/balance/species/generation-09.ts
++++ b/src/data/balance/species/generation-09.ts
+@@ -8254,11 +8254,38 @@ export function initGenerationNine(): SpeciesDataMapConfig {
+           baseFriendship: 50,
+           baseExp: 300,
+         }),
++        new PokemonForm({
++          formName: "Mega Z",
++          formKey: SpeciesFormKey.MEGA_Z,
++          type1: PokemonType.DRAGON,
++          type2: PokemonType.ICE,
++          height: 2.1,
++          weight: 315,
++          ability1: AbilityId.HILT_CANNON,
++          ability2: AbilityId.NONE,
++          abilityHidden: AbilityId.HILT_CANNON,
++          baseTotal: 700,
++          baseHp: 115,
++          baseAtk: 115,
++          baseDef: 97,
++          baseSpatk: 150,
++          baseSpdef: 111,
++          baseSpd: 112,
++          catchRate: 10,
++          baseFriendship: 50,
++          baseExp: 300,
++        }),
+       ],
+     }),
+     starter: SpeciesId.FRIGIBAX,
+     evolutions: [],
+     formChanges: [
++      new SpeciesFormChange({
++        speciesId: SpeciesId.BAXCALIBUR,
++        preFormKey: "",
++        evoFormKey: SpeciesFormKey.MEGA_Z,
++        trigger: new SpeciesFormChangeItemTrigger(FormChangeItem.BAXCALIBRITE_Z),
++      }),
+       new SpeciesFormChange({
+         speciesId: SpeciesId.BAXCALIBUR,
+         preFormKey: "",
+@@ -10745,9 +10772,65 @@ export function initGenerationNine(): SpeciesDataMapConfig {
+       growthRate: GrowthRate.MEDIUM_FAST,
+       malePercent: 50,
+       genderDiffs: false,
++      canChangeForm: true,
++      forms: [
++        new PokemonForm({
++          formName: "Normal",
++          formKey: "",
++          type1: PokemonType.STEEL,
++          type2: PokemonType.DRAGON,
++          height: 2,
++          weight: 60,
++          ability1: AbilityId.STAMINA,
++          ability2: AbilityId.STURDY,
++          abilityHidden: AbilityId.STALWART,
++          baseTotal: 600,
++          baseHp: 90,
++          baseAtk: 105,
++          baseDef: 130,
++          baseSpatk: 125,
++          baseSpdef: 65,
++          baseSpd: 85,
++          catchRate: 10,
++          baseFriendship: 50,
++          baseExp: 300,
++          genderDiffs: false,
++          formSpriteKey: null,
++          isStarterSelectable: true,
++        }),
++        new PokemonForm({
++          formName: "Mega",
++          formKey: SpeciesFormKey.MEGA,
++          type1: PokemonType.STEEL,
++          type2: PokemonType.DRAGON,
++          height: 2.4,
++          weight: 90,
++          ability1: AbilityId.STEEL_BODY,
++          ability2: AbilityId.NONE,
++          abilityHidden: AbilityId.STEEL_BODY,
++          baseTotal: 700,
++          baseHp: 90,
++          baseAtk: 150,
++          baseDef: 110,
++          baseSpatk: 150,
++          baseSpdef: 80,
++          baseSpd: 120,
++          catchRate: 10,
++          baseFriendship: 50,
++          baseExp: 300,
++        }),
++      ],
+     }),
+     starter: SpeciesId.DURALUDON,
+     evolutions: [],
++    formChanges: [
++      new SpeciesFormChange({
++        speciesId: SpeciesId.ARCHALUDON,
++        preFormKey: "",
++        evoFormKey: SpeciesFormKey.MEGA,
++        trigger: new SpeciesFormChangeItemTrigger(FormChangeItem.ARCHALUDONITE),
++      }),
++    ],
+     passives: AbilityId.TRANSISTOR,
+     levelMoves: [
+       [EVOLVE_MOVE, MoveId.ELECTRO_SHOT],
+diff --git a/src/data/mystery-encounters/mystery-encounter-requirements.ts b/src/data/mystery-encounters/mystery-encounter-requirements.ts
+index 5dbb484..08afb42 100644
+--- a/src/data/mystery-encounters/mystery-encounter-requirements.ts
++++ b/src/data/mystery-encounters/mystery-encounter-requirements.ts
+@@ -247,10 +247,9 @@ export class WaveRangeRequirement extends EncounterSceneRequirement {
+   override meetsRequirement(): boolean {
+     if (this.waveRange != null && this.waveRange[0] <= this.waveRange[1]) {
+       const waveIndex = globalScene.currentBattle.waveIndex;
+-      if (
+-        (waveIndex >= 0 && this.waveRange[0] >= 0 && this.waveRange[0] > waveIndex)
+-        || (this.waveRange[1] >= 0 && this.waveRange[1] < waveIndex)
+-      ) {
++      // Endless runs past every encounter's last wave, so only the first wave still applies there
++      const pastLastWave = !globalScene.gameMode.isEndless && this.waveRange[1] >= 0 && this.waveRange[1] < waveIndex;
++      if ((waveIndex >= 0 && this.waveRange[0] >= 0 && this.waveRange[0] > waveIndex) || pastLastWave) {
+         return false;
+       }
+     }
+diff --git a/src/enums/ability-id.ts b/src/enums/ability-id.ts
+index 0324bd4..e5d2302 100644
+--- a/src/enums/ability-id.ts
++++ b/src/enums/ability-id.ts
+@@ -639,4 +639,25 @@ export enum AbilityId {
+   SPICY_SPRAY,
+   /** {@link https://bulbapedia.bulbagarden.net/wiki/Aura_Guard_(Ability) | Source} */
+   AURA_GUARD,
++  // #region Custom abilities
++  STEEL_BODY,
++  FORTITUDE,
++  DEADEYE,
++  GALE_HERALD,
++  POLAR_LIGHT,
++  FOOTWORK,
++  SCORCH,
++  TURBO_ENGINE,
++  GOLDEN_PULSE,
++  OVERAWE,
++  LAST_STAND,
++  LIGHT_THIEF,
++  BLADE_DANCE,
++  IRON_FORTRESS,
++  SHRAPNEL,
++  WAR_MACHINE,
++  FROSTFIRE,
++  HILT_CANNON,
++  MIND_BLADE,
++  // #endregion Custom abilities
+ }
+diff --git a/src/enums/form-change-item.ts b/src/enums/form-change-item.ts
+index 5ad41c5..24aa168 100644
+--- a/src/enums/form-change-item.ts
++++ b/src/enums/form-change-item.ts
+@@ -123,6 +123,13 @@ export enum FormChangeItem {
+ 
+   // #region Form Change Items
+ 
++  // Our custom Mega Stones
++  CHARIZARDITE_Z = 140,
++  BAXCALIBRITE_Z,
++  GALLADITE_Z,
++  MELMETALITE,
++  ARCHALUDONITE,
++
+   SHARP_METEORITE = 150,
+   HARD_METEORITE,
+   SMOOTH_METEORITE,
+diff --git a/src/enums/passive.ts b/src/enums/passive.ts
+index 88ff0d9..720ae64 100644
+--- a/src/enums/passive.ts
++++ b/src/enums/passive.ts
+@@ -4,4 +4,6 @@
+ export enum Passive {
+   UNLOCKED = 1,
+   ENABLED = 2,
++  /** The starter uses our table's passive (`custom-passives`) instead of the base game's. */
++  CUSTOM = 4,
+ }
+diff --git a/src/field/pokemon.ts b/src/field/pokemon.ts
+index edfa0c5..a96282f 100644
+--- a/src/field/pokemon.ts
++++ b/src/field/pokemon.ts
+@@ -13,6 +13,7 @@ import { speciesDataRegistry } from "#app/global-species-data-registry";
+ import { getPokemonNameWithAffix } from "#app/messages";
+ import { activeOverrides } from "#app/overrides";
+ import type { AnySound } from "#audio/audio-manager";
++import { getCustomPassive } from "#balance/custom-passives";
+ import { speciesEggMoves } from "#balance/egg-moves";
+ import {
+   type EvolutionItem,
+@@ -215,6 +216,8 @@ export abstract class Pokemon extends Phaser.GameObjects.Container {
+   public formIndex: number;
+   public abilityIndex: number;
+   public passive: boolean;
++  /** Whether the passive comes from our table (`custom-passives`) instead of the base game's. */
++  public usesCustomPassive: boolean;
+   public shiny: boolean;
+   public variant: Variant;
+   public pokeball: PokeballType;
+@@ -364,6 +367,7 @@ export abstract class Pokemon extends Phaser.GameObjects.Container {
+       this.stats = dataSource.stats;
+       this.ivs = dataSource.ivs;
+       this.passive = !!dataSource.passive;
++      this.usesCustomPassive = !!dataSource.usesCustomPassive;
+       if (this.variant === undefined) {
+         this.variant = 0;
+       }
+@@ -2256,6 +2260,13 @@ export abstract class Pokemon extends Phaser.GameObjects.Container {
+       return allAbilities[activeOverrides.ENEMY_PASSIVE_ABILITY_OVERRIDE];
+     }
+ 
++    if (this.usesCustomPassive) {
++      const customPassive = getCustomPassive(this.species.speciesId, this.species.forms[this.formIndex]?.formKey ?? "");
++      if (customPassive != null) {
++        return allAbilities[customPassive];
++      }
++    }
++
+     return allAbilities[this.species.getPassiveAbility(this.formIndex)];
+   }
+ 
+@@ -3609,6 +3620,8 @@ export abstract class Pokemon extends Phaser.GameObjects.Container {
+     simulated = true,
+   }: GetBaseDamageParams): number {
+     const isPhysical = moveCategory === MoveCategory.PHYSICAL;
++    const usesMindBlade =
++      isPhysical && !ignoreSourceAbility && move.hasFlag(MoveFlags.SLICING_MOVE) && source.hasAbility(AbilityId.MIND_BLADE);
+ 
+     /** A base damage multiplier based on the source's level */
+     const levelMultiplier = (2 * source.level) / 5 + 2;
+@@ -3621,7 +3634,7 @@ export abstract class Pokemon extends Phaser.GameObjects.Container {
+      * Critical hits cause negative stat stages to be ignored.
+      */
+     const sourceAtk = new ValueHolder(
+-      source.getEffectiveStat(isPhysical ? Stat.ATK : Stat.SPATK, {
++      source.getEffectiveStat(isPhysical && !usesMindBlade ? Stat.ATK : Stat.SPATK, {
+         opponent: this,
+         ignoreOppAbility: ignoreSourceAbility,
+         ignoreAbility,
+@@ -6379,6 +6392,7 @@ export class PlayerPokemon extends Pokemon {
+           this.nature,
+         );
+         newPokemon.passive = this.passive;
++        newPokemon.usesCustomPassive = this.usesCustomPassive;
+         newPokemon.moveset = this.moveset.slice();
+         newPokemon.moveset = this.copyMoveset();
+         newPokemon.luck = this.luck;
+diff --git a/src/game-mode.ts b/src/game-mode.ts
+index cdb6fa3..19ff55d 100644
+--- a/src/game-mode.ts
++++ b/src/game-mode.ts
+@@ -214,7 +214,8 @@ export class GameMode implements GameModeConfig {
+       }
+       return waveIndex % 10 === 5 || (!(waveIndex % 10) && waveIndex > 10 && !this.isWaveFinal(waveIndex));
+     }
+-    if (waveIndex % 30 === (offsetGym ? 0 : 20) && !this.isWaveFinal(waveIndex)) {
++    // Endless boss waves (every 50) stay wild, even when they land on a gym wave
++    if (waveIndex % 30 === (offsetGym ? 0 : 20) && !this.isWaveFinal(waveIndex) && !this.isEndlessBoss(waveIndex)) {
+       return true;
+     }
+     if (waveIndex % 10 !== 1 && waveIndex % 10) {
+@@ -433,6 +434,9 @@ export class GameMode implements GameModeConfig {
+         return CLASSIC_MODE_MYSTERY_ENCOUNTER_WAVES;
+       case GameModes.CHALLENGE:
+         return CHALLENGE_MODE_MYSTERY_ENCOUNTER_WAVES;
++      case GameModes.ENDLESS:
++      case GameModes.SPLICED_ENDLESS:
++        return [CLASSIC_MODE_MYSTERY_ENCOUNTER_WAVES[0], Number.MAX_SAFE_INTEGER];
+       default:
+         return [0, 0];
+     }
+@@ -477,15 +481,19 @@ export function getGameMode(gameMode: GameModes): GameMode {
+     case GameModes.ENDLESS:
+       return new GameMode(GameModes.ENDLESS, {
+         isEndless: true,
++        hasTrainers: true,
+         hasShortBiomes: true,
+         hasRandomBosses: true,
++        hasMysteryEncounters: true,
+       });
+     case GameModes.SPLICED_ENDLESS:
+       return new GameMode(GameModes.SPLICED_ENDLESS, {
+         isEndless: true,
++        hasTrainers: true,
+         hasShortBiomes: true,
+         hasRandomBosses: true,
+         isSplicedOnly: true,
++        hasMysteryEncounters: true,
+       });
+     case GameModes.DAILY:
+       return new GameMode(GameModes.DAILY, {
+diff --git a/src/phases/select-starter-phase.ts b/src/phases/select-starter-phase.ts
+index 60b1ed0..ddca8ea 100644
+--- a/src/phases/select-starter-phase.ts
++++ b/src/phases/select-starter-phase.ts
+@@ -77,6 +77,7 @@ export class SelectStarterPhase extends Phase {
+       if (starter.passive) {
+         starterPokemon.passive = true;
+       }
++      starterPokemon.usesCustomPassive = !!starter.usesCustomPassive;
+       starterPokemon.luck = globalScene.gameData.getDexAttrLuck(
+         globalScene.gameData.dexData[species.speciesId].caughtAttr,
+       );
+diff --git a/src/system/pokemon-data.ts b/src/system/pokemon-data.ts
+index 00e8798..e16e874 100644
+--- a/src/system/pokemon-data.ts
++++ b/src/system/pokemon-data.ts
+@@ -23,6 +23,7 @@ export class PokemonData {
+   public formIndex: number;
+   public abilityIndex: number;
+   public passive: boolean;
++  public usesCustomPassive: boolean;
+   public shiny: boolean;
+   public variant: Variant;
+   public pokeball: PokeballType;
+@@ -89,6 +90,7 @@ export class PokemonData {
+     );
+     this.abilityIndex = source.abilityIndex;
+     this.passive = source.passive;
++    this.usesCustomPassive = !!source.usesCustomPassive;
+     this.shiny = source.shiny;
+     this.variant = source.variant;
+     this.pokeball = source.pokeball ?? PokeballType.POKEBALL;
+diff --git a/src/ui/containers/starter-summary.ts b/src/ui/containers/starter-summary.ts
+index 2151ff2..c80d663 100644
+--- a/src/ui/containers/starter-summary.ts
++++ b/src/ui/containers/starter-summary.ts
+@@ -1,6 +1,7 @@
+ import { globalScene } from "#app/global-scene";
+ import { settings } from "#app/global-settings-manager";
+ import { speciesDataRegistry } from "#app/global-species-data-registry";
++import { getCustomPassive } from "#balance/custom-passives";
+ import { speciesEggMoves } from "#balance/egg-moves";
+ import { allAbilities, allMoves } from "#data/data-lists";
+ import { GrowthRate, getGrowthRateColor } from "#data/exp";
+@@ -748,7 +749,10 @@ export class StarterSummary extends Phaser.GameObjects.Container {
+     const { starterDataEntry } = getStarterData(starterId);
+ 
+     const passiveAttr = starterDataEntry.passiveAttr;
+-    const passiveAbility = allAbilities[speciesDataRegistry.getSpecies(starterId).getPassiveAbility(formIndex)];
++    const starterSpecies = speciesDataRegistry.getSpecies(starterId);
++    const customPassive =
++      passiveAttr & Passive.CUSTOM ? getCustomPassive(starterId, starterSpecies.forms[formIndex]?.formKey ?? "") : null;
++    const passiveAbility = allAbilities[customPassive ?? starterSpecies.getPassiveAbility(formIndex)];
+ 
+     if (!passiveAbility) {
+       if (this.activeTooltip === "PASSIVE") {
+diff --git a/src/ui/handlers/starter-select-ui-handler.ts b/src/ui/handlers/starter-select-ui-handler.ts
+index 4c3c7f0..b3f20af 100644
+--- a/src/ui/handlers/starter-select-ui-handler.ts
++++ b/src/ui/handlers/starter-select-ui-handler.ts
+@@ -6,7 +6,9 @@ import { settings } from "#app/global-settings-manager";
+ import { speciesDataRegistry } from "#app/global-species-data-registry";
+ import { activeOverrides } from "#app/overrides";
+ import { handleTutorial, Tutorial } from "#app/tutorial";
++import { getCustomPassive } from "#balance/custom-passives";
+ import { speciesEggMoves } from "#balance/egg-moves";
++import { allAbilities } from "#data/data-lists";
+ import {
+   getPassiveCandyCount,
+   getSameSpeciesEggCandyCounts,
+@@ -1846,6 +1848,23 @@ export class StarterSelectUiHandler extends MessageUiHandler {
+           return true;
+         },
+       });
++      // Choose between the base game's passive and ours, the way abilities are chosen
++      const starterSpecies = speciesDataRegistry.getSpecies(this.lastStarterId);
++      const customPassive = getCustomPassive(this.lastStarterId, "");
++      const basePassive = starterSpecies.getPassiveAbility(0);
++      if (customPassive != null && customPassive !== basePassive) {
++        const nextPassive = passiveAttr & PassiveAttr.CUSTOM ? basePassive : customPassive;
++        options.push({
++          label: i18next.t("starterSelectUiHandler:changePassive", { passive: allAbilities[nextPassive].name }),
++          handler: () => {
++            starterData.passiveAttr ^= PassiveAttr.CUSTOM;
++            persistentStarterData.passiveAttr ^= PassiveAttr.CUSTOM;
++            ui.setMode(UiMode.STARTER_SELECT);
++            this.setStarterDetails(this.lastStarterId);
++            return true;
++          },
++        });
++      }
+     }
+     // if container.favorite is false, show the favorite option
+     const isFavorite = starterPreferences?.favorite ?? false;
+@@ -2241,7 +2260,10 @@ export class StarterSelectUiHandler extends MessageUiHandler {
+       formIndex: props.formIndex,
+       female: props.female,
+       abilityIndex,
+-      passive: !(starterDataEntry.passiveAttr ^ (PassiveAttr.ENABLED | PassiveAttr.UNLOCKED)),
++      passive:
++        (starterDataEntry.passiveAttr & (PassiveAttr.ENABLED | PassiveAttr.UNLOCKED))
++        === (PassiveAttr.ENABLED | PassiveAttr.UNLOCKED),
++      usesCustomPassive: !!(starterDataEntry.passiveAttr & PassiveAttr.CUSTOM),
+       nature,
+       moveset,
+       pokerus: this.pokerusSpeciesIds.includes(starterId),

@@ -1,0 +1,55 @@
+﻿ M images/items.json
+ M images/items.png
+ M images/pokemon_icons_1.json
+ M images/pokemon_icons_1.png
+ M images/pokemon_icons_4.json
+ M images/pokemon_icons_4.png
+ M images/pokemon_icons_7.json
+ M images/pokemon_icons_7.png
+ M images/pokemon_icons_9.json
+ M images/pokemon_icons_9.png
+?? audio/cry/1018-mega.m4a
+?? audio/cry/475-mega-z.m4a
+?? audio/cry/6-mega-z.m4a
+?? audio/cry/809-mega.m4a
+?? audio/cry/998-mega-z.m4a
+?? images/pokemon/1018-mega.json
+?? images/pokemon/1018-mega.png
+?? images/pokemon/475-mega-z.json
+?? images/pokemon/475-mega-z.png
+?? images/pokemon/6-mega-z.json
+?? images/pokemon/6-mega-z.png
+?? images/pokemon/809-mega.json
+?? images/pokemon/809-mega.png
+?? images/pokemon/998-mega-z.json
+?? images/pokemon/998-mega-z.png
+?? images/pokemon/back/1018-mega.json
+?? images/pokemon/back/1018-mega.png
+?? images/pokemon/back/475-mega-z.json
+?? images/pokemon/back/475-mega-z.png
+?? images/pokemon/back/6-mega-z.json
+?? images/pokemon/back/6-mega-z.png
+?? images/pokemon/back/809-mega.json
+?? images/pokemon/back/809-mega.png
+?? images/pokemon/back/998-mega-z.json
+?? images/pokemon/back/998-mega-z.png
+?? images/pokemon/back/shiny/1018-mega.json
+?? images/pokemon/back/shiny/1018-mega.png
+?? images/pokemon/back/shiny/475-mega-z.json
+?? images/pokemon/back/shiny/475-mega-z.png
+?? images/pokemon/back/shiny/6-mega-z.json
+?? images/pokemon/back/shiny/6-mega-z.png
+?? images/pokemon/back/shiny/809-mega.json
+?? images/pokemon/back/shiny/809-mega.png
+?? images/pokemon/back/shiny/998-mega-z.json
+?? images/pokemon/back/shiny/998-mega-z.png
+?? images/pokemon/shiny/1018-mega.json
+?? images/pokemon/shiny/1018-mega.png
+?? images/pokemon/shiny/475-mega-z.json
+?? images/pokemon/shiny/475-mega-z.png
+?? images/pokemon/shiny/6-mega-z.json
+?? images/pokemon/shiny/6-mega-z.png
+?? images/pokemon/shiny/809-mega.json
+?? images/pokemon/shiny/809-mega.png
+?? images/pokemon/shiny/998-mega-z.json
+?? images/pokemon/shiny/998-mega-z.png

@@ -1,0 +1,63 @@
+{
+  "name": "pokerogue-offline",
+  "productName": "PokeRogue Offline",
+  "version": "1.12.2-local.13",
+  "description": "PokeRogue local fork (offline desktop build)",
+  "main": "main.js",
+  "license": "AGPL-3.0-only",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder --win nsis"
+  },
+  "build": {
+    "appId": "local.pokerogue.offline",
+    "productName": "PokeRogue Offline",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../pokerogue/dist",
+        "to": "game",
+        "filter": [
+          "**/*",
+          "!**/*.map",
+          "!test/**"
+        ]
+      },
+      {
+        "from": "docs",
+        "to": "docs"
+      }
+    ],
+    "asar": true,
+    "compression": "store",
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "PokeRogue Offline",
+      "artifactName": "PokeRogue-Offline-Setup-${version}.exe",
+      "license": "docs/LICENSE.txt"
+    }
+  },
+  "devDependencies": {
+    "electron": "^45.2.1",
+    "electron-builder": "^26.18.0"
+  }
+}
