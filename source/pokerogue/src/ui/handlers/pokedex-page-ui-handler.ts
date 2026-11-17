@@ -21,7 +21,7 @@ import { GrowthRate, getGrowthRateColor } from "#data/exp";
 import { Gender, getGenderColor, getGenderSymbol } from "#data/gender";
 import { getNatureName } from "#data/nature";
 import type { SpeciesFormChange } from "#data/pokemon-forms";
-import { getCollectedMarks, getStarterEquippedMark } from "#data/pokemon-marks";
+import { getCollectedMarks, getStarterEquippedMark, isMarkCollectionComplete } from "#data/pokemon-marks";
 import type { PokemonSpecies } from "#data/pokemon-species";
 import { normalForm } from "#data/pokemon-species";
 import { AbilityAttr } from "#enums/ability-attr";
@@ -838,9 +838,12 @@ export class PokedexPageUiHandler extends MessageUiHandler {
    */
   private getMarkTraySource(): MarkTraySource {
     const pokemon = this.markPokemon;
+    const entry = globalScene.gameData.starterData[this.species.getRootSpeciesId()];
+    const complete = isMarkCollectionComplete(getCollectedMarks(entry));
     if (pokemon) {
       return {
         owned: pokemon.marks.slice(),
+        complete,
         alphaBoost: pokemon.alphaBoost,
         equipped: pokemon.equippedMark,
         setEquipped: mark => {
@@ -849,9 +852,9 @@ export class PokedexPageUiHandler extends MessageUiHandler {
         },
       };
     }
-    const entry = globalScene.gameData.starterData[this.species.getRootSpeciesId()];
     return {
       owned: getCollectedMarks(entry),
+      complete,
       alphaBoost: entry?.alphaBoost ?? 0,
       equipped: getStarterEquippedMark(entry),
       setEquipped: mark => {

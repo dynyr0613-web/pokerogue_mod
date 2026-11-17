@@ -4,7 +4,9 @@
  * 증표가 있는 포켓몬만큼 밝게 차오르게".
  *
  * - The first view lists every mark and ribbon. One no starter line has collected is grey; the others are dark and
- *   fill up bright from the bottom by the share of the starter lines that have collected it.
+ *   fill up bright from the bottom by the share of the starter lines that have collected it. A mark no line has is
+ *   also named "???" (the user: "그쪽도 ???으로 가리도록"), and one every line has gets a golden outline, so that all
+ *   of them have it once everything is collected ("증표 도감에서 모든 포켓몬의 증표를 전부 모을 경우에도 테두리 금색").
  * - The action button on a mark opens the second view: every starter line's icon, bright if the line has that mark
  *   and grey if not, with the line's own count ("증표 n/70") under the cursor.
  *
@@ -25,6 +27,7 @@ import { Button } from "#enums/buttons";
 import type { PokemonMark } from "#enums/pokemon-mark";
 import type { SpeciesId } from "#enums/species-id";
 import { TextStyle } from "#enums/text-style";
+import { createMarkOutline } from "#ui/mark-tray-container";
 import { MessageUiHandler } from "#ui/message-ui-handler";
 import { ScrollBar } from "#ui/scroll-bar";
 import { addTextObject } from "#ui/text";
@@ -58,6 +61,8 @@ export class MarkDexUiHandler extends MessageUiHandler {
   /** Each mark's dark base and, over it, the bright part that fills up */
   private markBases: Phaser.GameObjects.Image[] = [];
   private markFills: Phaser.GameObjects.Image[] = [];
+  /** Each mark's golden outline, shown once every starter line has the mark */
+  private markOutlines: Phaser.GameObjects.Image[][] = [];
 
   private speciesContainer: Phaser.GameObjects.Container;
   private speciesIcons: Phaser.GameObjects.Sprite[] = [];
@@ -110,6 +115,7 @@ export class MarkDexUiHandler extends MessageUiHandler {
       const fill = globalScene.add.image(x, y, MARKS_ATLAS_KEY, getMarkKey(mark)).setScale(MARK_SCALE);
       this.markBases.push(base);
       this.markFills.push(fill);
+      this.markOutlines.push([]);
       this.markContainer.add([base, fill]);
     });
 
@@ -186,6 +192,14 @@ export class MarkDexUiHandler extends MessageUiHandler {
       const count = this.speciesCounts.get(mark) ?? 0;
       const base = this.markBases[index];
       const fill = this.markFills[index];
+      // The outline is made the first time it is needed, and goes under the icon
+      if (count >= total && this.markOutlines[index].length === 0) {
+        this.markOutlines[index] = createMarkOutline(base);
+        this.markContainer.addAt(this.markOutlines[index], this.markContainer.getIndex(base));
+      }
+      for (const outline of this.markOutlines[index]) {
+        outline.setVisible(count >= total);
+      }
       if (count === 0) {
         base.setTint(MISSING_TINT).setTintMode(Phaser.TintModes.FILL).setAlpha(MISSING_ALPHA);
         fill.setVisible(false);
@@ -196,6 +210,11 @@ export class MarkDexUiHandler extends MessageUiHandler {
       const filled = Phaser.Math.Clamp(Math.ceil((MARK_SIZE * count) / total), 3, MARK_SIZE);
       fill.setVisible(true).setCrop(0, MARK_SIZE - filled, MARK_SIZE, filled);
     });
+  }
+
+  /** Whether any starter line has the mark; one nobody has is grey and nameless */
+  private isObtained(mark: PokemonMark): boolean {
+    return (this.speciesCounts.get(mark) ?? 0) > 0;
   }
 
   private showMarkView(): void {
@@ -224,6 +243,10 @@ export class MarkDexUiHandler extends MessageUiHandler {
       this.markContainer.y + Math.floor(cursor / MARK_COLS) * MARK_PITCH + 1,
     );
     const mark = orderedPokemonMarks[cursor];
+    if (!this.isObtained(mark)) {
+      this.showText(`${i18next.t("pokemonMarks:unknownName")}\n${i18next.t("pokemonMarks:neverObtained")}`);
+      return changed;
+    }
     this.showText(
       `${i18next.t("pokemonMarks:dex.markSpecies", {
         name: getMarkName(mark),
@@ -240,7 +263,7 @@ export class MarkDexUiHandler extends MessageUiHandler {
     this.speciesContainer.setVisible(true);
     this.scrollBar.setVisible(true);
     this.scrollBar.setTotalRows(Math.ceil(this.starterIds.length / SPECIES_COLS));
-    this.headerText.setText(getMarkName(mark));
+    this.headerText.setText(this.isObtained(mark) ? getMarkName(mark) : i18next.t("pokemonMarks:unknownName"));
     this.totalText.setText(
       i18next.t("pokemonMarks:dex.species", {
         count: this.speciesCounts.get(mark) ?? 0,

@@ -47,10 +47,40 @@ const HEADER_HEIGHT = 9;
 /** The frame around the worn mark */
 const EQUIPPED_TINT = 0xf8d030;
 
+/** The golden outline of the marks of a complete collection, and how far it stands out, in px */
+const GOLD_TINT = 0xf8d030;
+const OUTLINE_OFFSETS: readonly [number, number][] = [
+  [-0.5, 0],
+  [0.5, 0],
+  [0, -0.5],
+  [0, 0.5],
+];
+
+/**
+ * Local fork (2026-11-17): the golden outline of a mark icon (the user: "한 포켓몬의 도감을 전부 채울경우 모든 증표/리본
+ * 테두리에 금색"): four golden copies of the icon, each half a pixel to one side, to put under it.
+ * @param icon - The mark's icon
+ * @returns The copies, not yet added to anything
+ */
+export function createMarkOutline(icon: Phaser.GameObjects.Image): Phaser.GameObjects.Image[] {
+  return OUTLINE_OFFSETS.map(([dx, dy]) =>
+    globalScene.add
+      .image(icon.x + dx, icon.y + dy, icon.texture.key, icon.frame.name)
+      .setScale(icon.scaleX, icon.scaleY)
+      .setTint(GOLD_TINT)
+      .setTintMode(Phaser.TintModes.FILL),
+  );
+}
+
 /** Whose marks the tray shows, and what wearing one does */
 export interface MarkTraySource {
   /** The marks that are there (a Pokémon's, or a starter line's collection) */
   readonly owned: readonly PokemonMark[];
+  /**
+   * Whether the collection is complete (`isMarkCollectionComplete`): its marks then get a golden outline. For a party
+   * Pokémon this is its starter line's collection, the same as on the Pokédex page of the species.
+   */
+  readonly complete: boolean;
   /** The alpha boost to quote with the alpha marks, 0 for none */
   readonly alphaBoost: number;
   /** The worn mark, `null` for none */
@@ -62,6 +92,7 @@ export interface MarkTraySource {
 export class MarkTray extends Phaser.GameObjects.Container {
   private trayBg: Phaser.GameObjects.NineSlice;
   private trayIcons: Phaser.GameObjects.Image[] = [];
+  private trayOutlines: Phaser.GameObjects.Image[] = [];
   private trayCursorObj: Phaser.GameObjects.Image;
   private trayCursor = 0;
   private headerText: Phaser.GameObjects.Text;
@@ -180,6 +211,11 @@ export class MarkTray extends Phaser.GameObjects.Container {
           icon.setTint(MISSING_TINT).setTintMode(Phaser.TintModes.FILL).setAlpha(MISSING_ALPHA);
         }
       }
+      if (source.complete && source.owned.includes(mark)) {
+        const outline = createMarkOutline(icon);
+        this.add(outline);
+        this.trayOutlines.push(...outline);
+      }
       this.add(icon);
       this.trayIcons.push(icon);
     });
@@ -206,7 +242,11 @@ export class MarkTray extends Phaser.GameObjects.Container {
     for (const icon of this.trayIcons) {
       this.remove(icon, true);
     }
+    for (const outline of this.trayOutlines) {
+      this.remove(outline, true);
+    }
     this.trayIcons = [];
+    this.trayOutlines = [];
     this.source = null;
     this.setVisible(false);
   }

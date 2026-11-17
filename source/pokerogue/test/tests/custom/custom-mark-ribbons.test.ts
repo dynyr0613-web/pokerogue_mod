@@ -7,6 +7,7 @@ import { getBestFriendsRibbonCandyCount, getPartnerMarkCandyCount } from "#balan
 import {
   awardPartyRibbon,
   awardProgressRibbons,
+  COMPLETION_EXEMPT_MARKS,
   FOOTPRINT_LEVEL,
   GRAND_FOOTPRINT_LEVEL,
   getCollectedMarks,
@@ -15,6 +16,7 @@ import {
   getPokemonTitle,
   getStarterEquippedMark,
   hasEverObtainedMark,
+  isMarkCollectionComplete,
   orderedPokemonMarks,
   STAT_EFFORT_RIBBONS,
 } from "#data/pokemon-marks";
@@ -167,6 +169,14 @@ describe("Local fork - earned ribbons, the worn mark and the line's collection",
     // A Partner Mark bought before the collection was counted per line
     gameData.starterData[SpeciesId.SQUIRTLE].partnerMark = true;
     expect(hasEverObtainedMark(PokemonMark.PARTNER_MARK)).toBe(true);
+  });
+
+  it("a collection is complete with every mark but the Once-in-a-Lifetime Ribbon and the Mightiest Mark", () => {
+    const needed = orderedPokemonMarks.filter(m => !COMPLETION_EXEMPT_MARKS.includes(m));
+    expect(COMPLETION_EXEMPT_MARKS).toEqual([PokemonMark.ONCE_IN_A_LIFETIME_RIBBON, PokemonMark.MIGHTIEST_MARK]);
+    expect(isMarkCollectionComplete(needed)).toBe(true);
+    expect(isMarkCollectionComplete(needed.slice(1))).toBe(false);
+    expect(isMarkCollectionComplete([])).toBe(false);
   });
 
   it("the Best Friends Ribbon costs twice the Partner Mark", () => {

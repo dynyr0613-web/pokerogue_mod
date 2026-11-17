@@ -243,6 +243,20 @@ export function getCollectedMarks(entry: StarterDataEntry | undefined): PokemonM
 }
 
 /**
+ * The marks a complete collection does not need (the user: "한 포켓몬의 도감을 전부 채울경우(천재일우증표 제외)"): the
+ * Once-in-a-Lifetime Ribbon, which only a traded Pokémon has, and the Mightiest Mark while nothing gives it.
+ */
+export const COMPLETION_EXEMPT_MARKS: readonly PokemonMark[] = [
+  PokemonMark.ONCE_IN_A_LIFETIME_RIBBON,
+  PokemonMark.MIGHTIEST_MARK,
+];
+
+/** @returns Whether the marks are every mark and ribbon there is, but for {@linkcode COMPLETION_EXEMPT_MARKS} */
+export function isMarkCollectionComplete(marks: readonly PokemonMark[]): boolean {
+  return orderedPokemonMarks.every(m => COMPLETION_EXEMPT_MARKS.includes(m) || marks.includes(m));
+}
+
+/**
  * Whether the player has ever obtained the mark on any Pokémon: the collection's count (`GameData.markCounts`,
  * counted at every catch, hatch, award and purchase), or a starter line that has it.
  */
