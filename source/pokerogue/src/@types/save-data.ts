@@ -1,0 +1,215 @@
+import type { PokeballCounts } from "#app/battle-scene";
+import type { Tutorial } from "#app/tutorial";
+import type { BattleType } from "#enums/battle-type";
+import type { GameModes } from "#enums/game-modes";
+import type { MoveId } from "#enums/move-id";
+import type { MysteryEncounterType } from "#enums/mystery-encounter-type";
+import type { Nature } from "#enums/nature";
+import type { PlayerGender } from "#enums/player-gender";
+import type { PokemonMark } from "#enums/pokemon-mark";
+import type { PokemonType } from "#enums/pokemon-type";
+import type { SpeciesId } from "#enums/species-id";
+import type { MysteryEncounterSaveData } from "#mystery-encounters/mystery-encounter-save-data";
+import type { Variant } from "#sprites/variant";
+import type { ArenaData } from "#system/arena-data";
+import type { ChallengeData } from "#system/challenge-data";
+import type { EggData } from "#system/egg-data";
+import type { GameStats } from "#system/game-stats";
+import type { ModifierData } from "#system/modifier-data";
+import type { PokemonData } from "#system/pokemon-data";
+import type { RibbonData } from "#system/ribbon-data";
+import type { TrainerData } from "#system/trainer-data";
+import type { SerializedDailyRunConfig } from "#types/daily-run";
+import type { StarterSpeciesId } from "#types/starter-species-id";
+
+// #region Server-backed fields
+
+//! IMPORTANT: Changes to these types require changes to rogueserver!
+
+export type AppliedMigrators = { [key: string]: number };
+
+export interface SystemSaveData {
+  trainerId: number;
+  secretId: number;
+  gender: PlayerGender;
+  dexData: DexData;
+  starterData: StarterData;
+  gameStats: GameStats;
+  unlocks: Unlocks;
+  achvUnlocks: AchvUnlocks;
+  /** Local fork (2026-11-17): the mark collection, see `GameData.markCounts`; missing in saves from before it */
+  markCounts?: Partial<Record<PokemonMark, number>> | undefined;
+  voucherUnlocks: VoucherUnlocks;
+  voucherCounts: VoucherCounts;
+  eggs: EggData[];
+  gameVersion: string;
+  timestamp: number;
+  eggPity: number[];
+  unlockPity: number[];
+  appliedMigrators: AppliedMigrators;
+}
+
+export interface SessionSaveData {
+  seed: string;
+  playTime: number;
+  gameMode: GameModes;
+  dailyConfig?: SerializedDailyRunConfig;
+  party: PokemonData[];
+  enemyParty: PokemonData[];
+  modifiers: ModifierData[];
+  enemyModifiers: ModifierData[];
+  arena: ArenaData;
+  pokeballCounts: PokeballCounts;
+  money: number;
+  score: number;
+  waveIndex: number;
+  // TODO: This enum being inside save data is basically useless, being inferrable from the presence or absence of `trainer` and `mysteryEncounterType`.
+  // Remove this later on to reduce save size and improve clarity.
+  battleType: Exclude<BattleType, BattleType.CLEAR>;
+  // TODO: This being nullable NEEDS to be reflected in the type signature
+  trainer: TrainerData;
+  gameVersion: string;
+  /** The player-chosen name of the run */
+  name: string;
+  timestamp: number;
+  challenges: ChallengeData[];
+  // TODO: Change default value to `undefined` to both save space and ease nullishness checks
+  mysteryEncounterType: MysteryEncounterType | -1; // Only defined when current wave is ME,
+  // TODO: This can be `undefined` - reflect that in the type signature
+  mysteryEncounterSaveData: MysteryEncounterSaveData;
+  /**
+   * Counts the amount of pokemon fainted in your party during the current arena encounter.
+   */
+  playerFaints: number;
+  /** Local fork: natures that have been on the player's party this run (`BattleScene.forkSeenNatures`) */
+  forkSeenNatures?: Nature[] | undefined;
+  /** Local fork: natures whose mint has been offered this run (`BattleScene.forkOfferedMintNatures`) */
+  forkOfferedMintNatures?: Nature[] | undefined;
+}
+
+export interface Unlocks {
+  [key: number]: boolean;
+}
+
+export interface AchvUnlocks {
+  [key: string]: number;
+}
+
+export interface VoucherUnlocks {
+  [key: string]: number;
+}
+
+export interface VoucherCounts {
+  [type: string]: number;
+}
+
+export type StarterMoveset = [MoveId] | [MoveId, MoveId] | [MoveId, MoveId, MoveId] | [MoveId, MoveId, MoveId, MoveId];
+
+export interface StarterFormMoveData {
+  [key: number]: StarterMoveset;
+}
+
+export interface DexAttrProps {
+  shiny: boolean;
+  female: boolean;
+  variant: Variant;
+  formIndex: number;
+}
+
+export interface DexData {
+  [key: number]: DexEntry;
+}
+
+export interface DexEntry {
+  seenAttr: bigint;
+  caughtAttr: bigint;
+  natureAttr: number;
+  seenCount: number;
+  caughtCount: number;
+  hatchedCount: number;
+  ivs: number[];
+  ribbons: RibbonData;
+}
+
+export interface StarterDataEntry {
+  moveset: StarterMoveset | StarterFormMoveData | null;
+  eggMoves: number;
+  candyCount: number;
+  friendship: number;
+  abilityAttr: number;
+  passiveAttr: number;
+  /**
+   * Species in this starter's evolution line that use our table's passive (`custom-passives`) instead of
+   * the base game's. Chosen per species in the starter menu, the way an ability is chosen for the line.
+   */
+  customPassiveSpecies?: SpeciesId[] | undefined;
+  /**
+   * Local fork (2026-11-17): the best stat boost (1 to 20, in percent) of the alphas caught or hatched in this
+   * starter's line (alpha-pokemon.ts); missing until the first one
+   */
+  alphaBoost?: number | undefined;
+  /** Local fork (2026-11-17): whether the starter is taken as an alpha with {@linkcode alphaBoost} (starter select) */
+  alphaEnabled?: boolean | undefined;
+  valueReduction: number;
+  classicWinCount: number;
+  pity: [lastShiny: number, lastNewVariant: number];
+}
+
+export type StarterData = Record<StarterSpeciesId, StarterDataEntry>;
+
+// TODO: Rework into a bitmask
+export type TutorialFlags = {
+  [key in Tutorial]: boolean;
+};
+
+// TODO: Rework into a bitmask
+export interface SeenDialogues {
+  [key: string]: boolean;
+}
+
+// #endregion Server-backed fields
+
+/** The starter's current attributes (such as selected nature, nickname, etc). */
+export interface StarterPreferences {
+  abilityIndex?: number | undefined;
+  favorite?: boolean | undefined;
+  female?: boolean | undefined;
+  formIndex?: number | undefined;
+  nature?: number | undefined;
+  nickname?: string | undefined;
+  shiny?: boolean | undefined;
+  tera?: PokemonType | undefined;
+  variant?: Variant | undefined;
+}
+
+export type AllStarterPreferences = Partial<Record<SpeciesId, StarterPreferences | undefined>>;
+
+export type RunHistoryData = Record<number /* timestamp */, RunEntry>;
+
+export interface RunEntry {
+  entry: SessionSaveData;
+  isVictory: boolean;
+  /** Automatically set to false at the moment - implementation TBD */
+  isFavorite: boolean;
+}
+
+// TODO: find better file to place this in, it's not save data related
+export interface Starter {
+  speciesId: SpeciesId;
+  shiny: boolean;
+  variant: Variant;
+  formIndex: number;
+  female?: boolean | undefined;
+  abilityIndex: number;
+  passive: boolean;
+  /** Species in the line that use our table's passive; see {@linkcode StarterDataEntry.customPassiveSpecies} */
+  customPassiveSpecies?: SpeciesId[] | undefined;
+  /** Local fork (2026-11-17): the alpha boost the starter is taken with, 0 or missing for none (alpha-pokemon.ts) */
+  alphaBoost?: number | undefined;
+  nature: Nature;
+  moveset?: StarterMoveset | undefined;
+  pokerus: boolean;
+  nickname?: string | undefined;
+  teraType?: PokemonType | undefined;
+  ivs: number[];
+}

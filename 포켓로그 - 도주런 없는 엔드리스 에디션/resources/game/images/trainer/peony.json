@@ -1,0 +1,1 @@
+{"textures":[{"image":"peony.png","format":"RGBA8888","size":{"w":80,"h":80},"scale":1,"frames":[{"filename":"0001.png","rotated":false,"trimmed":false,"sourceSize":{"w":39,"h":79},"spriteSourceSize":{"x":0,"y":0,"w":39,"h":79},"frame":{"x":21,"y":1,"w":39,"h":79}}]}],"meta":{"app":"tools/port_named_trainers/install_pokerogue.py","version":"3.0"}}

@@ -1,0 +1,170 @@
+# SPDX-FileCopyrightText: 2024-2025 Pagefault Games
+#
+# SPDX-License-Identifier: AGPL-3.0-only
+
+version = 1
+
+# Default for all files
+# It is preferrable to use per-file annotations, which will override these entries
+[[annotations]]
+path = [
+    # source and test code. Can be overridden on a per-file basis inside the file itself (which will supercede this)
+    "src/**/*.ts",
+    "test/**/*.ts",
+    "src/**/*.json",
+    "test/**/*.json",
+    "src/**/*.jsonc",
+    "global.d.ts",
+    "plugins/**/*",
+    # HTML / CSS at the top level, or in `tests`
+    "*.html",
+    "*.css",
+    "test/**/*.html",
+    "test/**/*.css",
+    # Config files
+    ".dependency-cruiser.cjs",
+    # Json files that can't be commented
+    "package.json",
+    "tsconfig.json",
+    "tsdoc.json",
+    "typedoc.json",
+    # environment files
+    ".env",
+    ".env.*",
+    # Development files considered code
+    ".vscode/*.json",
+]
+SPDX-FileCopyrightText = "2024-2025 Pagefault Games"
+SPDX-License-Identifier = "AGPL-3.0-only"
+
+# Files with no copyright
+[[annotations]]
+path = [
+    # Git files
+    "**/*.gitignore",
+    "**/*.gitmodules",
+    "**/*.gitattributes",
+    "**/*.dockerignore",
+    # Configuration files
+    ".editorconfig",
+    ".vscode/**/*.json",
+    # any pokerogue save files for tests
+    "**/*.prsv",
+    # pnpm related files of insignificant originality
+    "package-lock.json",
+    "pnpm-lock.yaml",
+    "pnpm-workspace.yaml",
+    # Miscellaneous files of insignificant originality
+    ".nvmrc",
+    "RELEASE",
+    # patch files for broken packages
+    "patches/*.patch"
+]
+SPDX-License-Identifier = "CC0-1.0"
+SPDX-FileCopyrightText = "NONE"
+
+[[annotations]]
+path = "favicon.ico"                        # Created by Gonstar (Paid Commission)
+SPDX-FileCopyrightText = "2024 Gonstar"
+SPDX-License-Identifier = "CC-BY-NC-SA-4.0"
+
+# Local fork (2026-11-06): IV Candy item icons, the Cobblemon 1.7.3 textures assets/cobblemon/textures/item/iv_candy/
+# scaled 2x (tools/port/install_iv_candy_icons.py). Source: https://gitlab.com/cable-mc/cobblemon
+[[annotations]]
+path = [
+    "assets/images/items/health_candy.png",
+    "assets/images/items/mighty_candy.png",
+    "assets/images/items/tough_candy.png",
+    "assets/images/items/smart_candy.png",
+    "assets/images/items/courage_candy.png",
+    "assets/images/items/quick_candy.png",
+]
+SPDX-FileCopyrightText = "The Cobblemon Team"
+SPDX-License-Identifier = "MPL-2.0"
+
+# Local fork (2026-11-11): Punching Glove / Master Punching Glove item icons, the Cobblemon 1.7.3 texture
+# assets/cobblemon/textures/item/held_items/punching_glove.png scaled 2x; the Master one recoloured black with the Rogue
+# Ball colours (tools/port_new_items_1111/make_icons.py). The user: "펀치글러브 아이콘은 코블버스 모드팩에서 빼오면 됩니다".
+# Source: https://gitlab.com/cable-mc/cobblemon
+[[annotations]]
+path = [
+    "assets/images/items/punching_glove.png",
+    "assets/images/items/master_punching_glove.png",
+]
+SPDX-FileCopyrightText = "The Cobblemon Team"
+SPDX-License-Identifier = "MPL-2.0"
+
+# Local fork (2026-11-11): Clear Amulet / Throat Spray item icons, the Cobblemon 1.7.3 textures
+# assets/cobblemon/textures/item/held_items/clear_amulet.png and throat_spray.png from the user's Cobbleverse modpack
+# jar, scaled 2x (tools/port_new_items_1111c/make_icons.py). Source: https://gitlab.com/cable-mc/cobblemon
+[[annotations]]
+path = [
+    "assets/images/items/clear_amulet.png",
+    "assets/images/items/throat_spray.png",
+]
+SPDX-FileCopyrightText = "The Cobblemon Team"
+SPDX-License-Identifier = "MPL-2.0"
+
+# Local fork (2026-11-12): the six EV item icons (Power Weight / Bracer / Belt / Lens / Band / Anklet), the Cobblemon 1.7.3
+# textures assets/cobblemon/textures/item/held_items/power_*.png from the user's Cobbleverse modpack jar, scaled 2x
+# (tools/port_new_items_1112/make_ev_item_icons.py). The user: "아이콘은 또 코블버스에서 가져온 뒤 배율만 조정하면 됩니다".
+# Source: https://gitlab.com/cable-mc/cobblemon
+[[annotations]]
+path = [
+    "assets/images/items/power_weight.png",
+    "assets/images/items/power_bracer.png",
+    "assets/images/items/power_belt.png",
+    "assets/images/items/power_lens.png",
+    "assets/images/items/power_band.png",
+    "assets/images/items/power_anklet.png",
+]
+SPDX-FileCopyrightText = "The Cobblemon Team"
+SPDX-License-Identifier = "MPL-2.0"
+
+# Local fork (2026-11-11): named trainer sprites (Volo, Irida, Adaman, Sonia, Hop, Peony) by Brumirage, from the Pokemon
+# Showdown trainer sprite index, copied unedited (tools/port_named_trainers/install_pokerogue.py). The user: "인터넷에서
+# 에셋을 찾아보죠. 에센셜에 쓸 수 있는 네임드 트레이너 도트 이미지/대사 에셋들을" and "네, 추가해주세요."
+[[annotations]]
+path = [
+    "assets/images/trainer/volo.png",
+    "assets/images/trainer/irida.png",
+    "assets/images/trainer/adaman.png",
+    "assets/images/trainer/sonia.png",
+    "assets/images/trainer/hop.png",
+    "assets/images/trainer/peony.png",
+]
+SPDX-FileCopyrightText = "Brumirage"
+SPDX-License-Identifier = "LicenseRef-Brumirage-Free-With-Credit"
+
+# Local fork (2026-11-11): named trainer sprites (Kamado, Sada, Turo, Carmine, Briar) by kyledove (Pokengine,
+# https://pokengine.org), from the Pokemon Showdown trainer sprite index, copied unedited. Not for AI tools or for a
+# separately shared graphics pack (LICENSES/LicenseRef-Pokengine-Public-Use.txt).
+[[annotations]]
+path = [
+    "assets/images/trainer/kamado.png",
+    "assets/images/trainer/sada.png",
+    "assets/images/trainer/turo.png",
+    "assets/images/trainer/carmine.png",
+    "assets/images/trainer/briar.png",
+]
+SPDX-FileCopyrightText = "kyledove (Pokengine)"
+SPDX-License-Identifier = "LicenseRef-Pokengine-Public-Use"
+
+# Local fork (2026-11-11): the one-frame atlases of those sprites (the crop to the opaque box), written by the install
+# script
+[[annotations]]
+path = [
+    "assets/images/trainer/volo.json",
+    "assets/images/trainer/irida.json",
+    "assets/images/trainer/adaman.json",
+    "assets/images/trainer/kamado.json",
+    "assets/images/trainer/sonia.json",
+    "assets/images/trainer/hop.json",
+    "assets/images/trainer/peony.json",
+    "assets/images/trainer/sada.json",
+    "assets/images/trainer/turo.json",
+    "assets/images/trainer/carmine.json",
+    "assets/images/trainer/briar.json",
+]
+SPDX-FileCopyrightText = "NONE"
+SPDX-License-Identifier = "CC0-1.0"

@@ -1,0 +1,1 @@
+{"textures":[{"image":"turo.png","format":"RGBA8888","size":{"w":80,"h":80},"scale":1,"frames":[{"filename":"0001.png","rotated":false,"trimmed":false,"sourceSize":{"w":34,"h":77},"spriteSourceSize":{"x":0,"y":0,"w":34,"h":77},"frame":{"x":23,"y":2,"w":34,"h":77}}]}],"meta":{"app":"tools/port_named_trainers/install_pokerogue.py","version":"3.0"}}

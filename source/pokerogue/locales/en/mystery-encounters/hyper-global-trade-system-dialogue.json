@@ -1,0 +1,30 @@
+{
+  "intro": "It’s a golden Hyper GTS interface!",
+  "title": "The Hyper GTS",
+  "description": "This GTS feels luxurious!\nIt's sure to give better rewards than the usual one!",
+  "query": "What will you do?",
+  "option": {
+    "1": {
+      "label": "Check Trade Offers",
+      "tooltip": "(+) Pick a good offer for one of your Pokémon",
+      "tradeOptionsPrompt": "Select a Pokémon to receive through trade."
+    },
+    "2": {
+      "label": "Wonder Trade",
+      "tooltip": "(+) Send one Pokémon and receive a special Pokémon"
+    },
+    "3": {
+      "label": "Trade an Item",
+      "tradeOptionsPrompt": "Select an item to send.",
+      "invalidSelection": "This Pokémon doesn’t have items it can trade.\n(Master Ball tier items can’t be traded.)",
+      "tooltip": "(+) Trade one Item for a random Item two tiers higher (Master Ball at most, even for Rogue Ball tier Items)"
+    },
+    "4": {
+      "label": "Leave",
+      "tooltip": "Too bad, maybe next time!",
+      "selected": "No time to trade today!\nYou continue on."
+    }
+  },
+  "itemTradeSelected": "{{chosenItem}} will be sent to {{tradeTrainerName}}.$.@d{64}.@d{64}.@d{64}\n@s{level_up_fanfare}Trade complete!$You received a {{itemName}} from {{tradeTrainerName}}!",
+  "tradeReceived": "@s{evolution_fanfare}{{tradeTrainerName}} sent over {{received}}!"
+}

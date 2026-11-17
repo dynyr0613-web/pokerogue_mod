@@ -1,0 +1,771 @@
+﻿diff --git a/en/ability.json b/en/ability.json
+index 5d1f0c6..cff891e 100644
+--- a/en/ability.json
++++ b/en/ability.json
+@@ -905,7 +905,7 @@
+   },
+   "psychicSurge": {
+     "name": "Psychic Surge",
+-    "description": "Turns the ground into Psychic Terrain for 5 turns when the Pokémon enters a battle. Pokémon on the ground have their Psychic-type moves boosted by 30% and cannot use or be targeted by moves with increased priority." 
++    "description": "Turns the ground into Psychic Terrain for 5 turns when the Pokémon enters a battle. Pokémon on the ground have their Psychic-type moves boosted by 30% and cannot use or be targeted by moves with increased priority."
+   },
+   "mistySurge": {
+     "name": "Misty Surge",
+@@ -1266,5 +1266,81 @@
+   "auraGuard": {
+     "name": "Aura Guard",
+     "description": "Halves the damage taken from moves that make direct contact."
++  },
++  "steelBody": {
++    "name": "Steel Body",
++    "description": "Ignores the target's stat changes and is immune to status moves from others."
++  },
++  "fortitude": {
++    "name": "Fortitude",
++    "description": "Raises Sp. Def by one stage when hit by an attack."
++  },
++  "deadeye": {
++    "name": "Deadeye",
++    "description": "Raises the critical hit ratio by two stages."
++  },
++  "galeHerald": {
++    "name": "Gale Herald",
++    "description": "Whips up a Tailwind on entering battle."
++  },
++  "polarLight": {
++    "name": "Polar Light",
++    "description": "Sets up Aurora Veil on entering battle."
++  },
++  "footwork": {
++    "name": "Footwork",
++    "description": "Powers up kicking moves."
++  },
++  "scorch": {
++    "name": "Scorch",
++    "description": "In harsh sunlight, boosts Attack but loses HP every turn."
++  },
++  "turboEngine": {
++    "name": "Turbo Engine",
++    "description": "Turns the sunlight harsh on entry and boosts Sp. Atk in it."
++  },
++  "goldenPulse": {
++    "name": "Golden Pulse",
++    "description": "Sets Electric Terrain on entry and boosts Attack in it."
++  },
++  "overawe": {
++    "name": "Overawe",
++    "description": "Lowers the opposing Pokémon's Sp. Atk on entering battle."
++  },
++  "lastStand": {
++    "name": "Last Stand",
++    "description": "Below half HP, raises all stats but can no longer flee or switch."
++  },
++  "lightThief": {
++    "name": "Light Thief",
++    "description": "On entering battle, steals all of the opposing side's raised stat stages."
++  },
++  "bladeDance": {
++    "name": "Blade Dance",
++    "description": "Sharply raises Attack on entering battle, once per battle."
++  },
++  "ironFortress": {
++    "name": "Iron Fortress",
++    "description": "Sharply raises Defense on entering battle, once per battle."
++  },
++  "shrapnel": {
++    "name": "Shrapnel",
++    "description": "Scatters Stealth Rock when hit by a physical attack."
++  },
++  "warMachine": {
++    "name": "War Machine",
++    "description": "Raises all stats on entering battle, once per battle."
++  },
++  "frostfire": {
++    "name": "Frostfire",
++    "description": "Fire-type moves become Ice-type and are slightly stronger."
++  },
++  "hiltCannon": {
++    "name": "Hilt Cannon",
++    "description": "Powers up pulse and beam moves."
++  },
++  "mindBlade": {
++    "name": "Mind Blade",
++    "description": "Physical slicing moves are calculated with Sp. Atk."
+   }
+ }
+diff --git a/en/modifier-type.json b/en/modifier-type.json
+index 32cef2b..1a27c2f 100644
+--- a/en/modifier-type.json
++++ b/en/modifier-type.json
+@@ -134,105 +134,228 @@
+     "EnemyEndureChanceModifierType": {
+       "description": "Adds a {{chancePercent}}% chance of enduring a hit."
+     },
+-
+-    "RARE_CANDY": { "name": "Rare Candy" },
+-    "RARER_CANDY": { "name": "Rarer Candy" },
+-
+-    "MEGA_BRACELET": { "name": "Mega Bracelet", "description": "Mega Stones become available." },
+-    "DYNAMAX_BAND": { "name": "Dynamax Band", "description": "Max Mushrooms become available." },
+-    "TERA_ORB": { "name": "Tera Orb", "description": "Allows your Pokémon to Terastallize. Recharges slowly. Tera Shards also become available." },
+-
+-    "MAP": { "name": "Map", "description": "Allows you to choose your destination at a crossroads." },
+-
+-    "POTION": { "name": "Potion" },
+-    "SUPER_POTION": { "name": "Super Potion" },
+-    "HYPER_POTION": { "name": "Hyper Potion" },
+-    "MAX_POTION": { "name": "Max Potion" },
+-    "FULL_RESTORE": { "name": "Full Restore" },
+-
+-    "REVIVE": { "name": "Revive" },
+-    "MAX_REVIVE": { "name": "Max Revive" },
+-
+-    "FULL_HEAL": { "name": "Full Heal" },
+-
+-    "SACRED_ASH": { "name": "Sacred Ash" },
+-
+-    "REVIVER_SEED": { "name": "Reviver Seed", "description": "Revives the holder for 1/2 HP upon fainting from a direct hit." },
+-
+-    "WHITE_HERB": { "name": "White Herb", "description": "An item to be held by a Pokémon. It will restore any lowered stat in battle." },
+-
+-    "ETHER": { "name": "Ether" },
+-    "MAX_ETHER": { "name": "Max Ether" },
+-
+-    "ELIXIR": { "name": "Elixir" },
+-    "MAX_ELIXIR": { "name": "Max Elixir" },
+-
+-    "PP_UP": { "name": "PP Up" },
+-    "PP_MAX": { "name": "PP Max" },
+-
+-    "LURE": { "name": "Lure" },
+-    "SUPER_LURE": { "name": "Super Lure" },
+-    "MAX_LURE": { "name": "Max Lure" },
+-
+-    "MEMORY_MUSHROOM": { "name": "Memory Mushroom", "description": "Recall one Pokémon’s forgotten move." },
+-
+-    "EXP_SHARE": { "name": "Exp. All", "description": "Non-participants receive 20% of a single participant’s Exp. Points." },
+-    "EXP_BALANCE": { "name": "Exp. Balance", "description": "Weighs Exp. Points received from battles towards lower-leveled party members." },
+-
+-    "OVAL_CHARM": { "name": "Oval Charm", "description": "When multiple Pokémon participate in a battle, each gets an extra 10% of the total Exp." },
+-
+-    "EXP_CHARM": { "name": "Exp. Charm" },
+-    "SUPER_EXP_CHARM": { "name": "Super Exp. Charm" },
+-    "GOLDEN_EXP_CHARM": { "name": "Golden Exp. Charm" },
+-
+-    "LUCKY_EGG": { "name": "Lucky Egg" },
+-    "GOLDEN_EGG": { "name": "Golden Egg" },
+-
+-    "SOOTHE_BELL": { "name": "Soothe Bell" },
+-
+-    "SCOPE_LENS": { "name": "Scope Lens", "description": "It’s a lens for scoping out weak points. It boosts the holder’s critical-hit ratio."},
+-    "DIRE_HIT": { "name": "Dire Hit", "extra": { "raises": "Critical Hit Ratio" } },
+-    "LEEK": { "name": "Leek", "description": "This very long and stiff stalk of leek boosts the critical-hit ratio of Farfetch’d’s moves."},
+-
+-    "EVIOLITE": { "name": "Eviolite", "description": "This mysterious evolutionary lump boosts the Defense and Sp. Def stats when held by a Pokémon that can still evolve." },
+-
+-    "SOUL_DEW": { "name": "Soul Dew", "description": "Increases the influence of a Pokémon’s nature on its stats by 10% (additive)." },
+-
+-    "NUGGET": { "name": "Nugget" },
+-    "BIG_NUGGET": { "name": "Big Nugget" },
+-    "RELIC_GOLD": { "name": "Relic Gold" },
+-
+-    "AMULET_COIN": { "name": "Amulet Coin", "description": "Increases money rewards by 20%." },
+-    "GOLDEN_PUNCH": { "name": "Golden Punch", "description": "Grants 50% of direct damage inflicted as money." },
+-    "COIN_CASE": { "name": "Coin Case", "description": "After every 10th battle, receive 10% of your money in interest." },
+-
+-    "LOCK_CAPSULE": { "name": "Lock Capsule", "description": "Allows you to lock item rarities when rerolling items." },
+-
+-    "GRIP_CLAW": { "name": "Grip Claw" },
+-    "WIDE_LENS": { "name": "Wide Lens" },
+-
+-    "MULTI_LENS": { "name": "Multi Lens" },
+-
+-    "HEALING_CHARM": { "name": "Healing Charm", "description": "Increases the effectiveness of HP restoring moves and items by 10% (excludes Revives)." },
+-    "CANDY_JAR": { "name": "Candy Jar", "description": "Increases the number of levels added by Rare Candy items by 1." },
+-
+-    "BERRY_POUCH": { "name": "Berry Pouch", "description": "Adds a 30% chance that a used berry will not be consumed." },
+-
+-    "FOCUS_BAND": { "name": "Focus Band", "description": "Adds a 10% chance to survive with 1 HP after being damaged enough to faint." },
+-
+-    "QUICK_CLAW": { "name": "Quick Claw", "description": "Adds a 10% chance to move first regardless of speed (after priority)." },
+-
+-    "KINGS_ROCK": { "name": "King’s Rock", "description": "Adds a 10% chance an attack move will cause the opponent to flinch." },
+-
+-    "LEFTOVERS": { "name": "Leftovers", "description": "Heals 1/16 of a Pokémon’s maximum HP every turn." },
+-    "SHELL_BELL": { "name": "Shell Bell", "description": "Heals 1/8 of a Pokémon’s dealt damage." },
+-
+-    "TOXIC_ORB": { "name": "Toxic Orb", "description": "It’s a bizarre orb that exudes toxins when touched and will badly poison the holder during battle." },
+-    "FLAME_ORB": { "name": "Flame Orb", "description": "It’s a bizarre orb that gives off heat when touched and will affect the holder with a burn during battle." },
+-
+-    "MYSTICAL_ROCK": { "name": "Mystical Rock", "description": "Extends the duration of terrain and weather caused by the holder’s moves or Abilities by 2 turns." },
+-
+-    "EVOLUTION_TRACKER_GIMMIGHOUL": { "name": "Treasures", "description": "This Pokémon loves treasure! Keep collecting treasure and something might happen!"},
++    "RARE_CANDY": {
++      "name": "Rare Candy"
++    },
++    "RARER_CANDY": {
++      "name": "Rarer Candy"
++    },
++    "MEGA_BRACELET": {
++      "name": "Mega Bracelet",
++      "description": "Mega Stones become available."
++    },
++    "DYNAMAX_BAND": {
++      "name": "Dynamax Band",
++      "description": "Max Mushrooms become available."
++    },
++    "TERA_ORB": {
++      "name": "Tera Orb",
++      "description": "Allows your Pokémon to Terastallize. Recharges slowly. Tera Shards also become available."
++    },
++    "MAP": {
++      "name": "Map",
++      "description": "Allows you to choose your destination at a crossroads."
++    },
++    "POTION": {
++      "name": "Potion"
++    },
++    "SUPER_POTION": {
++      "name": "Super Potion"
++    },
++    "HYPER_POTION": {
++      "name": "Hyper Potion"
++    },
++    "MAX_POTION": {
++      "name": "Max Potion"
++    },
++    "FULL_RESTORE": {
++      "name": "Full Restore"
++    },
++    "REVIVE": {
++      "name": "Revive"
++    },
++    "MAX_REVIVE": {
++      "name": "Max Revive"
++    },
++    "FULL_HEAL": {
++      "name": "Full Heal"
++    },
++    "SACRED_ASH": {
++      "name": "Sacred Ash"
++    },
++    "REVIVER_SEED": {
++      "name": "Reviver Seed",
++      "description": "Revives the holder for 1/2 HP upon fainting from a direct hit."
++    },
++    "WHITE_HERB": {
++      "name": "White Herb",
++      "description": "An item to be held by a Pokémon. It will restore any lowered stat in battle."
++    },
++    "ETHER": {
++      "name": "Ether"
++    },
++    "MAX_ETHER": {
++      "name": "Max Ether"
++    },
++    "ELIXIR": {
++      "name": "Elixir"
++    },
++    "MAX_ELIXIR": {
++      "name": "Max Elixir"
++    },
++    "PP_UP": {
++      "name": "PP Up"
++    },
++    "PP_MAX": {
++      "name": "PP Max"
++    },
++    "LURE": {
++      "name": "Lure"
++    },
++    "SUPER_LURE": {
++      "name": "Super Lure"
++    },
++    "MAX_LURE": {
++      "name": "Max Lure"
++    },
++    "MEMORY_MUSHROOM": {
++      "name": "Memory Mushroom",
++      "description": "Recall one Pokémon’s forgotten move."
++    },
++    "EXP_SHARE": {
++      "name": "Exp. All",
++      "description": "Non-participants receive 20% of a single participant’s Exp. Points."
++    },
++    "EXP_BALANCE": {
++      "name": "Exp. Balance",
++      "description": "Weighs Exp. Points received from battles towards lower-leveled party members."
++    },
++    "OVAL_CHARM": {
++      "name": "Oval Charm",
++      "description": "When multiple Pokémon participate in a battle, each gets an extra 10% of the total Exp."
++    },
++    "EXP_CHARM": {
++      "name": "Exp. Charm"
++    },
++    "SUPER_EXP_CHARM": {
++      "name": "Super Exp. Charm"
++    },
++    "GOLDEN_EXP_CHARM": {
++      "name": "Golden Exp. Charm"
++    },
++    "LUCKY_EGG": {
++      "name": "Lucky Egg"
++    },
++    "GOLDEN_EGG": {
++      "name": "Golden Egg"
++    },
++    "SOOTHE_BELL": {
++      "name": "Soothe Bell"
++    },
++    "SCOPE_LENS": {
++      "name": "Scope Lens",
++      "description": "It’s a lens for scoping out weak points. It boosts the holder’s critical-hit ratio."
++    },
++    "DIRE_HIT": {
++      "name": "Dire Hit",
++      "extra": {
++        "raises": "Critical Hit Ratio"
++      }
++    },
++    "LEEK": {
++      "name": "Leek",
++      "description": "This very long and stiff stalk of leek boosts the critical-hit ratio of Farfetch’d’s moves."
++    },
++    "EVIOLITE": {
++      "name": "Eviolite",
++      "description": "This mysterious evolutionary lump boosts the Defense and Sp. Def stats when held by a Pokémon that can still evolve."
++    },
++    "SOUL_DEW": {
++      "name": "Soul Dew",
++      "description": "Increases the influence of a Pokémon’s nature on its stats by 10% (additive)."
++    },
++    "NUGGET": {
++      "name": "Nugget"
++    },
++    "BIG_NUGGET": {
++      "name": "Big Nugget"
++    },
++    "RELIC_GOLD": {
++      "name": "Relic Gold"
++    },
++    "AMULET_COIN": {
++      "name": "Amulet Coin",
++      "description": "Increases money rewards by 20%."
++    },
++    "GOLDEN_PUNCH": {
++      "name": "Golden Punch",
++      "description": "Grants 50% of direct damage inflicted as money."
++    },
++    "COIN_CASE": {
++      "name": "Coin Case",
++      "description": "After every 10th battle, receive 10% of your money in interest."
++    },
++    "LOCK_CAPSULE": {
++      "name": "Lock Capsule",
++      "description": "Allows you to lock item rarities when rerolling items."
++    },
++    "GRIP_CLAW": {
++      "name": "Grip Claw"
++    },
++    "WIDE_LENS": {
++      "name": "Wide Lens"
++    },
++    "MULTI_LENS": {
++      "name": "Multi Lens"
++    },
++    "HEALING_CHARM": {
++      "name": "Healing Charm",
++      "description": "Increases the effectiveness of HP restoring moves and items by 10% (excludes Revives)."
++    },
++    "CANDY_JAR": {
++      "name": "Candy Jar",
++      "description": "Increases the number of levels added by Rare Candy items by 1."
++    },
++    "BERRY_POUCH": {
++      "name": "Berry Pouch",
++      "description": "Adds a 30% chance that a used berry will not be consumed."
++    },
++    "FOCUS_BAND": {
++      "name": "Focus Band",
++      "description": "Adds a 10% chance to survive with 1 HP after being damaged enough to faint."
++    },
++    "QUICK_CLAW": {
++      "name": "Quick Claw",
++      "description": "Adds a 10% chance to move first regardless of speed (after priority)."
++    },
++    "KINGS_ROCK": {
++      "name": "King’s Rock",
++      "description": "Adds a 10% chance an attack move will cause the opponent to flinch."
++    },
++    "LEFTOVERS": {
++      "name": "Leftovers",
++      "description": "Heals 1/16 of a Pokémon’s maximum HP every turn."
++    },
++    "SHELL_BELL": {
++      "name": "Shell Bell",
++      "description": "Heals 1/8 of a Pokémon’s dealt damage."
++    },
++    "TOXIC_ORB": {
++      "name": "Toxic Orb",
++      "description": "It’s a bizarre orb that exudes toxins when touched and will badly poison the holder during battle."
++    },
++    "FLAME_ORB": {
++      "name": "Flame Orb",
++      "description": "It’s a bizarre orb that gives off heat when touched and will affect the holder with a burn during battle."
++    },
++    "MYSTICAL_ROCK": {
++      "name": "Mystical Rock",
++      "description": "Extends the duration of terrain and weather caused by the holder’s moves or Abilities by 2 turns."
++    },
++    "EVOLUTION_TRACKER_GIMMIGHOUL": {
++      "name": "Treasures",
++      "description": "This Pokémon loves treasure! Keep collecting treasure and something might happen!"
++    },
+     "EVOLUTION_TRACKER_PRIMEAPE": {
+       "name": "Rage Fist",
+       "description": "Primeape evolves when its rage surpasses the limits of its physical form!\nBuild up its rage by using the move Rage Fist!"
+@@ -241,45 +364,118 @@
+       "name": "Psyshield Bash",
+       "description": "Stantler evolves to adapt to harsh environments. Toughen up its defense by using the move Psyshield Bash!"
+     },
+-
+-    "BATON": { "name": "Baton", "description": "Allows passing along effects when switching Pokémon, which also bypasses traps." },
+-
+-    "SHINY_CHARM": { "name": "Shiny Charm", "description": "Dramatically increases the chance of a wild Pokémon being Shiny." },
+-    "ABILITY_CHARM": { "name": "Ability Charm", "description": "Dramatically increases the chance of a wild Pokémon having a Hidden Ability." },
+-    "CATCHING_CHARM": { "name": "Catching Charm", "description": "Increases the chance of getting a critical catch."},
+-
+-    "IV_SCANNER": { "name": "IV Scanner", "description": "Enables scanning the IVs of wild Pokémon." },
+-
+-    "DNA_SPLICERS": { "name": "DNA Splicers" },
+-
+-    "MINI_BLACK_HOLE": { "name": "Mini Black Hole" },
+-
+-    "GOLDEN_POKEBALL": { "name": "Golden Poké Ball", "description": "Adds 1 extra item option at the end of every battle." },
+-
+-    "ENEMY_DAMAGE_BOOSTER": { "name": "Damage Token", "description": "Increases damage by 5%." },
+-    "ENEMY_DAMAGE_REDUCTION": { "name": "Protection Token", "description": "Reduces incoming damage by 2.5%." },
+-    "ENEMY_HEAL": { "name": "Recovery Token", "description": "Heals 2% of max HP every turn." },
+-    "ENEMY_ATTACK_POISON_CHANCE": { "name": "Poison Token" },
+-    "ENEMY_ATTACK_PARALYZE_CHANCE": { "name": "Paralyze Token" },
+-    "ENEMY_ATTACK_BURN_CHANCE": { "name": "Burn Token" },
+-    "ENEMY_STATUS_EFFECT_HEAL_CHANCE": { "name": "Full Heal Token", "description": "Adds a 2.5% chance every turn to heal a status condition." },
+-    "ENEMY_ENDURE_CHANCE": { "name": "Endure Token" },
+-    "ENEMY_FUSED_CHANCE": { "name": "Fusion Token", "description": "Adds a 1% chance that a wild Pokémon will be a fusion." },
+-
+-    "MYSTERY_ENCOUNTER_SHUCKLE_JUICE_GOOD": { "name": "Sweet Shuckle Juice", "description": "Increases all of the holder’s base stats. You were blessed by the Shuckle." },
+-    "MYSTERY_ENCOUNTER_SHUCKLE_JUICE_BAD": { "name": "Foul Shuckle Juice", "description": "Decreases all of the holder’s base stats. You were cursed by the Shuckle."  },
+-    "MYSTERY_ENCOUNTER_BLACK_SLUDGE": { "name": "Black Sludge", "description": "The stench is so powerful that shops will only sell you items at a steep cost increase." },
+-    "MYSTERY_ENCOUNTER_MACHO_BRACE": { "name": "Macho Brace", "description": "Defeating a Pokémon grants the holder a stack of it. Each stack boosts stats a bit. Bonus at max stacks." },
+-    "MYSTERY_ENCOUNTER_OLD_GATEAU": { "name": "Old Gateau", "description": "Increases some of the holder’s stats." },
+-    "MYSTERY_ENCOUNTER_GOLDEN_BUG_NET": { "name": "Golden Bug Net", "description": "Imbues the owner with luck to find Bug Type Pokémon more often. Has a strange heft to it." }
++    "BATON": {
++      "name": "Baton",
++      "description": "Allows passing along effects when switching Pokémon, which also bypasses traps."
++    },
++    "SHINY_CHARM": {
++      "name": "Shiny Charm",
++      "description": "Dramatically increases the chance of a wild Pokémon being Shiny."
++    },
++    "ABILITY_CHARM": {
++      "name": "Ability Charm",
++      "description": "Dramatically increases the chance of a wild Pokémon having a Hidden Ability."
++    },
++    "CATCHING_CHARM": {
++      "name": "Catching Charm",
++      "description": "Increases the chance of getting a critical catch."
++    },
++    "IV_SCANNER": {
++      "name": "IV Scanner",
++      "description": "Enables scanning the IVs of wild Pokémon."
++    },
++    "DNA_SPLICERS": {
++      "name": "DNA Splicers"
++    },
++    "MINI_BLACK_HOLE": {
++      "name": "Mini Black Hole"
++    },
++    "GOLDEN_POKEBALL": {
++      "name": "Golden Poké Ball",
++      "description": "Adds 1 extra item option at the end of every battle."
++    },
++    "ENEMY_DAMAGE_BOOSTER": {
++      "name": "Damage Token",
++      "description": "Increases damage by 5%."
++    },
++    "ENEMY_DAMAGE_REDUCTION": {
++      "name": "Protection Token",
++      "description": "Reduces incoming damage by 2.5%."
++    },
++    "ENEMY_HEAL": {
++      "name": "Recovery Token",
++      "description": "Heals 2% of max HP every turn."
++    },
++    "ENEMY_ATTACK_POISON_CHANCE": {
++      "name": "Poison Token"
++    },
++    "ENEMY_ATTACK_PARALYZE_CHANCE": {
++      "name": "Paralyze Token"
++    },
++    "ENEMY_ATTACK_BURN_CHANCE": {
++      "name": "Burn Token"
++    },
++    "ENEMY_STATUS_EFFECT_HEAL_CHANCE": {
++      "name": "Full Heal Token",
++      "description": "Adds a 2.5% chance every turn to heal a status condition."
++    },
++    "ENEMY_ENDURE_CHANCE": {
++      "name": "Endure Token"
++    },
++    "ENEMY_FUSED_CHANCE": {
++      "name": "Fusion Token",
++      "description": "Adds a 1% chance that a wild Pokémon will be a fusion."
++    },
++    "MYSTERY_ENCOUNTER_SHUCKLE_JUICE_GOOD": {
++      "name": "Sweet Shuckle Juice",
++      "description": "Increases all of the holder’s base stats. You were blessed by the Shuckle."
++    },
++    "MYSTERY_ENCOUNTER_SHUCKLE_JUICE_BAD": {
++      "name": "Foul Shuckle Juice",
++      "description": "Decreases all of the holder’s base stats. You were cursed by the Shuckle."
++    },
++    "MYSTERY_ENCOUNTER_BLACK_SLUDGE": {
++      "name": "Black Sludge",
++      "description": "The stench is so powerful that shops will only sell you items at a steep cost increase."
++    },
++    "MYSTERY_ENCOUNTER_MACHO_BRACE": {
++      "name": "Macho Brace",
++      "description": "Defeating a Pokémon grants the holder a stack of it. Each stack boosts stats a bit. Bonus at max stacks."
++    },
++    "MYSTERY_ENCOUNTER_OLD_GATEAU": {
++      "name": "Old Gateau",
++      "description": "Increases some of the holder’s stats."
++    },
++    "MYSTERY_ENCOUNTER_GOLDEN_BUG_NET": {
++      "name": "Golden Bug Net",
++      "description": "Imbues the owner with luck to find Bug Type Pokémon more often. Has a strange heft to it."
++    }
+   },
+   "SpeciesBoosterItem": {
+-    "LIGHT_BALL": { "name": "Light Ball", "description": "It’s a mysterious orb that boosts Pikachu’s Attack and Sp. Atk stats." },
+-    "THICK_CLUB": { "name": "Thick Club", "description": "This hard bone of unknown origin boosts Cubone or Marowak’s Attack stat." },
+-    "METAL_POWDER": { "name": "Metal Powder", "description": "Extremely fine yet hard, this odd powder boosts Ditto’s Defense stat." },
+-    "QUICK_POWDER": { "name": "Quick Powder", "description": "Extremely fine yet hard, this odd powder boosts Ditto’s Speed stat." },
+-    "DEEP_SEA_SCALE": { "name": "Deep Sea Scale", "description": "This scale shines with a faint pink and boosts Clamperl’s Sp. Def stat." },
+-    "DEEP_SEA_TOOTH": { "name": "Deep Sea Tooth", "description": "This fang gleams a sharp silver and boosts Clamperl’s Sp. Atk stat." }
++    "LIGHT_BALL": {
++      "name": "Light Ball",
++      "description": "It’s a mysterious orb that boosts Pikachu’s Attack and Sp. Atk stats."
++    },
++    "THICK_CLUB": {
++      "name": "Thick Club",
++      "description": "This hard bone of unknown origin boosts Cubone or Marowak’s Attack stat."
++    },
++    "METAL_POWDER": {
++      "name": "Metal Powder",
++      "description": "Extremely fine yet hard, this odd powder boosts Ditto’s Defense stat."
++    },
++    "QUICK_POWDER": {
++      "name": "Quick Powder",
++      "description": "Extremely fine yet hard, this odd powder boosts Ditto’s Speed stat."
++    },
++    "DEEP_SEA_SCALE": {
++      "name": "Deep Sea Scale",
++      "description": "This scale shines with a faint pink and boosts Clamperl’s Sp. Def stat."
++    },
++    "DEEP_SEA_TOOTH": {
++      "name": "Deep Sea Tooth",
++      "description": "This fang gleams a sharp silver and boosts Clamperl’s Sp. Atk stat."
++    }
+   },
+   "TempStatStageBoosterItem": {
+     "x_attack": "X Attack",
+@@ -319,7 +515,6 @@
+   },
+   "EvolutionItem": {
+     "NONE": "None",
+-
+     "LINKING_CORD": "Linking Cord",
+     "SUN_STONE": "Sun Stone",
+     "MOON_STONE": "Moon Stone",
+@@ -352,7 +547,6 @@
+     "LEADERS_CREST": "Leader’s Crest",
+     "SUN_FLUTE": "Sun Flute",
+     "MOON_FLUTE": "Moon Flute",
+-
+     "CHIPPED_POT": "Chipped Pot",
+     "BLACK_AUGURITE": "Black Augurite",
+     "GALARICA_CUFF": "Galarica Cuff",
+@@ -368,7 +562,6 @@
+   },
+   "FormChangeItem": {
+     "NONE": "None",
+-
+     "ABOMASITE": "Abomasite",
+     "ABSOLITE": "Absolite",
+     "AERODACTYLITE": "Aerodactylite",
+@@ -417,7 +610,6 @@
+     "SWAMPERTITE": "Swampertite",
+     "TYRANITARITE": "Tyranitarite",
+     "VENUSAURITE": "Venusaurite",
+-
+     "CLEFABLITE": "Clefablite",
+     "VICTREEBELITE": "Victreebelite",
+     "STARMINITE": "Starminite",
+@@ -463,7 +655,6 @@
+     "BAXCALIBRITE": "Baxcalibrite",
+     "TATSUGIRINITE": "Tatsugirinite",
+     "GLIMMORANITE": "Glimmoranite",
+-
+     "BLUE_ORB": "Blue Orb",
+     "RED_ORB": "Red Orb",
+     "SHARP_METEORITE": "Sharp Meteorite",
+@@ -492,7 +683,6 @@
+     "CHILL_DRIVE": "Chill Drive",
+     "DOUSE_DRIVE": "Douse Drive",
+     "ULTRANECROZIUM_Z": "Ultranecrozium Z",
+-
+     "FIST_PLATE": "Fist Plate",
+     "SKY_PLATE": "Sky Plate",
+     "TOXIC_PLATE": "Toxic Plate",
+@@ -529,6 +719,11 @@
+     "DRAGON_MEMORY": "Dragon Memory",
+     "DARK_MEMORY": "Dark Memory",
+     "FAIRY_MEMORY": "Fairy Memory",
+-    "NORMAL_MEMORY": "Normal Memory"
++    "NORMAL_MEMORY": "Normal Memory",
++    "CHARIZARDITE_Z": "Charizardite Z",
++    "BAXCALIBRITE_Z": "Baxcalibrite Z",
++    "GALLADITE_Z": "Galladite Z",
++    "MELMETALITE": "Melmetalite",
++    "ARCHALUDONITE": "Archaludonite"
+   }
+ }
+diff --git a/en/starter-select-ui-handler.json b/en/starter-select-ui-handler.json
+index 1b17c22..347a76b 100644
+--- a/en/starter-select-ui-handler.json
++++ b/en/starter-select-ui-handler.json
+@@ -43,5 +43,6 @@
+   "disablePassive": "Disable Passive",
+   "locked": "Locked",
+   "disabled": "Disabled",
+-  "uncaught": "Uncaught"
++  "uncaught": "Uncaught",
++  "changePassive": "Switch passive to {{passive}}"
+ }
+diff --git a/ko/ability.json b/ko/ability.json
+index f4cb4a3..2d572c5 100644
+--- a/ko/ability.json
++++ b/ko/ability.json
+@@ -1266,5 +1266,81 @@
+   "auraGuard": {
+     "name": "파동의방호",
+     "description": "접촉 기술로 입는 데미지가 반감된다."
++  },
++  "steelBody": {
++    "name": "강철몸",
++    "description": "상대의 능력 변화를 무시하며, 상대의 변화 기술을 받지 않는다."
++  },
++  "fortitude": {
++    "name": "인내",
++    "description": "공격을 받으면 특수방어가 올라간다."
++  },
++  "deadeye": {
++    "name": "정조준",
++    "description": "급소 랭크가 2단계 올라간다."
++  },
++  "galeHerald": {
++    "name": "바람몰이",
++    "description": "등장했을 때 순풍을 일으킨다."
++  },
++  "polarLight": {
++    "name": "극광",
++    "description": "등장했을 때 오로라베일을 펼친다."
++  },
++  "footwork": {
++    "name": "발재간",
++    "description": "차기 기술의 위력이 올라간다."
++  },
++  "scorch": {
++    "name": "작열",
++    "description": "날씨가 맑으면 공격이 올라가지만 매 턴 HP가 줄어든다."
++  },
++  "turboEngine": {
++    "name": "터보엔진",
++    "description": "등장했을 때 날씨를 맑게 하고, 맑을 때 특수공격이 올라간다."
++  },
++  "goldenPulse": {
++    "name": "금빛고동",
++    "description": "등장했을 때 일렉트릭필드를 깔고, 그 필드에서 공격이 올라간다."
++  },
++  "overawe": {
++    "name": "위압",
++    "description": "등장했을 때 상대의 특수공격을 낮춘다."
++  },
++  "lastStand": {
++    "name": "결사항전",
++    "description": "HP가 절반 아래로 떨어지면 모든 능력이 올라가지만 도망치거나 교체할 수 없게 된다."
++  },
++  "lightThief": {
++    "name": "빛강탈",
++    "description": "등장했을 때 상대가 올린 능력 변화를 모두 빼앗는다."
++  },
++  "bladeDance": {
++    "name": "검무",
++    "description": "배틀에서 한 번, 등장했을 때 공격이 크게 올라간다."
++  },
++  "ironFortress": {
++    "name": "철옹성",
++    "description": "배틀에서 한 번, 등장했을 때 방어가 크게 올라간다."
++  },
++  "shrapnel": {
++    "name": "돌파편",
++    "description": "물리 공격을 받으면 스텔스록을 뿌린다."
++  },
++  "warMachine": {
++    "name": "전투 병기",
++    "description": "배틀에서 한 번, 등장했을 때 모든 능력이 올라간다."
++  },
++  "frostfire": {
++    "name": "빙염",
++    "description": "불꽃타입 기술이 얼음타입이 되고 위력이 조금 올라간다."
++  },
++  "hiltCannon": {
++    "name": "칼자루포",
++    "description": "파동 기술과 빔 기술의 위력이 올라간다."
++  },
++  "mindBlade": {
++    "name": "심검",
++    "description": "베는 물리 기술을 특수공격으로 계산한다."
+   }
+ }
+diff --git a/ko/modifier-type.json b/ko/modifier-type.json
+index 4ebe11f..c292122 100644
+--- a/ko/modifier-type.json
++++ b/ko/modifier-type.json
+@@ -719,6 +719,11 @@
+     "DRAGON_MEMORY": "드래곤메모리",
+     "DARK_MEMORY": "다크메모리",
+     "FAIRY_MEMORY": "페어리메모리",
+-    "NORMAL_MEMORY": "일반메모리"
++    "NORMAL_MEMORY": "일반메모리",
++    "CHARIZARDITE_Z": "리자몽나이트Z",
++    "BAXCALIBRITE_Z": "드닐레이브나이트Z",
++    "GALLADITE_Z": "엘레이드나이트Z",
++    "MELMETALITE": "멜메탈나이트",
++    "ARCHALUDONITE": "브리두라스나이트"
+   }
+ }
+diff --git a/ko/starter-select-ui-handler.json b/ko/starter-select-ui-handler.json
+index 2d8f736..d683317 100644
+--- a/ko/starter-select-ui-handler.json
++++ b/ko/starter-select-ui-handler.json
+@@ -43,5 +43,6 @@
+   "disablePassive": "패시브 비활성화",
+   "locked": "잠김",
+   "disabled": "비활성",
+-  "uncaught": "미등록"
++  "uncaught": "미등록",
++  "changePassive": "패시브 변경: {{passive}}"
+ }

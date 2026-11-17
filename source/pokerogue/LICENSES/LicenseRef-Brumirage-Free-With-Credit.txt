@@ -1,0 +1,16 @@
+Brumirage trainer sprites: free to use with credit
+
+Source: Brumirage's "Brumi Workshop" thread on Smogon,
+https://www.smogon.com/forums/threads/brumi-workshop-commission-closed.3660693/
+(first post, and post #194 of 2025-11-10; read on 2026-11-10).
+
+Summary of the terms stated there (not the artist's own wording):
+- The sprites in the thread's "FREE TO USE" sections may be used by anyone who credits Brumirage.
+- The sprites in the "DON'T USE" sections (commissions and prize sprites) and the commissioned player sprites may
+  not be used.
+- The Pokemon Showdown trainer sprite index, from which the files were downloaded
+  (https://play.pokemonshowdown.com/sprites/trainers/), adds: credit the artist, and do not edit the sprites without
+  permission.
+
+This fork uses the files unedited, in a private, non-commercial build, and credits the artist in CREDITS.md.
+The characters themselves are owned by Nintendo, Creatures Inc. and GAME FREAK Inc.
