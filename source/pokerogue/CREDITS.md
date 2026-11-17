@@ -802,6 +802,13 @@ and [everyone else](https://github.com/pagefaultgames/pokerogue/graphs/contribut
   Anklet (`assets/images/items/power_weight.png`, `power_bracer.png`, `power_belt.png`, `power_lens.png`,
   `power_band.png`, `power_anklet.png`), from Cobblemon 1.7.3, scaled 2x. MPL-2.0.
   They are also packed into `assets/images/items.png`.
+- Local fork (2026-11-16), Cobblemon: Mega Showdown (Yajat Kaul and contributors): the Z-Ring, Dynamax Candy and Z
+  crystal item icons (`assets/images/items/z_ring.png`, `dynamax_candy.png`, the 18 type crystals `normalium_z.png` …
+  `fairium_z.png`, the exclusive crystals `pikanium_z.png` … `lunalium_z.png` and `ultranecrozium_z_crystal.png`), from
+  [Cobblemon: Mega Showdown](https://github.com/yajatkaul/CobblemonMegaShowdown) 1.7.3, scaled 2x. Mega Showdown
+  License v2.1, under which its textures are licensed CC BY-NC-SA 4.0
+  (https://github.com/yajatkaul/CobblemonMegaShowdown/blob/main/LICENSE.md; `LICENSES/CC-BY-NC-SA-4.0.txt`).
+  They are also packed into `assets/images/items.png`.
 - Local fork (2026-11-11), named trainer battle sprites, used unedited from the
   [Pokémon Showdown trainer sprite index](https://play.pokemonshowdown.com/sprites/trainers/?filter=credited)
   (`assets/images/trainer/<name>.png`; terms and SHA-256 sums in `tools/port_named_trainers/CREDITS_showdown.md`
@@ -812,8 +819,12 @@ and [everyone else](https://github.com/pagefaultgames/pokerogue/graphs/contribut
   - kyledove ([Pokéngine](https://pokengine.org)): Kamado (전목), Professor Sada (올림 박사), Professor Turo (투로 박사),
     Carmine (시유), Briar (브라이어). Pokéngine Public Use Policy, non-commercial with credit
     (https://pokengine.org/legal/public-use-policy; `LICENSES/LicenseRef-Pokengine-Public-Use.txt`).
+- Local fork (2026-11-16), Z-Moves and Max Moves: the Max / Z power, Z-Power effect, G-Max and exclusive Z-Crystal
+  tables in `src/data/moves/zmax-data.ts` are derived from [Pokémon Showdown](https://github.com/smogon/pokemon-showdown)
+  (`data/moves.ts`, `sim/dex-moves.ts`), MIT License, (c) Guangcong Luo and contributors (`LICENSES/MIT.txt`). The
+  Z crystal, Z-Ring and Dynamax Candy item icons are Cobblemon: Mega Showdown's (above).
 - Local fork (2026-11-17), mark and ribbon icons (`assets/images/marks/marks.png`, built by
-  `tools/port/make_marks_atlas.py` from `tools/port/mark-icons/`): the 40x40 ribbon sprites of
+  `D:/PokeRogueDev/tools/port/make_marks_atlas.py` from `tools/port/mark-icons/` there, outside the repository; imported 2026-11-17 from the `pokerogue_mod` repository): the 40x40 ribbon sprites of
   [PKHeX](https://github.com/kwsch/PKHeX) (`PKHeX.Drawing.Misc/Resources/img/ribbons`), used unedited. GPL-3.0
   (`LICENSES/GPL-3.0-only.txt`). The marks' and ribbons' Korean and English names are the main series' own.
   The Golden Alpha Mark's icon is PKHeX's Alpha Mark recoloured, and the three shiny marks' icons are PokéRogue's

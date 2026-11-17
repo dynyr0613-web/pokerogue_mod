@@ -1,8 +1,8 @@
 import { globalScene } from "#app/global-scene";
-import { allMoves } from "#data/data-lists";
 import type { BattlerIndex } from "#enums/battler-index";
 import { Command } from "#enums/command";
 import { UiMode } from "#enums/ui-mode";
+import { getSlotMove } from "#moves/move-transform"; // Local fork (2026-11-16): Z / Max moves
 import { PokemonPhase } from "#phases/pokemon-phase";
 
 export class SelectTargetPhase extends PokemonPhase {
@@ -23,10 +23,12 @@ export class SelectTargetPhase extends PokemonPhase {
     }
 
     // TODO: Move the logic for computing default targets here instead of `target-select-ui-handler`
-    const move = allMoves[moveId];
     const fieldSide = globalScene.getField();
 
     const user = fieldSide[this.fieldIndex];
+    // Local fork (2026-11-16): Z / Max moves. The user's slot's derived move (a converted slot's target is its own);
+    // the UI handler is still given the slot's original id and resolves it the same way
+    const move = getSlotMove(user, moveId);
     const ally = user.getAlly();
     const shouldDefaultToAlly =
       globalScene.currentBattle.double // formatting
@@ -38,7 +40,7 @@ export class SelectTargetPhase extends PokemonPhase {
     globalScene.ui.setMode(
       UiMode.TARGET_SELECT,
       this.fieldIndex,
-      move.id,
+      moveId,
       (targets: BattlerIndex[]) => {
         globalScene.ui.setMode(UiMode.MESSAGE);
         // Find any tags blocking this target from being selected

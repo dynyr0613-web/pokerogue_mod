@@ -9,9 +9,57 @@ import { ChallengeType } from "#enums/challenge-type";
 import { MoveId } from "#enums/move-id";
 import type { Pokemon } from "#field/pokemon";
 import type { Move } from "#moves/move";
+// Local fork (2026-11-16): Z / Max moves (per-slot conversion)
+import type { MoveTransform, MoveTransformKind } from "#moves/move-transform";
 import { applyChallenges } from "#utils/challenge-utils";
 import { BooleanHolder, toDmgValue } from "#utils/common";
 import i18next from "i18next";
+
+/** Local fork (2026-11-16): Z / Max moves. The kinds a slot's conversion can have (a saved one with any other is dropped) */
+export const MOVE_TRANSFORM_KINDS: readonly MoveTransformKind[] = Object.freeze([
+  "max",
+  "gmax",
+  "z",
+  "zExclusive",
+  "zMax",
+]);
+
+/**
+ * Local fork (2026-11-16): Z / Max moves. Builds a converted slot's derived move (`getTransformedMove`). It is handed
+ * in by move-transform.ts when that module loads ({@linkcode setTransformedMoveResolver}) instead of being imported:
+ * move-transform.ts imports the move classes (move.ts), and move.ts imports this module (dependency inversion, no
+ * import cycle).
+ */
+let transformedMoveResolver: ((baseId: MoveId, transform: MoveTransform) => Move) | undefined;
+
+/**
+ * Local fork (2026-11-16): Z / Max moves. Called once by move-transform.ts (see {@linkcode transformedMoveResolver})
+ * @param resolver - Returns the derived move of `baseId` converted by `transform` (cached there)
+ */
+export function setTransformedMoveResolver(resolver: (baseId: MoveId, transform: MoveTransform) => Move): void {
+  transformedMoveResolver = resolver;
+}
+
+/**
+ * Local fork (2026-11-16): Z / Max moves. A checked copy of a saved conversion: `undefined` unless it is an object with
+ * a known kind and a move id that exists in `allMoves`, so an edited or broken save never breaks the slot.
+ * @param source - The saved value
+ */
+export function loadMoveTransform(source: unknown): MoveTransform | undefined {
+  if (source == null || typeof source !== "object") {
+    return;
+  }
+  const { kind, moveId } = source as Partial<MoveTransform>;
+  if (
+    typeof kind !== "string"
+    || !(MOVE_TRANSFORM_KINDS as readonly string[]).includes(kind)
+    || typeof moveId !== "number"
+    || allMoves[moveId] === undefined
+  ) {
+    return;
+  }
+  return { kind: kind as MoveTransformKind, moveId };
+}
 
 /**
  * Wrapper class for the {@linkcode Move} class for Pokemon to interact with.
@@ -38,11 +86,22 @@ export class PokemonMove {
    */
   public maxPpOverride?: number | undefined;
 
-  constructor(moveId: MoveId, ppUsed = 0, ppUp = 0, maxPpOverride?: number) {
+  /**
+   * Local fork (2026-11-16): what this slot was permanently converted into (다이사탕 / Z 크리스탈), or `undefined`.
+   * `moveId` stays the original move; {@linkcode getMove} returns the derived Max / G-Max / Z move (move-transform.ts).
+   * Plain data, saved with the slot; the derived move is cached in move-transform.ts, never on this object.
+   */
+  public transform?: MoveTransform | undefined;
+
+  constructor(moveId: MoveId, ppUsed = 0, ppUp = 0, maxPpOverride?: number, transform?: MoveTransform) {
     this.moveId = moveId;
     this.ppUsed = ppUsed;
     this.ppUp = ppUp;
     this.maxPpOverride = maxPpOverride;
+    // Local fork (2026-11-16): Z / Max moves. Only set when present, so an unconverted slot serializes as before
+    if (transform) {
+      this.transform = { kind: transform.kind, moveId: transform.moveId };
+    }
   }
 
   /**
@@ -83,6 +142,13 @@ export class PokemonMove {
   }
 
   getMove(): Move {
+    // Local fork (2026-11-16): Z / Max moves. A converted slot behaves as its derived move (cached per conversion)
+    if (this.transform) {
+      if (transformedMoveResolver) {
+        return transformedMoveResolver(this.moveId, this.transform);
+      }
+      console.warn("PokemonMove.getMove: move-transform.ts is not loaded; using the base move");
+    }
     return allMoves[this.moveId];
   }
 
@@ -96,7 +162,9 @@ export class PokemonMove {
 
   // TODO: Rename to `getMaxPP`; the current name is obscure and frankly stupid
   getMovePp(): number {
-    return this.maxPpOverride || this.getMove().pp + this.ppUp * toDmgValue(this.getMove().pp / 5);
+    // Local fork (2026-11-16): Z / Max moves. Always the original move's PP (a converted slot keeps its PP and PP Ups)
+    const basePp = allMoves[this.moveId].pp;
+    return this.maxPpOverride || basePp + this.ppUp * toDmgValue(basePp / 5);
   }
 
   getPpRatio(): number {
@@ -121,6 +189,14 @@ export class PokemonMove {
    * @returns A valid {@linkcode PokemonMove} object
    */
   static loadMove(source: PokemonMove | any): PokemonMove {
-    return new PokemonMove(source.moveId, source.ppUsed, source.ppUp, source.maxPpOverride);
+    // Local fork (2026-11-16): Z / Max moves. The conversion is copied (a new object, never shared with `source`) and
+    // checked, so a bad saved value drops the conversion instead of breaking the slot
+    return new PokemonMove(
+      source.moveId,
+      source.ppUsed,
+      source.ppUp,
+      source.maxPpOverride,
+      loadMoveTransform(source.transform),
+    );
   }
 }

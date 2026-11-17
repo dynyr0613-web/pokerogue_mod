@@ -2960,6 +2960,7 @@ export function initGenerationTwo(): SpeciesDataMapConfig {
     levelMoves: [
       [RELEARN_MOVE, MoveId.SOLAR_BEAM],
       [EVOLVE_MOVE, MoveId.PETAL_BLIZZARD],
+      [EVOLVE_MOVE, MoveId.GARDENING], // Local fork (2026-11-14): custom moves
       [1, MoveId.ABSORB],
       [1, MoveId.GROWTH],
       [1, MoveId.SUNNY_DAY],
@@ -3678,6 +3679,7 @@ export function initGenerationTwo(): SpeciesDataMapConfig {
       [19, MoveId.WORRY_SEED],
       [22, MoveId.GIGA_DRAIN],
       [25, MoveId.ENDEAVOR],
+      [25, MoveId.GARDENING], // Local fork (2026-11-14): custom moves
       [28, MoveId.SYNTHESIS],
       [31, MoveId.NATURAL_GIFT],
       [34, MoveId.SOLAR_BEAM],
@@ -3776,6 +3778,7 @@ export function initGenerationTwo(): SpeciesDataMapConfig {
       [19, MoveId.WORRY_SEED],
       [22, MoveId.GIGA_DRAIN],
       [25, MoveId.BULLET_SEED],
+      [25, MoveId.GARDENING], // Local fork (2026-11-14): custom moves
       [28, MoveId.PETAL_DANCE],
       [31, MoveId.NATURAL_GIFT],
       [34, MoveId.SOLAR_BEAM],
@@ -7027,6 +7030,7 @@ export function initGenerationTwo(): SpeciesDataMapConfig {
       [22, MoveId.HONE_CLAWS],
       [25, MoveId.BEAT_UP],
       [28, MoveId.AGILITY],
+      [30, MoveId.ICEBREAKER], // Local fork (2026-11-14): custom moves
       [32, MoveId.SCREECH],
       [35, MoveId.SLASH],
       [40, MoveId.SNATCH],
@@ -7362,6 +7366,7 @@ export function initGenerationTwo(): SpeciesDataMapConfig {
       [22, MoveId.ANCIENT_POWER],
       [27, MoveId.FLAME_BURST],
       [29, MoveId.ROCK_SLIDE],
+      [31, MoveId.SUBLIMATION], // Local fork (2026-11-14): custom moves
       [34, MoveId.LAVA_PLUME],
       [36, MoveId.AMNESIA],
       [41, MoveId.BODY_SLAM],
@@ -7471,6 +7476,7 @@ export function initGenerationTwo(): SpeciesDataMapConfig {
       [22, MoveId.ANCIENT_POWER],
       [27, MoveId.FLAME_BURST],
       [29, MoveId.ROCK_SLIDE],
+      [31, MoveId.SUBLIMATION], // Local fork (2026-11-14): custom moves
       [34, MoveId.LAVA_PLUME],
       [36, MoveId.AMNESIA],
       [43, MoveId.BODY_SLAM],

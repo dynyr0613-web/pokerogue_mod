@@ -4394,6 +4394,7 @@ export function initGenerationOne(): SpeciesDataMapConfig {
       [20, MoveId.GIGA_DRAIN],
       [24, MoveId.TOXIC],
       [28, MoveId.MOONLIGHT],
+      [30, MoveId.GARDENING], // Local fork (2026-11-14): custom moves
       [32, MoveId.LUCKY_CHANT],
       [36, MoveId.NATURAL_GIFT],
       [40, MoveId.MOONBLAST],
@@ -4504,6 +4505,7 @@ export function initGenerationOne(): SpeciesDataMapConfig {
       [24, MoveId.TOXIC],
       [29, MoveId.MOONLIGHT],
       [33, MoveId.LUCKY_CHANT],
+      [34, MoveId.GARDENING], // Local fork (2026-11-14): custom moves
       [38, MoveId.NATURAL_GIFT],
       [42, MoveId.MOONBLAST],
       [47, MoveId.PETAL_BLIZZARD],
@@ -4543,6 +4545,7 @@ export function initGenerationOne(): SpeciesDataMapConfig {
     passives: AbilityId.TRIAGE,
     levelMoves: [
       [EVOLVE_MOVE, MoveId.PETAL_BLIZZARD],
+      [EVOLVE_MOVE, MoveId.GARDENING], // Local fork (2026-11-14): custom moves
       [1, MoveId.ABSORB],
       [1, MoveId.GROWTH],
       [4, MoveId.ACID],

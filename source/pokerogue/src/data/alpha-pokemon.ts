@@ -80,6 +80,27 @@ export function applyWildAlpha(pokemon: Pokemon): void {
 }
 
 /**
+ * Local fork (2026-11-17): undo {@linkcode applyWildAlpha} on a Pokémon generated as a wild one but fought as a boss
+ * (bosses are never alphas or mini Pokémon): the boost, the size and the alpha, jumbo and mini marks go. Its wild mark
+ * stays, as other bosses have one.
+ * @param pokemon - The Pokémon
+ */
+export function clearWildAlpha(pokemon: Pokemon): void {
+  if (!pokemon.isAlpha() && !pokemon.hasMark(PokemonMark.MINI_MARK)) {
+    return;
+  }
+  pokemon.setAlphaBoost(0);
+  pokemon.marks = pokemon.marks.filter(
+    m =>
+      m !== PokemonMark.ALPHA_MARK
+      && m !== PokemonMark.JUMBO_MARK
+      && m !== PokemonMark.GOLDEN_ALPHA_MARK
+      && m !== PokemonMark.MINI_MARK,
+  );
+  pokemon.updateScale();
+}
+
+/**
  * Apply an alpha's boost to one of its stats, rounded down.
  * @param pokemon - The Pokémon
  * @param stat - The stat's value before the boost
@@ -97,12 +118,18 @@ export function registerAlpha(pokemon: Pokemon): boolean {
   if (pokemon.alphaBoost <= 0) {
     return false;
   }
-  const entry: StarterDataEntry | undefined = globalScene.gameData.starterData[pokemon.species.getRootSpeciesId()];
-  if (!entry || normalizeAlphaBoost(entry.alphaBoost) >= pokemon.alphaBoost) {
-    return false;
+  // Local fork (2026-11-17): a line with a later-stage starter (Pikachu next to Pichu) credits both starters, as the
+  // classic-win ribbons do (game-over-phase.ts); the root alone left the Pikachu starter without an alpha forever
+  const starterIds = new Set([pokemon.species.getRootSpeciesId(), pokemon.species.getRootSpeciesId(true)]);
+  let raised = false;
+  for (const starterId of starterIds) {
+    const entry: StarterDataEntry | undefined = globalScene.gameData.starterData[starterId];
+    if (entry && normalizeAlphaBoost(entry.alphaBoost) < pokemon.alphaBoost) {
+      entry.alphaBoost = pokemon.alphaBoost;
+      raised = true;
+    }
   }
-  entry.alphaBoost = pokemon.alphaBoost;
-  return true;
+  return raised;
 }
 
 /**

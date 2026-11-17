@@ -16,7 +16,7 @@ import { allMoves, modifierTypes } from "#data/data-lists";
 import { BattlerTagType } from "#enums/battler-tag-type";
 import { HitResult } from "#enums/hit-result";
 import { MoveCategory } from "#enums/move-category"; // Local fork (2026-11-10): vests
-import type { MoveId } from "#enums/move-id"; // Local fork (2026-11-10): vests
+import { MoveId } from "#enums/move-id"; // Local fork (2026-11-10): vests; 2026-11-16 a value (Z다이검무)
 import { MoveTarget } from "#enums/move-target"; // Local fork (2026-11-10): vests
 import { PokemonType } from "#enums/pokemon-type"; // Local fork (2026-11-09): Radioactive Waste
 import { SpeciesId } from "#enums/species-id"; // Local fork (2026-11-09): Ultimate Gene
@@ -51,7 +51,11 @@ import {
   TurnStatusEffectModifier,
 } from "#modifiers/modifier";
 import type { ModifierType } from "#modifiers/modifier-type";
+// Local fork (2026-11-16): the Z-Ring (Z링), saved with the session like the classes here
+import { ZRingModifier } from "#modifiers/zmax-items";
 import type { Move } from "#moves/move"; // Local fork (2026-11-10): vests
+import type { PokemonMove } from "#moves/pokemon-move"; // Local fork (2026-11-16): vests judge a converted slot
+import { getZStatusEffect } from "#moves/zmax-data"; // Local fork (2026-11-16): vests and the Z-Power stat boosts
 import { BooleanHolder, NumberHolder, toDmgValue } from "#utils/common"; // Local fork (2026-11-11): NumberHolder as a value
 import i18next from "i18next";
 
@@ -173,6 +177,50 @@ export function isStatRaisingMove(move: Move, user: Pokemon): boolean {
 }
 
 /**
+ * Local fork (2026-11-16): whether the vests keep `pokemon` from using `moveId` (see {@linkcode getVestMoveDeniedText}).
+ * A converted slot is judged by its converted move (`PokemonMove.getMove()`): plain 다이월 (any status move given a
+ * Dynamax Candy) raises nothing, 다이검무 / Z다이검무 raise Attack. A Z-Move made from a status move (Z칼춤, Z다이월) also
+ * counts when its Z-Power raises a stat stage of the user ({@linkcode zPowerRaisesStat}): it is a stat-raising use all
+ * the same, so a vest holder cannot get +3 Attack from Z튀어오르기.
+ * @param pokemon - The would-be user
+ * @param moveId - The move's own (base) id, as move history and the fight menu use it
+ * @param pokemonMove - The move slot actually used, if the caller has it; else `pokemon`'s slot of `moveId`, if any
+ */
+export function isVestRestrictedMove(pokemon: Pokemon, moveId: MoveId, pokemonMove?: PokemonMove): boolean {
+  const slot = pokemonMove ?? pokemon.getMoveset().find(m => m?.moveId === moveId);
+  if (!slot?.transform) {
+    return isStatRaisingMove(allMoves[moveId], pokemon);
+  }
+  return isStatRaisingMove(slot.getMove(), pokemon) || zPowerRaisesStat(slot, pokemon);
+}
+
+/**
+ * Local fork (2026-11-16): whether the Z-Power of converted slot `slot` raises a stat stage of `user`: a Z-Move made
+ * from a status move (kind `z`, Z칼춤) or a Z다이월 (kind `zMax` into Max Guard) whose Showdown Z effect is a positive
+ * boost, or Curse's (Attack +1 unless the user is a Ghost type). Z다이검무 gets no other bonus (its +4 is its own effect).
+ * Critical-hit, heal and redirect effects raise nothing, like Focus Energy for the vests.
+ */
+function zPowerRaisesStat(slot: PokemonMove, user: Pokemon): boolean {
+  const transform = slot.transform;
+  if (
+    !transform
+    || (transform.kind !== "z" && transform.kind !== "zMax")
+    || transform.moveId === MoveId.MAX_SWORDS_DANCE
+    || allMoves[slot.moveId]?.category !== MoveCategory.STATUS
+  ) {
+    return false;
+  }
+  const effect = getZStatusEffect(slot.moveId);
+  if (!effect) {
+    return false;
+  }
+  if ("boost" in effect) {
+    return Object.values(effect.boost).some(stages => (stages ?? 0) > 0);
+  }
+  return effect.effect === "curse" && !user.isOfType(PokemonType.GHOST, { returnOriginalTypesIfStellar: true });
+}
+
+/**
  * Local fork (2026-11-10): the Assault Vest (돌격조끼) or Bulletproof Vest (방탄조끼) that keeps `pokemon` from stat-raising
  * moves, if it holds one (the user: "돌격조끼와 방탄조끼에 랭크업 기술 사용 불가를 넣어둡시다"). Player and enemy holders.
  */
@@ -185,12 +233,18 @@ export function getStatRaiseBlockingVest(pokemon: Pokemon): PokemonHeldItemModif
  * ({@linkcode isStatRaisingMove}), or `undefined` when the move is not restricted. `Pokemon.isMoveSelectable` asks it,
  * which covers the fight menu, the AI's choice and Struggle when nothing is selectable; `MovePhase` asks it too, so a
  * move used anyway (Encore, Instruct, Dancer, a called move) fails with this text, like Taunt's.
+ *
+ * Local fork (2026-11-16): a converted move slot (다이사탕 / Z크리스탈, `PokemonMove.transform`) is judged by the move it
+ * became ({@linkcode isVestRestrictedMove}): 다이월 made from 명상 is not a stat-raising move, 다이검무 is.
  * @param pokemon - The would-be user
  * @param moveId - The move
+ * @param pokemonMove - (optional, Local fork 2026-11-16) The move slot actually used, when the caller has it (a called
+ *   move is a plain one even if `pokemon` has a converted slot of the same move); without it the slot of `moveId` in
+ *   `pokemon`'s moveset is judged
  */
-export function getVestMoveDeniedText(pokemon: Pokemon, moveId: MoveId): string | undefined {
+export function getVestMoveDeniedText(pokemon: Pokemon, moveId: MoveId, pokemonMove?: PokemonMove): string | undefined {
   const vest = getStatRaiseBlockingVest(pokemon);
-  if (!vest || !isStatRaisingMove(allMoves[moveId], pokemon)) {
+  if (!vest || !isVestRestrictedMove(pokemon, moveId, pokemonMove)) {
     return undefined;
   }
   return i18next.t("battle:vestNoStatRaiseMove", {
@@ -2209,6 +2263,7 @@ const customModifierClasses: Readonly<Record<string, new (...args: any[]) => Per
   TrainingShacklesModifier, // Local fork (2026-11-09)
   UltimateGeneModifier, // Local fork (2026-11-09)
   WiseGlassesModifier, // Local fork (2026-11-11)
+  ZRingModifier, // Local fork (2026-11-16): Z링 (zmax-items.ts)
 });
 
 /**

@@ -344,6 +344,11 @@ export class PokedexPageUiHandler extends MessageUiHandler {
   private isRibbonTrayOpen = false;
   /** Local fork (2026-11-17): the party Pokémon the page was opened for, whose marks and ribbons the menu shows */
   private markPokemon: Pokemon | null = null;
+  /**
+   * Local fork (2026-11-17): the party Pokémon the page was first opened with, handed on when this page moves to
+   * another species and back, so its marks' option comes back with its own species ({@linkcode markPokemon})
+   */
+  private markOrigin: Pokemon | null = null;
   private markContainer: MarkTray;
   private isMarkTrayOpen = false;
   /** Local fork (2026-11-17): the menu text's line spacing, smaller while the marks' option is in the menu */
@@ -793,6 +798,9 @@ export class PokedexPageUiHandler extends MessageUiHandler {
     // Local fork (2026-11-17): the party passes its Pokémon (party-ui-handler.ts); every other way in has none, and so
     // does moving on to another species from this page
     const markPokemon = args[5] as Pokemon | undefined;
+    // Local fork (2026-11-17): the page's own moves to other species pass it on (markOrigin), so going back to the
+    // party Pokémon's species shows its marks again
+    this.markOrigin = markPokemon ?? null;
     this.markPokemon =
       Array.isArray(markPokemon?.marks) && markPokemon.species.speciesId === this.species.speciesId
         ? markPokemon
@@ -1268,7 +1276,16 @@ export class PokedexPageUiHandler extends MessageUiHandler {
           const starterPreferences = this.previousStarterPreferences.pop();
           this.moveInfoOverlay.clear();
           this.clearText();
-          ui.setModeForceTransition(UiMode.POKEDEX_PAGE, species, starterPreferences);
+          // Local fork (2026-11-17): with the party Pokémon, if any (markOrigin)
+          ui.setModeForceTransition(
+            UiMode.POKEDEX_PAGE,
+            species,
+            starterPreferences,
+            undefined,
+            undefined,
+            undefined,
+            this.markOrigin,
+          );
           success = true;
         });
         this.blockInput = false;
@@ -1708,7 +1725,16 @@ export class PokedexPageUiHandler extends MessageUiHandler {
                       this.savedStarterPreferences.formIndex = newFormIndex;
                       this.moveInfoOverlay.clear();
                       this.clearText();
-                      ui.setMode(UiMode.POKEDEX_PAGE, newSpecies, this.savedStarterPreferences);
+                      // Local fork (2026-11-17): the party Pokémon goes along (markOrigin)
+                      ui.setMode(
+                        UiMode.POKEDEX_PAGE,
+                        newSpecies,
+                        this.savedStarterPreferences,
+                        undefined,
+                        undefined,
+                        undefined,
+                        this.markOrigin,
+                      );
                       return true;
                     },
                     onHover: () => this.showText(conditionText),
@@ -1751,7 +1777,16 @@ export class PokedexPageUiHandler extends MessageUiHandler {
                       this.savedStarterPreferences.formIndex = newFormIndex;
                       this.moveInfoOverlay.clear();
                       this.clearText();
-                      ui.setMode(UiMode.POKEDEX_PAGE, evoSpecies, this.savedStarterPreferences);
+                      // Local fork (2026-11-17): the party Pokémon goes along (markOrigin)
+                      ui.setMode(
+                        UiMode.POKEDEX_PAGE,
+                        evoSpecies,
+                        this.savedStarterPreferences,
+                        undefined,
+                        undefined,
+                        undefined,
+                        this.markOrigin,
+                      );
                       return true;
                     },
                     onHover: () => this.showText(conditionText),
@@ -1792,7 +1827,16 @@ export class PokedexPageUiHandler extends MessageUiHandler {
                       this.savedStarterPreferences.formIndex = newBattleFormIndex;
                       this.moveInfoOverlay.clear();
                       this.clearText();
-                      ui.setMode(UiMode.POKEDEX_PAGE, newSpecies, this.savedStarterPreferences, this.filteredIndices);
+                      // Local fork (2026-11-17): the party Pokémon goes along (markOrigin)
+                      ui.setMode(
+                        UiMode.POKEDEX_PAGE,
+                        newSpecies,
+                        this.savedStarterPreferences,
+                        this.filteredIndices,
+                        undefined,
+                        undefined,
+                        this.markOrigin,
+                      );
                       return true;
                     },
                     onHover: () => this.showText(conditionText),
@@ -2210,11 +2254,15 @@ export class PokedexPageUiHandler extends MessageUiHandler {
               this.savedStarterPreferences.formIndex = newFormIndex;
               this.moveInfoOverlay.clear();
               this.clearText();
+              // Local fork (2026-11-17): the party Pokémon goes along (markOrigin)
               ui.setModeForceTransition(
                 UiMode.POKEDEX_PAGE,
                 newSpecies,
                 this.savedStarterPreferences,
                 this.filteredIndices,
+                undefined,
+                undefined,
+                this.markOrigin,
               );
             });
             this.blockInput = false;
@@ -2251,11 +2299,15 @@ export class PokedexPageUiHandler extends MessageUiHandler {
               this.savedStarterPreferences.formIndex = newFormIndex;
               this.moveInfoOverlay.clear();
               this.clearText();
+              // Local fork (2026-11-17): the party Pokémon goes along (markOrigin)
               ui.setModeForceTransition(
                 UiMode.POKEDEX_PAGE,
                 newSpecies,
                 this.savedStarterPreferences,
                 this.filteredIndices,
+                undefined,
+                undefined,
+                this.markOrigin,
               );
             });
             break;

@@ -179,7 +179,26 @@ import {
   TurnHeldItemTransferModifier,
   TurnStatusEffectModifier,
 } from "#modifiers/modifier";
+// Local fork (2026-11-16): Z-Moves and Max Moves: the Z-Ring, the Dynamax Candy and the Z crystals
+import {
+  canSlotTakeConversion,
+  canUseConversionItem,
+  DYNAMAX_CANDY_ITEM,
+  getExclusiveZInfo,
+  getZCrystalIcon,
+  getZCrystalItem,
+  getZCrystalType,
+  isExclusiveZCrystal,
+  isZCrystalKey,
+  MoveConversionModifier,
+  pickZCrystal,
+  type ZCrystalKey,
+  ZRingModifier,
+} from "#modifiers/zmax-items";
+// Local fork (2026-11-16): a type only: move-transform.ts imports move.ts, which imports this file (see zmax-items.ts)
+import type { ConversionItem } from "#moves/move-transform";
 import type { PokemonMove } from "#moves/pokemon-move";
+import { Z_MOVE_BY_TYPE } from "#moves/zmax-data"; // Local fork (2026-11-16): the type crystals' Z-Move names
 import { getVoucherTypeIcon, getVoucherTypeName } from "#system/voucher";
 import type { ModifierTypeFunc, WeightedModifierTypeWeightFunc } from "#types/modifier-types";
 import type { ObjectValues } from "#types/type-helpers";
@@ -1374,6 +1393,95 @@ export class MasterTmModifierType extends PokemonModifierType {
   }
 }
 
+/**
+ * Local fork (2026-11-16): the base of the two items that convert one move slot for good (다이사탕 and the Z
+ * crystals; zmax-items.ts, move-transform.ts). Picking one opens the party screen; after the Pokémon,
+ * `SelectModifierPhase.openMoveConversionMenu` opens the move picker (`#ui/move-conversion-picker`: the four moves as
+ * "now → result", then yes / no) and makes the modifier with `newModifier(pokemon, moveIndex)`. Nothing is used
+ * before yes.
+ *
+ * The Pokémon filter passes a Pokémon with at least one move the item can convert; the move filter (which gets no
+ * Pokémon) checks the slot's state and type only (move-transform's `canSlotTakeItem`).
+ */
+export abstract class MoveConversionModifierType extends PokemonMoveModifierType {
+  /** What the item does to a move slot (move-transform.ts) */
+  public readonly conversionItem: ConversionItem;
+
+  constructor(localeKey: string, iconImage: string, conversionItem: ConversionItem, group: string) {
+    super(
+      localeKey,
+      iconImage,
+      (_type, args) =>
+        new MoveConversionModifier(this, (args[0] as PlayerPokemon).id, args[1] as number, conversionItem),
+      (pokemon: PlayerPokemon) =>
+        canUseConversionItem(pokemon, conversionItem) ? null : PartyUiHandler.NoEffectMessage,
+      (pokemonMove: PokemonMove) =>
+        canSlotTakeConversion(pokemonMove, conversionItem) ? null : PartyUiHandler.NoEffectMessage,
+      group,
+    );
+    this.conversionItem = conversionItem;
+  }
+}
+
+/**
+ * Local fork (2026-11-16): 다이사탕 (Dynamax Candy), ULTRA, icon "dynamax_candy". The user: "다이맥스한 포켓몬이 있을 경우
+ * 다이사탕(하이퍼)이 보상 테이블에서 나올 수 있음 / 다이사탕 사용 시 원하는 기술을 다이 기술로 바꿈 / 해당 포켓몬의 전용기는
+ * 거다이 기술로 바꿈". A plain move becomes its Max Move (a G-Max Move by the G-Max rule), a Z-Move becomes a Z-Max Move.
+ */
+export class DynamaxCandyModifierType extends MoveConversionModifierType {
+  constructor(localeKey: string, iconImage: string) {
+    super(localeKey, iconImage, DYNAMAX_CANDY_ITEM, "dynamax_candy");
+  }
+}
+
+/**
+ * Local fork (2026-11-16): one Z crystal, ULTRA: a type crystal (노말Z ...) or an exclusive one (피카츄Z ...), by
+ * {@linkcode ZCrystalKey}. The user: "z 크리스탈 사용 시 해당 타입 기술을 z기술로 변환 / 전용 z 크리스탈은 해당 타입의
+ * 기술을 전용 z기술로 변환". All share the reward id `Z_CRYSTAL` and the group "z_crystal" (one per reward screen).
+ */
+export class ZCrystalModifierType extends MoveConversionModifierType implements GeneratedPersistentModifierType {
+  public readonly crystal: ZCrystalKey;
+
+  constructor(crystal: ZCrystalKey) {
+    super("modifierType:ModifierType.Z_CRYSTAL", getZCrystalIcon(crystal), getZCrystalItem(crystal), "z_crystal");
+    this.crystal = crystal;
+  }
+
+  /** ko "{{typeName}}Z" for a type crystal (노말Z, 불꽃Z ...), the exclusive crystal's own name otherwise (피카츄Z ...) */
+  get name(): string {
+    if (isExclusiveZCrystal(this.crystal)) {
+      return i18next.t(`modifierType:ZCrystal.${this.crystal}`);
+    }
+    return i18next.t("modifierType:ModifierType.Z_CRYSTAL.name", {
+      typeName: i18next.t(getPokemonTypeLocaleKey(this.crystal)),
+      crystalName: i18next.t(`modifierType:ModifierType.Z_CRYSTAL.typeCrystal.${PokemonType[this.crystal]}`),
+    });
+  }
+
+  getDescription(): string {
+    const typeName = i18next.t(getPokemonTypeLocaleKey(getZCrystalType(this.crystal)));
+    if (isExclusiveZCrystal(this.crystal)) {
+      const info = getExclusiveZInfo(this.crystal);
+      const speciesNames = [...new Set(info?.species.map(s => s.speciesId) ?? [])].map(
+        id => speciesDataRegistry.getSpecies(id).name,
+      );
+      return i18next.t("modifierType:ModifierType.Z_CRYSTAL.exclusiveDescription", {
+        speciesName: speciesNames.join("/"),
+        typeName,
+        zMoveName: info ? allMoves[info.zMove].name : "",
+      });
+    }
+    return i18next.t("modifierType:ModifierType.Z_CRYSTAL.description", {
+      typeName,
+      zMoveName: allMoves[Z_MOVE_BY_TYPE[this.crystal].physical].name,
+    });
+  }
+
+  getPregenArgs(): any[] {
+    return [this.crystal];
+  }
+}
+
 export class EvolutionItemModifierType extends PokemonModifierType implements GeneratedPersistentModifierType {
   public evolutionItem: EvolutionItem;
 
@@ -2014,6 +2122,11 @@ export type GeneratorModifierOverride = {
       name: keyof Pick<typeof modifierTypeInitObj, "TM_COMMON" | "TM_GREAT" | "TM_ULTRA">;
       type?: MoveId;
     }
+  // Local fork (2026-11-16): a Z crystal by type or exclusive key (ZCrystalKey)
+  | {
+      name: keyof Pick<typeof modifierTypeInitObj, "Z_CRYSTAL">;
+      type?: ZCrystalKey;
+    }
 );
 
 /** Type used to construct modifiers and held items for overriding purposes. */
@@ -2162,6 +2275,24 @@ const modifierTypeInitObj = Object.freeze({
       "tera_orb",
       (type, _args) => new TerastallizeAccessModifier(type),
     ),
+  // Local fork (2026-11-16): Z링 (Z-Ring), a ROGUE key item like the Dynamax Band that opens the Z crystals (zmax-items.ts;
+  // the user: "z링 보유 시 + 해당 타입 기술 보유 포켓몬이 있는 경우(거다이맥스 기술 제외) Z 크리스탈이 보상 테이블에 등록됨")
+  Z_RING: () =>
+    new ModifierType("modifierType:ModifierType.Z_RING", "z_ring", (type, _args) => new ZRingModifier(type)),
+  // Local fork (2026-11-16): 다이사탕 (Dynamax Candy), ULTRA: converts the chosen move into its Max / G-Max Move (the user:
+  // "다이사탕 사용 시 원하는 기술을 다이 기술로 바꿈"); party screen -> move picker -> yes / no (move-conversion-picker.ts)
+  DYNAMAX_CANDY: () => new DynamaxCandyModifierType("modifierType:ModifierType.DYNAMAX_CANDY", "dynamax_candy"),
+  // Local fork (2026-11-16): Z크리스탈 (Z crystal), ULTRA: a type crystal or an exclusive crystal picked by the party's
+  // eligible moves (pickZCrystal); none without the Z-Ring. A pregen argument (a PokemonType or an exclusive crystal key,
+  // e.g. `[PokemonType.FIRE]` or `["PIKANIUM_Z"]`) fixes the crystal for encounters, overrides and tests
+  Z_CRYSTAL: () =>
+    new ModifierTypeGenerator((party: readonly Pokemon[], pregenArgs?: any[]) => {
+      if (pregenArgs && pregenArgs.length === 1 && isZCrystalKey(pregenArgs[0])) {
+        return new ZCrystalModifierType(pregenArgs[0]);
+      }
+      const crystal = pickZCrystal(party);
+      return crystal === null ? null : new ZCrystalModifierType(crystal);
+    }),
 
   MAP: () => new ModifierType("modifierType:ModifierType.MAP", "map", (type, _args) => new MapModifier(type)),
 

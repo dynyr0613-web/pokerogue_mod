@@ -49,5 +49,11 @@
   "waterFirePledge": "Rainbow",
   "grassWaterPledge": "Swamp",
   "fairyLock": "Fairy Lock",
-  "imprison": "Imprison"
+  "imprison": "Imprison",
+  "garden": "Garden",
+  "gMaxWildfire": "G-Max Wildfire",
+  "gMaxVineLash": "G-Max Vine Lash",
+  "gMaxCannonade": "G-Max Cannonade",
+  "gMaxVolcalith": "G-Max Volcalith",
+  "gMaxSteelsurge": "G-Max Steelsurge"
 }

@@ -130,6 +130,55 @@ ICONS = [
     ("power_lens", r"D:\PokeRogueDev\tools\port_new_items_1112\power_lens.png"),
     ("power_band", r"D:\PokeRogueDev\tools\port_new_items_1112\power_band.png"),
     ("power_anklet", r"D:\PokeRogueDev\tools\port_new_items_1112\power_anklet.png"),
+    # Local fork (2026-11-16): Z-Moves and Max Moves (the user: "z링 보유 시 ... Z 크리스탈이 보상 테이블에 등록됨", "다이사탕
+    # 사용 시 원하는 기술을 다이 기술로 바꿈"). Since the second install the icons are Cobblemon: Mega Showdown 1.7.3's
+    # textures from the user's Cobbleverse jar (Yajat Kaul and contributors, Mega Showdown License v2.1, textures CC
+    # BY-NC-SA 4.0), scaled 2x (tools/port_zmax_1116/make_cobbleverse_icons.py, preview docs/zmax_icons_preview.png).
+    # The user: "아이콘은 언제나처럼 코블버스 쪽에서 빼오면 됩니다 / 거기에 다이사탕이랑 z링, z 크리스탈들 도트 이미지가 다
+    # 있어요 / 이미지가 크지 않도록 배율 조절도 해주세요" (scales in src/ui/utils/item-icon-scale.ts).
+    # ultranecrozium_z_crystal is the reward, a frame beside Necrozma's form change item ultranecrozium_z (left as it is).
+    # The first install's recolour placeholders (make_icons.py) are kept in tools/port_zmax_1116/recolour_backup/
+    *[
+        (name, rf"D:\PokeRogueDev\tools\port_zmax_1116\{name}.png")
+        for name in [
+            "z_ring",
+            "dynamax_candy",
+            "normalium_z",
+            "fightinium_z",
+            "flyinium_z",
+            "poisonium_z",
+            "groundium_z",
+            "rockium_z",
+            "buginium_z",
+            "ghostium_z",
+            "steelium_z",
+            "firium_z",
+            "waterium_z",
+            "grassium_z",
+            "electrium_z",
+            "psychium_z",
+            "icium_z",
+            "dragonium_z",
+            "darkinium_z",
+            "fairium_z",
+            "pikanium_z",
+            "aloraichium_z",
+            "decidium_z",
+            "incinium_z",
+            "primarium_z",
+            "eevium_z",
+            "snorlium_z",
+            "mewnium_z",
+            "tapunium_z",
+            "marshadium_z",
+            "kommonium_z",
+            "lycanium_z",
+            "mimikium_z",
+            "solganium_z",
+            "lunalium_z",
+            "ultranecrozium_z_crystal",
+        ]
+    ],
 ]
 BACKUP = os.path.join(PORT, "backup_items_user_icons_20261109")
 ATLAS_JSON = os.path.join(vest.IMG, "items.json")

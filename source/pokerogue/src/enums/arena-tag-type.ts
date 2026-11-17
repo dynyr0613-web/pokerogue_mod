@@ -38,4 +38,20 @@ export enum ArenaTagType {
   FAIRY_LOCK = "FAIRY_LOCK",
   NEUTRALIZING_GAS = "NEUTRALIZING_GAS",
   PENDING_HEAL = "PENDING_HEAL",
+  /**
+   * Local fork (2026-11-14): custom moves. Garden (정원): Grassy Terrain's direct effects on one side only.
+   * A string enum, so saves keep it by name (an older build loads it as a `NoneTag`).
+   */
+  GARDEN = "GARDEN",
+  /**
+   * Local fork (2026-11-16): Z-Moves and Max Moves. The 4-turn G-Max fields on the target's side: at each turn end every
+   * Pokémon there that is not of the move's type loses 1/6 of its max HP (G-Max Wildfire / Vine Lash / Cannonade /
+   * Volcalith: Fire / Grass / Water / Rock).
+   */
+  G_MAX_WILDFIRE = "G_MAX_WILDFIRE",
+  G_MAX_VINE_LASH = "G_MAX_VINE_LASH",
+  G_MAX_CANNONADE = "G_MAX_CANNONADE",
+  G_MAX_VOLCALITH = "G_MAX_VOLCALITH",
+  /** Local fork (2026-11-16): G-Max Steelsurge (거다이강철진): a Steel-type Stealth Rock */
+  G_MAX_STEELSURGE = "G_MAX_STEELSURGE",
 }

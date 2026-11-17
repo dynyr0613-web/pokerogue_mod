@@ -83,6 +83,9 @@ export const FORK_UNLOCK = Object.freeze({
     "POWER_LENS", // 파워렌즈
     "POWER_BAND", // 파워밴드
     "POWER_ANKLET", // 파워앵클릿
+    "Z_RING", // Z링 (Local fork 2026-11-16, Z-Moves and Max Moves)
+    "DYNAMAX_CANDY", // 다이사탕
+    "Z_CRYSTAL", // Z크리스탈 (노말Z … / 피카츄Z …)
     // The fork's own Mega Stones (FormChangeItem 140-144, in no upstream pool)
     "CHARIZARDITE_Z", // 리자몽나이트Z
     "BAXCALIBRITE_Z", // 드닐레이브나이트Z

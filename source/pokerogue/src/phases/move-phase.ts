@@ -1,4 +1,5 @@
 import { applyAbAttrs } from "#abilities/apply-ab-attrs";
+import { getAllOutPitchMoveDeniedText } from "#abilities/custom-ability-helpers"; // Local fork (2026-11-14)
 import { globalScene } from "#app/global-scene";
 import { getPokemonNameWithAffix } from "#app/messages";
 import { activeOverrides } from "#app/overrides";
@@ -27,6 +28,7 @@ import { MoveUsedEvent } from "#events/battle-scene";
 import type { Pokemon } from "#field/pokemon";
 import { getVestMoveDeniedText } from "#modifiers/custom-held-items"; // Local fork (2026-11-10)
 import { applyMoveAttrs } from "#moves/apply-attrs";
+import { getBaseMoveId } from "#moves/move-transform"; // Local fork (2026-11-16): Z / Max moves
 import type { PokemonMove } from "#moves/pokemon-move";
 import { PokemonPhase } from "#phases/pokemon-phase";
 import type { Move, PreUseInterruptAttr } from "#types/move-types";
@@ -234,6 +236,13 @@ export class MovePhase extends PokemonPhase {
 
     this.showMoveText();
 
+    // Local fork (2026-11-16): Z / Max moves. The Z-Power of a Z status move / Z다이월 applies right after the move's
+    // text, once per use (not on a charge's release turn, not for a called or copied use), before the later failure
+    // checks, so it applies even if the move then fails, as in the main games
+    if (!releasing && !isVirtual(useMode)) {
+      this.applyZPower(move);
+    }
+
     if (this.secondFailureCheck()) {
       this.handlePreMoveFailures();
       this.end();
@@ -241,8 +250,9 @@ export class MovePhase extends PokemonPhase {
     }
 
     // Update the battle's "last move" pointer unless we're currently mimicking a move or triggering Dancer.
+    // Local fork (2026-11-16): Z / Max moves. The slot's original move (Copycat copies the base move)
     if (!move.hasAttr("CopyMoveAttr") && !isReflected(useMode)) {
-      globalScene.currentBattle.lastMove = move.id;
+      globalScene.currentBattle.lastMove = getBaseMoveId(move);
     }
 
     if (!this.resolveFinalPreMoveCancellationChecks()) {
@@ -250,6 +260,17 @@ export class MovePhase extends PokemonPhase {
     }
 
     this.end();
+  }
+
+  /**
+   * Local fork (2026-11-16): Z / Max moves. Apply every Z-Power (`ZPowerAttr`) of `move` to the user: a Z status move
+   * (Z칼춤 …) and Z다이월 carry one; nothing else does. Tags it adds name the slot's original move as their source.
+   * @param move - The move being used (the slot's derived move)
+   */
+  private applyZPower(move: Move): void {
+    for (const zPower of move.getAttrs("ZPowerAttr")) {
+      zPower.applyZPower(this.pokemon, this.move.moveId);
+    }
   }
 
   /**
@@ -292,6 +313,7 @@ export class MovePhase extends PokemonPhase {
    * 13. Move lock from choice items / gorilla tactics
    * 14. Failure from taunt
    *     (Local fork (2026-11-10): then a stat-raising move of an Assault Vest / Bulletproof Vest holder)
+   *     (Local fork (2026-11-14): passive rebalance. Then a status move of an All-Out Pitch holder)
    * 15. Failure from imprison
    * 16. Failure from confusion
    * 17. Failure from paralysis
@@ -313,6 +335,7 @@ export class MovePhase extends PokemonPhase {
       || this.checkGravity()
       || this.checkTagCancel(BattlerTagType.TAUNT)
       || this.checkVestRestriction() // Local fork (2026-11-10): Assault Vest / Bulletproof Vest, right after Taunt
+      || this.checkAllOutPitchRestriction() // Local fork (2026-11-14): passive rebalance. All-Out Pitch, like Taunt
       || this.checkTagCancel(BattlerTagType.IMPRISON)
       || this.checkTagCancel(BattlerTagType.CONFUSED)
       || this.checkPara()
@@ -349,7 +372,25 @@ export class MovePhase extends PokemonPhase {
    * @returns Whether the move was cancelled
    */
   private checkVestRestriction(): boolean {
-    const deniedText = getVestMoveDeniedText(this.pokemon, this.move.moveId);
+    // Local fork (2026-11-16): Z / Max moves: judge the move as used (a converted slot by its derived move, a called
+    // move as the plain move even when the user has a converted slot of the same id)
+    const deniedText = getVestMoveDeniedText(this.pokemon, this.move.moveId, this.move);
+    if (!deniedText) {
+      return false;
+    }
+    globalScene.phaseManager.queueMessage(deniedText);
+    this.cancel();
+    return true;
+  }
+
+  /**
+   * Local fork (2026-11-14): passive rebalance. A status move of an All-Out Pitch (전력투구) holder that got past
+   * selection (e.g. Encore) is cancelled with the ability's text, the way Taunt cancels it. Called moves
+   * (`followUpMoveFirstFailureCheck`) are not checked, as with Taunt.
+   * @returns Whether the move was cancelled
+   */
+  private checkAllOutPitchRestriction(): boolean {
+    const deniedText = getAllOutPitchMoveDeniedText(this.pokemon, this.move.moveId);
     if (!deniedText) {
       return false;
     }
@@ -620,7 +661,9 @@ export class MovePhase extends PokemonPhase {
       if (pokemon !== this.pokemon) {
         applyAbAttrs("RedirectMoveAbAttr", {
           pokemon,
-          moveId: this.move.moveId,
+          // Local fork (2026-11-16): Z / Max moves. The move actually used (Discharge made Max Lightning is a
+          // single-target move Lightning Rod can draw); the registry entry of a Max / Z id has its target and type
+          moveId: this.move.getMove().id,
           targetIndex: redirectTarget,
           sourcePokemon: this.pokemon,
         });
@@ -728,6 +771,11 @@ export class MovePhase extends PokemonPhase {
     }
     // Showing move text always adjusts the move history entry's move id
     this.moveHistoryEntry.move = moveId;
+    // Local fork (2026-11-16): Z / Max moves. The converted slot's Max / Z id next to its original move
+    const usedId = pokemonMove.getMove().id;
+    if (usedId !== moveId) {
+      this.moveHistoryEntry.derivedMoveId = usedId;
+    }
 
     // TODO: This should be done by the move...
     globalScene.phaseManager.queueMessage(
@@ -1053,11 +1101,14 @@ export class MovePhase extends PokemonPhase {
       });
     }
 
+    // Local fork (2026-11-16): Z / Max moves. The slot's original move, plus the Max / Z id it was converted into
+    const baseMoveId = getBaseMoveId(move);
     pokemon.pushMoveHistory({
-      move: move.id,
+      move: baseMoveId,
       targets: this.targets,
       result: MoveResult.FAIL,
       useMode: this.useMode,
+      ...(move.id === baseMoveId ? {} : { derivedMoveId: move.id }),
     });
 
     // Use move-specific failure messages if present before checking terrain/weather blockage

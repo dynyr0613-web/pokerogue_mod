@@ -17,6 +17,7 @@ import {
   WILD_MARKS,
 } from "#data/pokemon-marks";
 import { BattleType } from "#enums/battle-type";
+import { Button } from "#enums/buttons";
 import { MoveId } from "#enums/move-id";
 import { PokeballType } from "#enums/pokeball";
 import { PokemonMark } from "#enums/pokemon-mark";
@@ -24,6 +25,7 @@ import { SpeciesId } from "#enums/species-id";
 import { TimeOfDay } from "#enums/time-of-day";
 import { TrainerSlot } from "#enums/trainer-slot";
 import { TrainerType } from "#enums/trainer-type";
+import { UiMode } from "#enums/ui-mode";
 import { WeatherType } from "#enums/weather-type";
 import { EnemyPokemon } from "#field/pokemon";
 import {
@@ -33,12 +35,14 @@ import {
 import { PokemonData } from "#system/pokemon-data";
 import { GameManager } from "#test/framework/game-manager";
 import { getAppRootDir } from "#test/utils/sprite-utils";
+import type { EnemyBattleInfo } from "#ui/enemy-battle-info";
+import type { PokedexPageUiHandler } from "#ui/pokedex-page-ui-handler";
 import { getEnumValues } from "#utils/enums";
 import fs from "node:fs";
 import path from "node:path";
 import i18next from "i18next";
 import Phaser from "phaser";
-import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 describe("Local fork - marks and ribbons", () => {
   let phaserGame: Phaser.Game;
@@ -355,5 +359,55 @@ describe("Local fork - marks and ribbons", () => {
     expect(marked).toBeLessThan(80);
     expect(alphas).toBeGreaterThan(0);
     expect(alphas).toBeLessThan(40);
+  });
+
+  // Local fork (2026-11-17), review: a boss's box moves the name and the icons next to it 48px left, but not the mark
+  // icons, which stayed behind on top of the boss HP label and the start of the HP bar
+  it("moves a wild boss's mark icons with its name", async () => {
+    await game.classicMode.startBattle(SpeciesId.FEEBAS);
+    const species = game.field.getEnemyPokemon().species;
+    /** Where the mark's icon ends up in the Pokémon's box */
+    const markIconX = (boss: boolean): number => {
+      const pokemon = new EnemyPokemon(species, 20, TrainerSlot.NONE, boss);
+      pokemon.marks = [PokemonMark.RARE_MARK];
+      pokemon.init();
+      const info = pokemon.getBattleInfo() as EnemyBattleInfo;
+      expect(info["boss"]).toBe(boss);
+      const icon = info["markIcons"][0];
+      expect(icon.visible).toBe(true);
+      const x = icon.x;
+      pokemon.destroy();
+      return x;
+    };
+    expect(markIconX(true) - markIconX(false)).toBe(-48);
+  });
+
+  // Local fork (2026-11-17), review: the Pokédex page opened from the party lost its marks' option after going to
+  // another species (an evolution, or the next one in the Pokédex) and back
+  it("shows a party Pokémon's marks again when its Pokédex page comes back from another species", async () => {
+    await game.classicMode.startBattle(SpeciesId.FEEBAS);
+    const feebas = game.field.getPlayerPokemon();
+    feebas.addMark(PokemonMark.RARE_MARK);
+    await game.scene.ui.setOverlayMode(
+      UiMode.POKEDEX_PAGE,
+      feebas.species,
+      {},
+      undefined,
+      undefined,
+      undefined,
+      feebas,
+    );
+    const page = game.scene.ui.getHandler() as PokedexPageUiHandler;
+    expect(page["markPokemon"]).toBe(feebas);
+
+    // On to the next species in the Pokédex: not this Pokémon's, so no marks there
+    page.processInput(Button.RIGHT);
+    await vi.waitFor(() => expect(page["species"].speciesId).toBe(SpeciesId.MILOTIC));
+    expect(page["markPokemon"]).toBeNull();
+
+    // Back to its own species: the marks' option is there again
+    page.processInput(Button.CANCEL);
+    await vi.waitFor(() => expect(page["species"].speciesId).toBe(SpeciesId.FEEBAS));
+    expect(page["markPokemon"]).toBe(feebas);
   });
 });

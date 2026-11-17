@@ -3,7 +3,6 @@ import { audioManager } from "#app/global-audio-manager";
 import { globalScene } from "#app/global-scene";
 import { getPokemonNameWithAffix } from "#app/messages";
 import { FRIENDSHIP_LOSS_FROM_FAINT } from "#balance/starters";
-import { allMoves } from "#data/data-lists";
 import { classicFinalBossDialogue } from "#data/dialogue";
 import { SpeciesFormChangeActiveTrigger } from "#data/form-change-triggers";
 import { ArenaTagSide } from "#enums/arena-tag-side";
@@ -12,11 +11,13 @@ import type { BattlerIndex } from "#enums/battler-index";
 import { BattlerTagLapseType } from "#enums/battler-tag-lapse-type";
 import { BattlerTagType } from "#enums/battler-tag-type";
 import { HitResult } from "#enums/hit-result";
+import type { MoveId } from "#enums/move-id";
 import { StatusEffect } from "#enums/status-effect";
 import { SwitchType } from "#enums/switch-type";
 import type { EnemyPokemon, PlayerPokemon, Pokemon } from "#field/pokemon";
 import { PokemonInstantReviveModifier } from "#modifiers/modifier";
-import { PokemonMove } from "#moves/pokemon-move";
+import type { Move } from "#moves/move";
+import { getRecordedMove } from "#moves/move-transform"; // Local fork (2026-11-16): Z / Max moves
 import { PokemonPhase } from "#phases/pokemon-phase";
 import { inSpeedOrder } from "#utils/speed-order-generator";
 import i18next from "i18next";
@@ -130,7 +131,9 @@ export class FaintPhase extends PokemonPhase {
         // TODO: We should refactor lastAttack's sourceId to forbid null and just use undefined
         attacker: globalScene.getPokemonById(lastAttack.sourceId) ?? undefined,
         // TODO: improve the way that we provide the move that knocked out the pokemon...
-        move: new PokemonMove(lastAttack.move).getMove(),
+        // Local fork (2026-11-16): Z / Max moves. The move as used (a contact attack made a Max move makes no contact,
+        // so Aftermath does not trigger)
+        move: getReceivedAttackMove(lastAttack.sourceId, lastAttack.move, lastAttack.derivedMoveId),
       }); // TODO: is this bang correct?
     } else {
       //If killed by indirect damage, apply post-faint abilities without providing a last move
@@ -145,7 +148,9 @@ export class FaintPhase extends PokemonPhase {
 
       if (defeatSource?.isOnField()) {
         applyAbAttrs("PostVictoryAbAttr", { pokemon: defeatSource });
-        const pvmove = allMoves[pokemon.turnData.attacksReceived[0].move];
+        // Local fork (2026-11-16): Z / Max moves. The move as used (Fell Stinger made Max Flutterby does not boost)
+        const lastAttack = pokemon.turnData.attacksReceived[0];
+        const pvmove = getReceivedAttackMove(lastAttack.sourceId, lastAttack.move, lastAttack.derivedMoveId);
         const pvattrs = pvmove.getAttrs("PostVictoryStatStageChangeAttr");
         if (pvattrs.length > 0) {
           for (const pvattr of pvattrs) {
@@ -251,4 +256,16 @@ export class FaintPhase extends PokemonPhase {
     phaseManager.unshiftNew("DamageAnimPhase", enemy.getBattlerIndex(), 0, HitResult.INDIRECT);
     this.end();
   }
+}
+
+/**
+ * Local fork (2026-11-16): Z / Max moves. The move of a received attack as its user used it: the attack record keeps
+ * the slot's original move (`attacksReceived[].move`) and the converted move it was used as (`derivedMoveId`).
+ * @param sourceId - The attacker's id
+ * @param moveId - The recorded (original) move
+ * @param derivedMoveId - The recorded Max / Z move, if the slot was converted
+ */
+function getReceivedAttackMove(sourceId: number, moveId: MoveId, derivedMoveId: MoveId | undefined): Move {
+  const attacker = globalScene.getPokemonById(sourceId) ?? undefined;
+  return getRecordedMove(attacker, moveId, derivedMoveId);
 }

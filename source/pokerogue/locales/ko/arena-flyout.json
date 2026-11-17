@@ -45,5 +45,11 @@
   "waterFirePledge": "무지개",
   "grassWaterPledge": "습지초원",
   "fairyLock": "페어리록",
-  "imprison": "봉인"
+  "imprison": "봉인",
+  "garden": "정원",
+  "gMaxWildfire": "거다이옥염",
+  "gMaxVineLash": "거다이편달",
+  "gMaxCannonade": "거다이포격",
+  "gMaxVolcalith": "거다이분석",
+  "gMaxSteelsurge": "거다이강철진"
 }

@@ -2388,6 +2388,7 @@ export function initGenerationEight(): SpeciesDataMapConfig {
       [15, MoveId.ROCK_POLISH],
       [20, MoveId.ANCIENT_POWER],
       [27, MoveId.INCINERATE],
+      [30, MoveId.SUBLIMATION], // Local fork (2026-11-14): custom moves
       [35, MoveId.STEALTH_ROCK],
       [41, MoveId.HEAT_CRASH],
       [48, MoveId.ROCK_BLAST],
@@ -2509,6 +2510,7 @@ export function initGenerationEight(): SpeciesDataMapConfig {
       [18, MoveId.FLAME_CHARGE],
       [20, MoveId.ANCIENT_POWER],
       [27, MoveId.INCINERATE],
+      [30, MoveId.SUBLIMATION], // Local fork (2026-11-14): custom moves
       [37, MoveId.STEALTH_ROCK],
       [45, MoveId.HEAT_CRASH],
       [54, MoveId.ROCK_BLAST],
@@ -5024,6 +5026,7 @@ export function initGenerationEight(): SpeciesDataMapConfig {
       [26, MoveId.FLING],
       [28, MoveId.TAKE_DOWN],
       [33, MoveId.SCARY_FACE],
+      [38, MoveId.BLINDSIDE], // Local fork (2026-11-14): custom moves
       [42, MoveId.COUNTER],
       [49, MoveId.TAUNT],
       [56, MoveId.DOUBLE_EDGE],
@@ -13496,6 +13499,7 @@ export function initGenerationEight(): SpeciesDataMapConfig {
       [21, MoveId.FURY_CUTTER],
       [26, MoveId.WATER_PULSE],
       [29, MoveId.REVENGE],
+      [30, MoveId.ICEBREAKER], // Local fork (2026-11-14): custom moves
       [31, MoveId.AERIAL_ACE],
       [34, MoveId.AQUA_JET],
       [39, MoveId.ENCORE],

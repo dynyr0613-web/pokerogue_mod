@@ -135,11 +135,15 @@ export const failIfTargetNotAttackingCondition = new MoveCondition((_user, targe
   if (!turnCommand || !turnCommand.move) {
     return false;
   }
-  return (
-    turnCommand.command === Command.FIGHT
-    && !target.turnData.acted
-    && allMoves[turnCommand.move.move].category !== MoveCategory.STATUS
-  );
+  // Local fork (2026-11-16): Z-Moves and Max Moves. The command holds the slot's base move; a converted slot acts as
+  // its derived move (Tackle -> Extreme Evoboost is a status move), as in upperHandCondition below
+  const commandMoveId = turnCommand.move.move;
+  const move =
+    target
+      .getMoveset()
+      .find(m => m.moveId === commandMoveId)
+      ?.getMove() ?? allMoves[commandMoveId];
+  return turnCommand.command === Command.FIGHT && !target.turnData.acted && move.category !== MoveCategory.STATUS;
 });
 
 /**
@@ -166,13 +170,18 @@ export const failAgainstFinalBossCondition = new MoveCondition((_user, target) =
  */
 export const upperHandCondition = new MoveCondition((_user, target) => {
   const targetCommand = globalScene.currentBattle.turnCommands[target.getBattlerIndex()];
-  return (
-    targetCommand?.command === Command.FIGHT
-    && !target.turnData.acted
-    && !!targetCommand.move?.move
-    && allMoves[targetCommand.move.move].category !== MoveCategory.STATUS
-    && allMoves[targetCommand.move.move].getPriority(target) > 0
-  );
+  if (targetCommand?.command !== Command.FIGHT || target.turnData.acted || !targetCommand.move?.move) {
+    return false;
+  }
+  // Local fork (2026-11-16): Z-Moves and Max Moves. The command holds the slot's base move; a converted slot acts as
+  // its derived move (Quick Attack -> Max Strike has priority 0, Detect -> Max Guard is a status move)
+  const commandMoveId = targetCommand.move.move;
+  const move =
+    target
+      .getMoveset()
+      .find(m => m.moveId === commandMoveId)
+      ?.getMove() ?? allMoves[commandMoveId];
+  return move.category !== MoveCategory.STATUS && move.getPriority(target) > 0;
 });
 
 /**

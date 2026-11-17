@@ -65,6 +65,7 @@ import {
 } from "#moves/move-condition";
 import { isWeatherInstantCharge } from "#moves/move-utils";
 import { PokemonMove } from "#moves/pokemon-move";
+import { isZMaxOnlyMove } from "#moves/zmax-data"; // Local fork (2026-11-16): Z-Moves and Max Moves
 import type { LevelMovesWithSource } from "#types/level-moves";
 import type { Move, StatStageChangeAttr } from "#types/move-types";
 import type { StarterSpeciesId } from "#types/starter-species-id";
@@ -116,7 +117,8 @@ function getAndWeightLevelMoves(pokemon: Pokemon): Map<MoveId, number> {
     }
     const move = allMoves[id];
     // Skip unimplemented moves or moves that are already in the pool
-    if (move.isUnimplemented || movePool.has(id)) {
+    // Local fork (2026-11-16): Z-Moves and Max Moves. Also the Z / Max / G-Max ids (only converted slots use them)
+    if (move.isUnimplemented || movePool.has(id) || isZMaxOnlyMove(id)) {
       continue;
     }
 
@@ -383,6 +385,8 @@ function filterMovePool(
   const blockTerrainSettingMoves = pokemon.hasAbilityWithAttr("PostSummonTerrainChangeAbAttr");
   // Block status moves if pokemon has Gorilla Tactics
   const hasGorillaTactics = pokemon.hasAbilityWithAttr("GorillaTacticsAbAttr");
+  // Local fork (2026-11-14): passive rebalance. All-Out Pitch (전력투구) can't select status moves either
+  const hasAllOutPitch = pokemon.hasAbility(AbilityId.ALL_OUT_PITCH, false, true);
   const worseOffensiveStatDenylist = getSpeciesDeniedOffensiveStat(pokemon.species.speciesId, pokemon.formIndex);
   const typesForMoveConditions = pokemon.getTypes({
     includeTeraType: willTera,
@@ -407,6 +411,7 @@ function filterMovePool(
     if (
       weight <= 0
       || move.isUnimplemented // Forbid unimplemented moves
+      || isZMaxOnlyMove(moveId) // Local fork (2026-11-16): Z / Max / G-Max ids only exist as converted slots
       || move.hasAttr("SacrificialAttrOnHit") // No one gets Memento or Final Gambit
       || (isBoss && (move.hasAttr("SacrificialAttr") || move.hasAttr("HpSplitAttr"))) // Bosses never get self ko moves or Pain Split
       || (hasTrainer && move.hasAttr("OneHitKOAttr")) // trainers never get OHKO moves
@@ -414,7 +419,9 @@ function filterMovePool(
         && (isSoftBlocked
           || (move.hasAttr("WeatherChangeAttr") && blockWeatherSettingMoves) // Forbid weather setting moves if the pokemon has a weather summoning or suppressing ability
           || (move.hasAttr("TerrainChangeAttr") && blockTerrainSettingMoves) // Forbid terrain setting moves if the pokemon has a terrain summoning ability
+          || isGardenMoveForGardener(pokemon, moveId) // Local fork (2026-11-14): no Gardening for a Gardener
           || (hasGorillaTactics && move.category === MoveCategory.STATUS) // Forbid status moves if pokemon has Gorilla Tactics
+          || (hasAllOutPitch && move.category === MoveCategory.STATUS) // Local fork (2026-11-14): same for All-Out Pitch
           || move.hasCondition(
             // Forbid moves that have a type requirement that the pokemon does not have
             (condition: MoveCondition) =>
@@ -838,6 +845,18 @@ function overridesOrIgnoresWeather(pokemon: Pokemon): boolean {
 }
 
 /**
+ * Local fork (2026-11-14): custom moves. A Gardener (정원사) boss or trainer Pokémon already sets the Garden (정원) on
+ * entry, so it does not get Gardening (정원가꾸기), which would only fail while that Garden is up (the terrain-setter
+ * rule above, for the side-only Garden).
+ * @param pokemon - The Pokémon whose move pool is filtered
+ * @param moveId - The move under examination
+ * @returns Whether the move is Gardening and the Pokémon has Gardener (ability or passive)
+ */
+function isGardenMoveForGardener(pokemon: Pokemon, moveId: MoveId): boolean {
+  return moveId === MoveId.GARDENING && pokemon.hasAbilityWithAttr("PostSummonAddGardenAbAttr");
+}
+
+/**
  * Determine whether the Pokémon would benefit from Rain Dance based on its
  * current moveset and abilities.
  * @param pokemon - The Pokémon under examination
@@ -858,6 +877,11 @@ function shouldRemoveRainDance(pokemon: Pokemon): boolean {
   for (const pokemonMove of pokemon.moveset) {
     const move = pokemonMove.getMove();
     if (isWeatherInstantCharge(move, WeatherType.RAIN)) {
+      return false;
+    }
+    // Local fork (2026-11-14): custom moves. Keep Rain Dance for a move boosted by rain despite its type (Sublimation,
+    // 승화), as Sunny Day stays for Hydro Steam (checked by attr, not by move id)
+    if (move.getAttrs("OverrideWeatherMultiplierAttr").some(attr => attr.weather === WeatherType.RAIN)) {
       return false;
     }
   }
@@ -963,7 +987,8 @@ function shouldRemoveSandstorm(pokemon: Pokemon, willTera: boolean): boolean {
   ) {
     return false;
   }
-  for (const sandAbility of [AbilityId.SAND_RUSH, AbilityId.SAND_VEIL, AbilityId.FORECAST]) {
+  // Local fork (2026-11-14): passive rebalance. Sand Sprint (모래질주) works only in sandstorm
+  for (const sandAbility of [AbilityId.SAND_RUSH, AbilityId.SAND_VEIL, AbilityId.FORECAST, AbilityId.SAND_SPRINT]) {
     if (pokemon.hasAbility(sandAbility, false, true)) {
       return false;
     }
@@ -1104,6 +1129,7 @@ function filterUselessMoves(pokemon: Pokemon, willTera: boolean): boolean {
       || (moveId === MoveId.AURORA_VEIL // Aurora veil without hail / snowscape
         && !(
           pokemon.hasAbility(AbilityId.SNOW_WARNING, false, true)
+          || pokemon.hasAbility(AbilityId.COLD_SNAP, false, true) // Local fork (2026-11-14): Cold Snap sets snow too
           || moveset.some(m => [MoveId.HAIL, MoveId.SNOWSCAPE].includes(m.moveId))
         ))
       || ([MoveId.SOLAR_BEAM, MoveId.SOLAR_BLADE].includes(moveId) && !hasSunInstantCharge(pokemon))
@@ -1427,6 +1453,8 @@ export const __INTERNAL_TEST_EXPORTS: {
   forceStabMove: typeof forceStabMove;
   filterRemainingTrainerMovePool: typeof reWeightRemainingTrainerMovePool;
   fillInRemainingMovesetSlots: typeof fillInRemainingMovesetSlots;
+  /** Local fork (2026-11-14): custom moves. Tested for Rain Dance kept next to Sublimation (승화) */
+  filterUselessMoves: typeof filterUselessMoves;
   forceLogging?: boolean;
 } = {} as any;
 
@@ -1447,6 +1475,7 @@ if (IS_TEST) {
     forceStabMove,
     filterRemainingTrainerMovePool: reWeightRemainingTrainerMovePool,
     fillInRemainingMovesetSlots,
+    filterUselessMoves, // Local fork (2026-11-14): custom moves
     forceLogging: false,
   });
 }

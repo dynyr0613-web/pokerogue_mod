@@ -86,5 +86,9 @@
   "fallDown": "{{targetPokemonName}}는\n떨어뜨리기를 당해서 땅에 떨어졌다!",
   "celebrate": "축하해!\n{{playerName}}!!",
   "struggle": "{{pokemonName}}[[는]]\n쓸 수 있는 기술이 없다!",
-  "rageIsBuilding": "{{pokemonName}}의\n분노 볼티지가 올라가고 있다!"
+  "rageIsBuilding": "{{pokemonName}}의\n분노 볼티지가 올라가고 있다!",
+  "zPower": "{{pokemonName}}[[는]]\nZ파워를 몸에 둘렀다!",
+  "zPowerResetStats": "{{pokemonName}}[[는]] Z파워로\n떨어진 능력이 원래대로 돌아왔다!",
+  "zPowerHeal": "{{pokemonName}}[[는]] Z파워로\n체력을 회복했다!",
+  "zPowerHealReplacement": "Z파워가 교체로 나온 포켓몬의\n체력을 회복시켰다!"
 }

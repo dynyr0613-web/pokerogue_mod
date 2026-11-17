@@ -159,6 +159,36 @@
       "name": "테라스탈오브",
       "description": "포켓몬들이 테라스탈할 수 있게 된다. 서서히 충전되며, 테라피스를 사용할 수 있게 된다."
     },
+    "Z_RING": {
+      "name": "Z링",
+      "description": "Z크리스탈이 보상으로 나오게 된다. Z크리스탈로 포켓몬의 기술을 Z기술로 바꿀 수 있다."
+    },
+    "DYNAMAX_CANDY": {
+      "name": "다이사탕",
+      "description": "포켓몬의 기술 하나를 영원히 다이 기술로 바꾼다. 거다이맥스할 수 있는 포켓몬은 전용기(없으면 거다이 기술과 같은 타입의 기술)가 거다이 기술이 된다. 변화 기술은 다이월, 칼춤은 다이검무(공격 3랭크 업)가 되고, Z기술은 Z다이 기술(위력 200, 방어를 뚫고 1/2 데미지)이 된다.",
+      "chooseMove": "다이 기술로 바꿀 기술을 선택하세요.",
+      "confirm": "{{pokemonName}}의\n{{moveName}}[[를]] {{resultName}}[[로]] 바꾸겠습니까?",
+      "reason": {
+        "maxMove": "이미 다이 기술이다.",
+        "converted": "더 이상 바꿀 수 없는 기술이다.",
+        "cannot": "다이 기술로 바꿀 수 없는 기술이다."
+      }
+    },
+    "Z_CRYSTAL": {
+      "name": "{{typeName}}Z",
+      "description": "{{typeName}} 타입 기술 하나를 영원히 Z기술로 바꾼다. 공격 기술은 {{zMoveName}}[[가]] 되고, 변화 기술은 Z파워로 효과가 더해진다. 다이 기술은 Z다이 기술(위력 200, 방어를 뚫고 1/2 데미지)이 된다. 거다이 기술에는 쓸 수 없다.",
+      "exclusiveDescription": "{{speciesName}} 전용 Z크리스탈. {{typeName}} 타입 기술 하나를 영원히 {{zMoveName}}[[로]] 바꾼다. 다이 기술과 거다이 기술에는 쓸 수 없다.",
+      "chooseMove": "Z기술로 바꿀 기술을 선택하세요.",
+      "confirm": "{{pokemonName}}의\n{{moveName}}[[를]] {{resultName}}[[로]] 바꾸겠습니까?",
+      "reason": {
+        "wrongType": "{{typeName}} 타입 기술이 아니다.",
+        "gmax": "거다이 기술은 Z기술로 바꿀 수 없다.",
+        "zMove": "이미 Z기술이다.",
+        "maxMove": "다이 기술은 전용 Z기술로 바꿀 수 없다.",
+        "wrongSpecies": "{{pokemonName}}에게는 쓸 수 없다.",
+        "cannot": "Z기술로 바꿀 수 없는 기술이다."
+      }
+    },
     "MAP": {
       "name": "지도",
       "description": "갈림길에서 목적지를 선택할 수 있다."
@@ -778,6 +808,24 @@
     "SCROLL_OF_DARKNESS": "악의 족자",
     "SCROLL_OF_WATERS": "물의 족자",
     "SYRUPY_APPLE": "꿀맛사과"
+  },
+  "ZCrystal": {
+    "PIKANIUM_Z": "피카츄Z",
+    "ALORAICHIUM_Z": "라이츄Z",
+    "DECIDIUM_Z": "모크나이퍼Z",
+    "INCINIUM_Z": "어흥염Z",
+    "PRIMARIUM_Z": "누리레느Z",
+    "EEVIUM_Z": "이브이Z",
+    "SNORLIUM_Z": "잠만보Z",
+    "MEWNIUM_Z": "뮤Z",
+    "TAPUNIUM_Z": "카푸Z",
+    "MARSHADIUM_Z": "마샤도Z",
+    "KOMMONIUM_Z": "짜랑고우거Z",
+    "LYCANIUM_Z": "루가루암Z",
+    "MIMIKIUM_Z": "따라큐Z",
+    "SOLGANIUM_Z": "솔가레오Z",
+    "LUNALIUM_Z": "루나아라Z",
+    "ULTRANECROZIUM_Z_CRYSTAL": "울트라네크로Z 결정"
   },
   "FormChangeItem": {
     "NONE": "None",

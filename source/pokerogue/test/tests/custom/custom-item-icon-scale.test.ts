@@ -6,10 +6,13 @@ import { Stat } from "#enums/stat";
 import { UiMode } from "#enums/ui-mode";
 import { MysteryEncounterIntroVisuals } from "#field/mystery-encounter-intro";
 import { PokemonHeldItemModifier } from "#modifiers/modifier";
-import { IvCandyModifierType, type ModifierTypeGenerator } from "#modifiers/modifier-type";
+import { IvCandyModifierType, type ModifierTypeGenerator, ZCrystalModifierType } from "#modifiers/modifier-type";
+import { Z_TYPE_CRYSTAL_ICONS, Z_TYPE_CRYSTAL_TYPES } from "#modifiers/zmax-items";
+import { EXCLUSIVE_Z } from "#moves/zmax-data";
 import type { MysteryEncounter } from "#mystery-encounters/mystery-encounter";
 import { GameManager } from "#test/framework/game-manager";
 import {
+  DYNAMAX_CANDY_ICON_SCALE,
   FORK_CANDY_ICON_SCALE,
   FORK_CANDY_ICONS,
   getItemIconCentringOffset,
@@ -19,6 +22,9 @@ import {
   IV_CANDY_ICON_SCALE,
   REWARD_ITEM_ICON_SCALE,
   SUMMARY_ITEM_ICON_SCALE,
+  Z_CRYSTAL_ICON_SCALE,
+  Z_CRYSTAL_ICONS,
+  Z_RING_ICON_SCALE,
 } from "#ui/item-icon-scale";
 import type { ModifierSelectUiHandler } from "#ui/modifier-select-ui-handler";
 import { SummaryUiMode } from "#ui/summary-ui-handler";
@@ -95,6 +101,32 @@ describe("Custom - item icon draw scale", () => {
       const frame = frames.find(f => f.filename === icon);
       expect(frame, icon).toBeDefined();
       expect(frame!.sourceSize).toEqual({ w: ITEM_ICON_SOURCE_SIZE, h: ITEM_ICON_SOURCE_SIZE });
+    }
+  });
+
+  // Local fork (2026-11-16): the Z-Moves and Max Moves rewards' icons are Cobblemon: Mega Showdown's textures scaled 2x;
+  // the user: "아이콘은 언제나처럼 코블버스 쪽에서 빼오면 됩니다 / 거기에 다이사탕이랑 z링, z 크리스탈들 도트 이미지가 다
+  // 있어요 / 이미지가 크지 않도록 배율 조절도 해주세요" (measurements in item-icon-scale.ts)
+  it("draws Z링 at 0.7, 다이사탕 at 0.65 and every Z crystal at 0.8, Necrozma's own crystal at 1", () => {
+    expect(Z_CRYSTAL_ICON_SCALE).toBe(0.8);
+    expect(Z_RING_ICON_SCALE).toBe(0.7);
+    expect(DYNAMAX_CANDY_ICON_SCALE).toBe(0.65);
+    expect(Object.isFrozen(Z_CRYSTAL_ICONS)).toBe(true);
+    expect(Z_CRYSTAL_ICONS).toHaveLength(18 + 16);
+    expect(new Set(Z_CRYSTAL_ICONS)).toEqual(
+      new Set([...Z_TYPE_CRYSTAL_TYPES.map(t => Z_TYPE_CRYSTAL_ICONS[t]), ...EXCLUSIVE_Z.map(info => info.icon)]),
+    );
+    for (const icon of Z_CRYSTAL_ICONS) {
+      expect(getItemIconScale(icon), icon).toBe(0.8);
+    }
+    expect(getItemIconScale(modifierTypes.Z_RING().iconImage)).toBe(0.7);
+    expect(getItemIconScale(modifierTypes.DYNAMAX_CANDY().iconImage)).toBe(0.65);
+    for (const crystal of [...Z_TYPE_CRYSTAL_TYPES, ...EXCLUSIVE_Z.map(info => info.key)]) {
+      expect(getItemIconScale(new ZCrystalModifierType(crystal).iconImage), String(crystal)).toBe(0.8);
+    }
+    // Necrozma's form change item keeps PokeRogue's own icon at its own size; so do the official band and bracelet
+    for (const icon of ["ultranecrozium_z", "dynamax_band", "mega_bracelet", "rare_candy"]) {
+      expect(getItemIconScale(icon), icon).toBe(1);
     }
   });
 

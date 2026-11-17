@@ -1,7 +1,7 @@
 {
   "name": "pokerogue-offline",
   "productName": "PokeRogue Offline",
-  "version": "1.12.2-local.13",
+  "version": "1.0.0-beta",
   "description": "PokeRogue local fork (offline desktop build)",
   "main": "main.js",
   "license": "AGPL-3.0-only",

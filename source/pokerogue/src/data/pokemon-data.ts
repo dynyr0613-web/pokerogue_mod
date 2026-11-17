@@ -6,6 +6,7 @@ import type { PokemonSpeciesForm } from "#data/pokemon-species";
 import type { TypeDamageMultiplier } from "#data/type";
 import type { AbilityId } from "#enums/ability-id";
 import type { BerryType } from "#enums/berry-type";
+import type { MoveCategory } from "#enums/move-category";
 import type { MoveId } from "#enums/move-id";
 import type { Nature } from "#enums/nature";
 import type { PokemonType, RegularPokemonType } from "#enums/pokemon-type";
@@ -390,6 +391,13 @@ export class PokemonTurnData {
    * which then skips the status checks the charge already ran (`MovePhase.instantChargeRelease`)
    */
   public instantChargeMove: MoveId | undefined;
+  /**
+   * Local fork (2026-11-14): passive rebalance. The category the last real (not simulated) damage calculation against
+   * this Pokémon used (`Pokemon.getAttackDamage`), with the attacker's id and the move. Toughness (맷집) reads it after
+   * the hit, so Photon Geyser / Shell Side Arm / Tera Blast are not worked out again (Shell Side Arm's exact-tie roll
+   * would otherwise run once more and could disagree with the damage step).
+   */
+  public lastHitCategory: { sourceId: number; move: MoveId; category: MoveCategory } | undefined;
 
   // #endregion Move usage-related properties
 

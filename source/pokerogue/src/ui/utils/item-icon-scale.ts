@@ -64,11 +64,75 @@ export const EV_ITEM_ICONS: readonly string[] = Object.freeze([
 ]);
 
 /**
+ * Local fork (2026-11-16): the scales of the Z-Moves and Max Moves rewards' icons, Cobblemon: Mega Showdown's 16x16
+ * textures scaled 2x (tools/port_zmax_1116/make_cobbleverse_icons.py). The user: "아이콘은 언제나처럼 코블버스 쪽에서
+ * 빼오면 됩니다 / 거기에 다이사탕이랑 z링, z 크리스탈들 도트 이미지가 다 있어요 / 이미지가 크지 않도록 배율 조절도
+ * 해주세요". Measured in the 32x32 frames (visible width x height, opaque pixels; docs/zmax_icons_preview.png):
+ * - Z crystals 32x18 (320-336 px) against the official crystal `ultranecrozium_z` 28x13 (208 px): 0.8 gives 25.6x14.4
+ *   (205-215 px).
+ */
+export const Z_CRYSTAL_ICON_SCALE = 0.8;
+
+/**
+ * Local fork (2026-11-16): Z링 is a solid 28x28 disc (668 px) like the EV items (0.7); the official 다이맥스밴드 is 21x21
+ * (295 px) and 메가링 18x14 (206 px): 0.7 gives 19.6x19.6 (327 px). See {@linkcode Z_CRYSTAL_ICON_SCALE}
+ */
+export const Z_RING_ICON_SCALE = 0.7;
+
+/**
+ * Local fork (2026-11-16): 다이사탕 is a star that fills the whole 32x32 frame (604 px, with gaps between its arms); the
+ * official 이상한사탕 is 21x21 (209 px): 0.65 gives 20.8x20.8 (255 px). See {@linkcode Z_CRYSTAL_ICON_SCALE}
+ */
+export const DYNAMAX_CANDY_ICON_SCALE = 0.65;
+
+/**
+ * Local fork (2026-11-16): the frame names of the 18 type Z crystals and the 16 exclusive ones (`Z_TYPE_CRYSTAL_ICONS`
+ * in zmax-items.ts and `EXCLUSIVE_Z[].icon` in zmax-data.ts; a test keeps them in step). `ultranecrozium_z`, Necrozma's
+ * form change item, keeps PokeRogue's own icon and scale; the reward crystal is `ultranecrozium_z_crystal`
+ */
+export const Z_CRYSTAL_ICONS: readonly string[] = Object.freeze([
+  "normalium_z",
+  "fightinium_z",
+  "flyinium_z",
+  "poisonium_z",
+  "groundium_z",
+  "rockium_z",
+  "buginium_z",
+  "ghostium_z",
+  "steelium_z",
+  "firium_z",
+  "waterium_z",
+  "grassium_z",
+  "electrium_z",
+  "psychium_z",
+  "icium_z",
+  "dragonium_z",
+  "darkinium_z",
+  "fairium_z",
+  "pikanium_z",
+  "aloraichium_z",
+  "decidium_z",
+  "incinium_z",
+  "primarium_z",
+  "eevium_z",
+  "snorlium_z",
+  "mewnium_z",
+  "tapunium_z",
+  "marshadium_z",
+  "kommonium_z",
+  "lycanium_z",
+  "mimikium_z",
+  "solganium_z",
+  "lunalium_z",
+  "ultranecrozium_z_crystal",
+]);
+
+/**
  * Every icon drawn at another scale than 1, by frame name. The candies as above; the Cobblemon icons that fill the
  * whole 32x32 frame (펀치글러브 and 마스터 펀치글러브 share one drawing) and 프리즘 as the user chose on 2026-11-11;
  * 클리어참 0.7 (2026-11-13);
  * the two HP belts (2026-11-12, {@linkcode HP_BELT_ICON_SCALE}); the six EV items (2026-11-12,
- * {@linkcode EV_ITEM_ICON_SCALE}).
+ * {@linkcode EV_ITEM_ICON_SCALE}); Z링, 다이사탕 and the Z crystals (2026-11-16, {@linkcode Z_CRYSTAL_ICON_SCALE}).
  */
 export const ITEM_ICON_SCALES: ReadonlyMap<string, number> = new Map([
   ["health_candy", IV_CANDY_ICON_SCALE],
@@ -87,6 +151,10 @@ export const ITEM_ICON_SCALES: ReadonlyMap<string, number> = new Map([
   ["weight_band", HP_BELT_ICON_SCALE],
   ["champion_belt", HP_BELT_ICON_SCALE],
   ...EV_ITEM_ICONS.map(icon => [icon, EV_ITEM_ICON_SCALE] as const),
+  // Local fork (2026-11-16): the Cobbleverse (Mega Showdown) icons of the Z-Moves and Max Moves rewards
+  ["z_ring", Z_RING_ICON_SCALE],
+  ["dynamax_candy", DYNAMAX_CANDY_ICON_SCALE],
+  ...Z_CRYSTAL_ICONS.map(icon => [icon, Z_CRYSTAL_ICON_SCALE] as const),
 ]);
 
 /**

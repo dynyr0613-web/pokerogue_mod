@@ -22,6 +22,7 @@ import {
 } from "#modifiers/custom-consumables";
 import { MasterTmModifierType } from "#modifiers/modifier-type";
 import { PokemonMove } from "#moves/pokemon-move";
+import { isZMaxOnlyMove } from "#moves/zmax-data";
 import { GameManager } from "#test/framework/game-manager";
 import { MockSprite } from "#test/mocks/mocks-container/mock-sprite";
 import type { WeightedModifierTypeWeightFunc } from "#types/modifier-types";
@@ -235,7 +236,8 @@ describe("Custom items - Master TM (마스터 기술머신)", () => {
       expect(moves, MoveId[move]).toContain(move);
     }
     expect(pikachu.getLearnableLevelMoves().some(m => m[1] === MoveId.SPACIAL_REND)).toBe(false);
-    // known moves, Struggle / no move, and everything marked unimplemented (Z-Moves and Max Moves among them)
+    // known moves, Struggle / no move, everything marked unimplemented, and (Local fork 2026-11-16) the Z-Moves and
+    // Max Moves, now implemented but kept out by `isZMaxOnlyMove`
     for (const move of [
       MoveId.SPLASH,
       MoveId.THUNDERBOLT,
@@ -245,12 +247,16 @@ describe("Custom items - Master TM (마스터 기술머신)", () => {
       MoveId.CATASTROPIKA,
       MoveId.MAX_FLARE,
       MoveId.MAX_GUARD,
+      MoveId.G_MAX_MELTDOWN,
+      MoveId.MAX_SWORDS_DANCE,
     ]) {
       expect(moves, MoveId[move]).not.toContain(move);
     }
     expect(MASTER_TM_EXCLUDED_MOVES).toEqual(new Set([MoveId.NONE, MoveId.STRUGGLE]));
     expect(allMoves.filter(m => m.isUnimplemented).every(m => !moves.includes(m.id))).toBe(true);
-    const implemented = allMoves.filter(m => !m.isUnimplemented && !MASTER_TM_EXCLUDED_MOVES.has(m.id));
+    const implemented = allMoves.filter(
+      m => !m.isUnimplemented && !MASTER_TM_EXCLUDED_MOVES.has(m.id) && !isZMaxOnlyMove(m.id),
+    );
     expect(moves).toHaveLength(implemented.length - 2);
 
     // by type: every move under its own type, all 18 types used, each list in name order

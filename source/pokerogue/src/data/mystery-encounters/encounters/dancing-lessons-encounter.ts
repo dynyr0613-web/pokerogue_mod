@@ -1,6 +1,7 @@
 import { CLASSIC_MODE_MYSTERY_ENCOUNTER_WAVES } from "#app/constants";
 import { globalScene } from "#app/global-scene";
 import { speciesDataRegistry } from "#app/global-species-data-registry";
+import { clearWildAlpha } from "#data/alpha-pokemon";
 import { EncounterBattleAnim } from "#data/battle-anims";
 import { modifierTypes } from "#data/data-lists";
 import { BattlerIndex } from "#enums/battler-index";
@@ -99,6 +100,9 @@ export const DancingLessonsEncounter: MysteryEncounter = MysteryEncounterBuilder
     const species = speciesDataRegistry.getSpecies(SpeciesId.ORICORIO);
     const level = getEncounterPokemonLevelForWave(STANDARD_ENCOUNTER_BOOSTED_LEVEL_MODIFIER);
     const enemyPokemon = new EnemyPokemon(species, level, TrainerSlot.NONE, false);
+    // Local fork (2026-11-17): it is made as a wild Pokémon (so its moveset stays the same) but fought as a boss, and
+    // bosses are never alphas or mini Pokémon (alpha-pokemon.ts); its data carries over to the boss and to option 3
+    clearWildAlpha(enemyPokemon);
     if (!enemyPokemon.moveset.some(m => m && m.getMove().id === MoveId.REVELATION_DANCE)) {
       if (enemyPokemon.moveset.length < 4) {
         enemyPokemon.moveset.push(new PokemonMove(MoveId.REVELATION_DANCE));

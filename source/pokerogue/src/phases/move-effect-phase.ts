@@ -36,6 +36,7 @@ import {
 } from "#modifiers/modifier";
 import { applyFilteredMoveAttrs, applyMoveAttrs } from "#moves/apply-attrs";
 import type { Move, MoveAttr } from "#moves/move";
+import { getAnimMoveId, getBaseMoveId } from "#moves/move-transform"; // Local fork (2026-11-16): Z / Max moves
 import { isFieldTargeted } from "#moves/move-utils";
 import { PokemonPhase } from "#phases/pokemon-phase";
 import { DamageAchv } from "#system/achv";
@@ -166,11 +167,15 @@ export class MoveEffectPhase extends PokemonPhase {
       user.turnData.prismPartner = undefined;
     }
 
+    // Local fork (2026-11-16): Z / Max moves. History keeps the slot's original move (Encore, Disable, Torment,
+    // Choice locks and Copycat stay slot-based), with the Max / Z id of a converted slot next to it
+    const baseMoveId = getBaseMoveId(this.move);
     this.moveHistoryEntry = {
-      move: this.move.id,
+      move: baseMoveId,
       targets: this.targets,
       result: MoveResult.PENDING,
       useMode: this.useMode,
+      ...(this.move.id === baseMoveId ? {} : { derivedMoveId: this.move.id }),
     };
 
     const fieldMove = isFieldTargeted(move);
@@ -191,7 +196,7 @@ export class MoveEffectPhase extends PokemonPhase {
 
       for (const target of targetsForAnimation) {
         new MoveAnim(
-          move.id as MoveId,
+          getAnimMoveId(move), // Local fork (2026-11-16): Z / Max moves play the base move's (or their own) animation
           user,
           target.getBattlerIndex(),
           // Some moves used in mystery encounters should be played even on an empty field
@@ -515,6 +520,24 @@ export class MoveEffectPhase extends PokemonPhase {
    * @returns Whether the target was protected
    */
   private protectedCheck(user: Pokemon, target: Pokemon): boolean {
+    /** Local fork (2026-11-16): Z / Max moves. Whether the move can be stopped at all (not a side / field move) */
+    const canBeProtected = ![MoveTarget.ENEMY_SIDE, MoveTarget.BOTH_SIDES].includes(this.move.moveTarget);
+    const isStatusMove = this.move.category === MoveCategory.STATUS;
+    // Local fork (2026-11-16): Z / Max moves. A Max / G-Max / Z move (ProtectPierceAttr) goes through every protection
+    // without setting it off (no message, no Spiky Shield / King's Shield effect, Quick Guard / Wide Guard / Mat Block
+    // skipped; the damage is cut in `Pokemon.getAttackDamage`); only Max Guard stops it, unless it also pierces Max
+    // Guard (Z다이 moves, G-Max One Blow / Rapid Flow)
+    const pierce = this.move.getAttrs("ProtectPierceAttr")[0];
+    if (pierce) {
+      return (
+        canBeProtected
+        && !pierce.ignoresMaxGuard
+        && target
+          .findTags((t): t is ProtectedTag => t instanceof ProtectedTag)
+          .some(t => t.blocksProtectBypass && target.lapseTag(t.tagType))
+      );
+    }
+
     /** The {@linkcode ArenaTagSide} to which the target belongs */
     const targetSide = target.isPlayer() ? ArenaTagSide.PLAYER : ArenaTagSide.ENEMY;
     /** Has the invoked move been cancelled by conditional protection (e.g Quick Guard)? */
@@ -535,13 +558,29 @@ export class MoveEffectPhase extends PokemonPhase {
       );
     }
 
-    const protectionTags = target.findTags(t => t instanceof ProtectedTag);
-    const isStatusMove = this.move.category === MoveCategory.STATUS;
+    const protectionTags = target.findTags((t): t is ProtectedTag => t instanceof ProtectedTag);
+
+    // Local fork (2026-11-16): Z / Max moves. Max Guard also stops the moves that get through other protection
+    // (Feint, Unseen Fist, the Master Punching Glove, Phantom Force …)
+    const ignoresProtect =
+      !bypassIgnoreProtect.value && this.move.doesFlagEffectApply({ flag: MoveFlags.IGNORE_PROTECT, user, target });
+    if (ignoresProtect) {
+      // Local fork (2026-11-16): Z / Max moves. Only a foe's move is stopped: a partner's Decorate / Life Dew / Perish
+      // Song (and the user's own move) still reach a Max-Guarded Pokemon, as they reach one behind Protect
+      if (!user.isOpponent(target)) {
+        return false;
+      }
+      return (
+        canBeProtected
+        && protectionTags.some(
+          t => t.blocksProtectBypass && (!isStatusMove || t.blockStatus) && target.lapseTag(t.tagType),
+        )
+      );
+    }
 
     // TODO: Break up this chunky boolean to make it more palatable
     return (
-      ![MoveTarget.ENEMY_SIDE, MoveTarget.BOTH_SIDES].includes(this.move.moveTarget)
-      && (bypassIgnoreProtect.value || !this.move.doesFlagEffectApply({ flag: MoveFlags.IGNORE_PROTECT, user, target }))
+      canBeProtected
       && (hasConditionalProtectApplied.value
         || protectionTags.some(t => (!isStatusMove || t.blockStatus) && target.lapseTag(t.tagType)))
     );
@@ -746,8 +785,11 @@ export class MoveEffectPhase extends PokemonPhase {
     target.summonData.hitCount++;
     target.turnData.damageTaken += finalDmg;
 
+    // Local fork (2026-11-16): Z / Max moves record the slot's original move, and the move as used in `derivedMoveId`
+    const receivedBaseMoveId = getBaseMoveId(this.move);
     target.turnData.attacksReceived.unshift({
-      move: this.move.id,
+      move: receivedBaseMoveId,
+      ...(this.move.id === receivedBaseMoveId ? {} : { derivedMoveId: this.move.id }),
       result: result as DamageResult,
       damage: finalDmg,
       critical: isCritical,

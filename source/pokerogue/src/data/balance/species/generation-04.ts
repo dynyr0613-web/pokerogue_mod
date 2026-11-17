@@ -7301,6 +7301,7 @@ export function initGenerationFour(): SpeciesDataMapConfig {
       [22, MoveId.HONE_CLAWS],
       [25, MoveId.FLING],
       [28, MoveId.NASTY_PLOT],
+      [30, MoveId.ICEBREAKER], // Local fork (2026-11-14): custom moves
       [32, MoveId.SCREECH],
       [35, MoveId.NIGHT_SLASH],
       [40, MoveId.SNATCH],

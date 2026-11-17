@@ -3445,6 +3445,7 @@ export function initGenerationSix(): SpeciesDataMapConfig {
       [20, MoveId.WISH],
       [22, MoveId.MAGICAL_LEAF],
       [24, MoveId.GRASSY_TERRAIN],
+      [26, MoveId.GARDENING], // Local fork (2026-11-14): custom moves
       [28, MoveId.AROMATHERAPY],
       [30, MoveId.PETAL_BLIZZARD],
       [33, MoveId.SYNTHESIS],
@@ -3686,6 +3687,7 @@ export function initGenerationSix(): SpeciesDataMapConfig {
       [20, MoveId.WISH],
       [22, MoveId.MAGICAL_LEAF],
       [26, MoveId.GRASSY_TERRAIN],
+      [29, MoveId.GARDENING], // Local fork (2026-11-14): custom moves
       [30, MoveId.AROMATHERAPY],
       [33, MoveId.PETAL_BLIZZARD],
       [38, MoveId.SYNTHESIS],
@@ -3857,6 +3859,7 @@ export function initGenerationSix(): SpeciesDataMapConfig {
     },
     levelMoves: [
       [EVOLVE_MOVE, MoveId.FLOWER_SHIELD],
+      [EVOLVE_MOVE, MoveId.GARDENING], // Local fork (2026-11-14): custom moves
       [1, MoveId.VINE_WHIP],
       [1, MoveId.TACKLE],
       [1, MoveId.GRASS_KNOT],
@@ -4103,6 +4106,7 @@ export function initGenerationSix(): SpeciesDataMapConfig {
       [16, MoveId.LOW_SWEEP],
       [20, MoveId.SLASH],
       [25, MoveId.CIRCLE_THROW],
+      [26, MoveId.BLINDSIDE], // Local fork (2026-11-14): custom moves
       [27, MoveId.VITAL_THROW],
       [33, MoveId.BODY_SLAM],
       [39, MoveId.CRUNCH],
@@ -4227,6 +4231,7 @@ export function initGenerationSix(): SpeciesDataMapConfig {
       [16, MoveId.LOW_SWEEP],
       [20, MoveId.SLASH],
       [25, MoveId.CIRCLE_THROW],
+      [26, MoveId.BLINDSIDE], // Local fork (2026-11-14): custom moves
       [27, MoveId.VITAL_THROW],
       [35, MoveId.BODY_SLAM],
       [42, MoveId.CRUNCH],
@@ -9926,6 +9931,7 @@ export function initGenerationSix(): SpeciesDataMapConfig {
       [36, MoveId.TAKE_DOWN],
       [40, MoveId.MIST],
       [40, MoveId.HAZE],
+      [42, MoveId.SUBLIMATION], // Local fork (2026-11-14): custom moves
       [44, MoveId.FLAMETHROWER],
       [48, MoveId.HYDRO_PUMP],
       [52, MoveId.BODY_SLAM],

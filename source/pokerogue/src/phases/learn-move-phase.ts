@@ -11,6 +11,7 @@ import { MoveId } from "#enums/move-id";
 import { UiMode } from "#enums/ui-mode";
 import type { Pokemon } from "#field/pokemon";
 import type { Move } from "#moves/move";
+import { isZMaxOnlyMove } from "#moves/zmax-data"; // Local fork (2026-11-16): Z / Max moves
 import { PlayerPartyMemberPokemonPhase } from "#phases/player-party-member-pokemon-phase";
 import type { ConfirmModeConfig } from "#types/ui-types";
 import { EvolutionSceneUiHandler } from "#ui/evolution-scene-ui-handler";
@@ -45,7 +46,9 @@ export class LearnMovePhase extends PlayerPartyMemberPokemonPhase {
     const move = allMoves[this.moveId];
     const currentMoveset = pokemon.getMoveset();
 
-    if (move.isUnimplemented) {
+    // Local fork (2026-11-16): Z / Max moves: their registry entries are implemented now, but a Max / G-Max / Z move is
+    // never learned as a move of its own (only a slot conversion makes one)
+    if (move.isUnimplemented || isZMaxOnlyMove(this.moveId)) {
       this.end();
       return;
     }

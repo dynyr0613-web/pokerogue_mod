@@ -675,6 +675,34 @@ export abstract class BattleInfo extends Phaser.GameObjects.Container {
     await promise;
   }
 
+  /**
+   * Local fork (2026-11-17): the widest the name may be drawn before {@linkcode updateNameText} shortens it, so that
+   * it and the icons after it stay clear of "Lv". Taken out of updateNameText unchanged, with the alpha badge's room
+   * added (so it can be tested).
+   * @param pokemon - The Pokémon this info is for
+   * @returns The width in pixels
+   */
+  protected getNameWidthLimit(pokemon: Pokemon): number {
+    const gender = pokemon.summonData.illusion?.gender ?? pokemon.gender;
+    const levelDigits = pokemon.level.toString().length;
+    // Local fork (2026-11-13): 08 명세 4번 (Endless levels up to ~320,000), the level container moves 8px left per digit
+    // past the third (setLevelDisplay), so the name gets 8px less per such digit too: before, a 5-digit level's "Lv"
+    // already covered the end of a long name and a 6-digit one covered about 12px of it. Levels under 1000 are unchanged.
+    return (
+      (this.player || !this.boss ? 60 : 98)
+      - ((gender === Gender.GENDERLESS ? 0 : 6)
+        + (pokemon.fusionSpecies ? 8 : 0)
+        + (pokemon.isShiny() ? 8 : 0)
+        + (Math.min(levelDigits, 3) - 3) * 8
+        + Math.max(levelDigits - 3, 0) * 8
+        // Local fork (2026-11-17): room for the alpha badge (updateAlphaBadge), which comes after the name and its
+        // icons; without it a long name pushed the badge over "Lv". Levels under 100 give the name the 8px per missing
+        // digit above, which the badge needs, so it takes that back: the name ends where a 3-digit level's would, 2px
+        // earlier
+        + (pokemon.isAlpha() ? 2 + 8 * (3 - Math.min(levelDigits, 3)) : 0))
+    );
+  }
+
   updateNameText(pokemon: Pokemon): void {
     let displayName = pokemon.getNameToRender({ prependFormName: false }).replace(/[♂♀]/g, "");
     let nameTextWidth: number;
@@ -682,21 +710,10 @@ export abstract class BattleInfo extends Phaser.GameObjects.Container {
     const nameSizeTest = addTextObject(0, 0, displayName, TextStyle.BATTLE_INFO);
     nameTextWidth = nameSizeTest.displayWidth;
 
-    const gender = pokemon.summonData.illusion?.gender ?? pokemon.gender;
-    // Local fork (2026-11-13): 08 명세 4번 (Endless levels up to ~320,000), the level container moves 8px left per digit
-    // past the third (setLevelDisplay), so the name gets 8px less per such digit too: before, a 5-digit level's "Lv"
-    // already covered the end of a long name and a 6-digit one covered about 12px of it. Levels under 1000 are unchanged.
+    // Local fork (2026-11-17): the limit is worked out in getNameWidthLimit, which also leaves room for the alpha badge.
     // The length guard stops the loop at "." if a huge level ever leaves no room at all (it would never end otherwise).
-    while (
-      displayName.length > 1
-      && nameTextWidth
-        > (this.player || !this.boss ? 60 : 98)
-          - ((gender === Gender.GENDERLESS ? 0 : 6)
-            + (pokemon.fusionSpecies ? 8 : 0)
-            + (pokemon.isShiny() ? 8 : 0)
-            + (Math.min(pokemon.level.toString().length, 3) - 3) * 8
-            + Math.max(pokemon.level.toString().length - 3, 0) * 8)
-    ) {
+    const nameWidthLimit = this.getNameWidthLimit(pokemon);
+    while (displayName.length > 1 && nameTextWidth > nameWidthLimit) {
       displayName = `${displayName.slice(0, displayName.endsWith(".") ? -2 : -1).trimEnd()}.`;
       nameSizeTest.setText(displayName);
       nameTextWidth = nameSizeTest.displayWidth;

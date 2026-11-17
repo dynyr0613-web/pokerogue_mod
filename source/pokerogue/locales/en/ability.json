@@ -1342,5 +1342,185 @@
   "mindBlade": {
     "name": "Mind Blade",
     "description": "Physical slicing moves are calculated with Sp. Atk."
+  },
+  "frostFur": {
+    "name": "Frost Fur",
+    "description": "The Pokémon is protected by frozen fur, which halves the damage taken from special moves."
+  },
+  "catBurglar": {
+    "name": "Cat Burglar",
+    "description": "The Pokémon swiftly steals the held item of a Pokémon it hits with a move."
+  },
+  "sunbathe": {
+    "name": "Sunbathe",
+    "description": "The Pokémon can use its moves as if the weather were harsh sunlight, even when it isn't."
+  },
+  "shockAbsorber": {
+    "name": "Shock Absorber",
+    "description": "The Pokémon's shock-absorbing body reduces the damage it takes while its HP is full."
+  },
+  "beamCannon": {
+    "name": "Beam Cannon",
+    "description": "The Pokémon's cannon-like body powers up beam and pulse moves."
+  },
+  "glowVeil": {
+    "name": "Glow Veil",
+    "description": "When the Pokémon enters a battle, its shimmering glow sets up Aurora Veil, reducing damage taken by it and its allies."
+  },
+  "handToHand": {
+    "name": "Hand-to-Hand",
+    "description": "The Pokémon excels at close-quarters fighting, powering up moves that make direct contact."
+  },
+  "flameworker": {
+    "name": "Flameworker",
+    "description": "Powers up Fire-type moves."
+  },
+  "auraMaster": {
+    "name": "Aura Master",
+    "description": "The Pokémon wields aura freely, powering up aura and pulse moves."
+  },
+  "toxicSpray": {
+    "name": "Toxic Spray",
+    "description": "The Pokémon sprays a vile toxin that may badly poison any target it hits with a move."
+  },
+  "currentHerald": {
+    "name": "Current Herald",
+    "description": "When the Pokémon enters a battle, it stirs up a strong current that boosts the Speed of it and its allies."
+  },
+  "highSpirits": {
+    "name": "High Spirits",
+    "description": "When the Pokémon knocks out a target, its spirits soar, boosting its most proficient stat."
+  },
+  "venomHunt": {
+    "name": "Venom Hunt",
+    "description": "Contact with the Pokémon's moves may poison the target. Its attacks always result in critical hits on poisoned targets."
+  },
+  "flameFur": {
+    "name": "Flame Fur",
+    "description": "Halves the damage taken from physical moves. Contact with the Pokémon may burn the attacker."
+  },
+  "vocalSac": {
+    "name": "Vocal Sac",
+    "description": "All sound-based moves become Water-type moves and are powered up. Halves the damage taken from sound-based moves."
+  },
+  "ironSand": {
+    "name": "Iron Sand",
+    "description": "The Pokémon summons a sandstorm when it enters a battle. Reduces the power of supereffective attacks taken."
+  },
+  "dreamWeaver": {
+    "name": "Dream Weaver",
+    "description": "Boosts the accuracy of the Pokémon's moves. Damages opposing Pokémon that are asleep."
+  },
+  "solarPulse": {
+    "name": "Solar Pulse",
+    "description": "Turns the sunlight harsh when the Pokémon enters a battle. In harsh sunlight, a solar pulse boosts its Attack and Sp. Atk."
+  },
+  "coldSnap": {
+    "name": "Cold Snap",
+    "description": "The Pokémon makes it snow when it enters a battle. Boosts the Pokémon's Speed stat in snow."
+  },
+  "ironLegs": {
+    "name": "Iron Legs",
+    "description": "Powers up kicking moves. The Pokémon can hit Ghost-type Pokémon with Normal- and Fighting-type moves."
+  },
+  "gasLeak": {
+    "name": "Gas Leak",
+    "description": "Scatters poison spikes at the feet of the opposing team when the Pokémon takes damage from physical moves. Damages the attacker if it contacts the Pokémon with a finishing hit."
+  },
+  "farsight": {
+    "name": "Farsight",
+    "description": "The Pokémon's far-seeing eyes boost the accuracy of its moves and let its \"not very effective\" moves deal regular damage."
+  },
+  "thornArmor": {
+    "name": "Thorn Armor",
+    "description": "Boosts the Pokémon's Defense stat when it's hit by an attack. Its thorns hurt attackers on contact."
+  },
+  "headstrong": {
+    "name": "Headstrong",
+    "description": "Powers up moves that have recoil damage, and the Pokémon takes no recoil damage from them."
+  },
+  "fullBloom": {
+    "name": "Full Bloom",
+    "description": "Turns the sunlight harsh when the Pokémon enters a battle. Boosts the Pokémon's Speed stat in harsh sunlight."
+  },
+  "sandSprint": {
+    "name": "Sand Sprint",
+    "description": "In a sandstorm, boosts the Pokémon's Speed stat and the power of its Rock-, Ground-, and Steel-type moves."
+  },
+  "lookout": {
+    "name": "Lookout",
+    "description": "The Pokémon intimidates opposing Pokémon upon entering battle, lowering their Attack. It deals more damage to a Pokémon that switches in."
+  },
+  "thundercloud": {
+    "name": "Thundercloud",
+    "description": "Powers up Electric-type moves. The Pokémon becomes charged when it's hit by a wind move."
+  },
+  "rockFangs": {
+    "name": "Rock Fangs",
+    "description": "The Pokémon's rock-hard fangs power up Rock-type moves and biting moves."
+  },
+  "shockBarbs": {
+    "name": "Shock Barbs",
+    "description": "The Pokémon's electrified barbs damage attackers on contact and may paralyze them."
+  },
+  "sandTempest": {
+    "name": "Sand Tempest",
+    "description": "The Pokémon summons a sandstorm when it enters a battle. Boosts the power of Rock-, Ground-, and Steel-type moves in a sandstorm."
+  },
+  "huntingInstinct": {
+    "name": "Hunting Instinct",
+    "description": "The Pokémon's strong jaws power up biting moves. Knocking out a target awakens its hunting instinct, boosting its Attack."
+  },
+  "rampage": {
+    "name": "Rampage",
+    "description": "When the Pokémon has a status condition, it goes on a rampage, boosting its Attack and Speed."
+  },
+  "toughness": {
+    "name": "Toughness",
+    "description": "Boosts the Pokémon's Defense when it's hit by a physical move and its Sp. Def when it's hit by a special move."
+  },
+  "plushBody": {
+    "name": "Plush Body",
+    "description": "The Pokémon's plush body halves the damage taken from moves that make direct contact."
+  },
+  "vigor": {
+    "name": "Vigor",
+    "description": "The Pokémon's boundless vigor boosts its Attack stat."
+  },
+  "allOutPitch": {
+    "name": "All-Out Pitch",
+    "description": "The Pokémon fights with all its might, boosting its Attack stat, but it can't use status moves."
+  },
+  "mudArmor": {
+    "name": "Mud Armor",
+    "description": "When hit by a Water-type move, the mud on the Pokémon's body hardens, so it takes no damage and its Defense sharply rises."
+  },
+  "powerCheer": {
+    "name": "Power Cheer",
+    "description": "Powers up special moves used by the Pokémon and its allies."
+  },
+  "chimeVoice": {
+    "name": "Chime Voice",
+    "description": "All sound-based moves become Psychic-type moves and are powered up. Halves the damage taken from sound-based moves."
+  },
+  "spaceWarp": {
+    "name": "Space Warp",
+    "description": "When the Pokémon enters a battle, it sets up Trick Room, letting slower Pokémon move first."
+  },
+  "cannoneer": {
+    "name": "Cannoneer",
+    "description": "Powers up ball and bomb moves."
+  },
+  "clearingGust": {
+    "name": "Clearing Gust",
+    "description": "Blows away traps such as Stealth Rock and Spikes from its side as it enters, before they hurt it."
+  },
+  "gardener": {
+    "name": "Gardener",
+    "description": "Plants a garden on its side of the field when the Pokémon enters a battle, giving only grounded Pokémon on its side the effects of Grassy Terrain."
+  },
+  "turnabout": {
+    "name": "Turnabout",
+    "description": "Swaps the effects on either side of the field when the Pokémon enters a battle. This works only once per battle."
   }
 }

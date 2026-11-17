@@ -186,6 +186,23 @@ import {
   WonderSkinAbAttr,
 } from "#abilities/ab-attrs";
 import { AbBuilder, type Ability } from "#abilities/ability";
+import { customAbilities1114A } from "#abilities/custom-abilities-1114-a";
+import { customAbilities1114B } from "#abilities/custom-abilities-1114-b";
+import { customAbilities1114C } from "#abilities/custom-abilities-1114-c";
+import { customAbilities1114D } from "#abilities/custom-abilities-1114-d";
+// Local fork (2026-11-14): passive rebalance. Follow-up: Clearing Gust
+import { customAbilities1114E } from "#abilities/custom-abilities-1114-e";
+// Local fork (2026-11-14): custom moves. Gardener and Turnabout
+import { customAbilities1114F } from "#abilities/custom-abilities-1114-f";
+import {
+  anyTypeMoveConversionCondition,
+  beastBoostHighestStatCalc,
+  droughtAiMovegenEffect,
+  footworkMoves,
+  getOncePerBattleCondition,
+  getTerrainCondition,
+  normalTypeMoveConversionCondition,
+} from "#abilities/custom-ability-helpers";
 import { globalScene } from "#app/global-scene";
 import { getPokemonNameWithAffix } from "#app/messages";
 import { ProtectedTag } from "#data/battler-tags";
@@ -203,14 +220,13 @@ import { MovePriorityInBracket } from "#enums/move-priority-in-bracket";
 import { MoveTarget } from "#enums/move-target";
 import { PokemonType } from "#enums/pokemon-type";
 import { SpeciesId } from "#enums/species-id";
-import { EFFECTIVE_STATS, type EffectiveStat, getStatKey, Stat } from "#enums/stat";
+import { getStatKey, Stat } from "#enums/stat";
 import { StatusEffect } from "#enums/status-effect";
 import { WeatherType } from "#enums/weather-type";
 import type { Pokemon } from "#field/pokemon";
 import { applyMoveAttrs } from "#moves/apply-attrs";
-import { noAbilityTypeOverrideMoves } from "#moves/invalid-moves";
 import { failIfDampCondition } from "#moves/move-condition";
-import type { AbAttrCondition, AiMovegenMoveStatsAbAttrParams, PokemonAttackCondition } from "#types/ability-types";
+import type { AbAttrCondition, AiMovegenMoveStatsAbAttrParams } from "#types/ability-types";
 import type { Move } from "#types/move-types";
 import { NumberHolder, randSeedInt } from "#utils/common";
 import { groupStatChange } from "#utils/stat-change";
@@ -2334,48 +2350,26 @@ export function initAbilities() {
       .build(),
     // Physical slicing moves use Sp. Atk: see `Pokemon.getBaseDamage`
     new AbBuilder(AbilityId.MIND_BLADE, 9).build(),
+    // Local fork (2026-11-14): passive rebalance. The 42 new custom abilities, one file per batch,
+    // spread in enum order (A, B, C, D)
+    ...customAbilities1114A(),
+    ...customAbilities1114B(),
+    ...customAbilities1114C(),
+    ...customAbilities1114D(),
+    // Local fork (2026-11-14): passive rebalance. Follow-up after batch D: Clearing Gust
+    ...customAbilities1114E(),
+    // Local fork (2026-11-14): custom moves. Gardener (정원사) and Turnabout (전세역전)
+    ...customAbilities1114F(),
     // #endregion Custom abilities
   );
-}
-
-/** Kicking moves boosted by Footwork. */
-const footworkMoves: ReadonlySet<MoveId> = new Set([
-  MoveId.DOUBLE_KICK,
-  MoveId.MEGA_KICK,
-  MoveId.JUMP_KICK,
-  MoveId.ROLLING_KICK,
-  MoveId.LOW_KICK,
-  MoveId.HIGH_JUMP_KICK,
-  MoveId.TRIPLE_KICK,
-  MoveId.BLAZE_KICK,
-  MoveId.LOW_SWEEP,
-  MoveId.STOMP,
-  MoveId.TROP_KICK,
-  MoveId.TRIPLE_AXEL,
-  MoveId.THUNDEROUS_KICK,
-  MoveId.AXE_KICK,
-  MoveId.PYRO_BALL,
-  MoveId.GUNK_SHOT,
-]);
-
-/**
- * Creates an ability condition that causes the ability to fail if that ability
- * has already been used by that pokemon that battle. It requires an ability to
- * be specified due to current limitations in how conditions on abilities work.
- * @param ability The ability to check if it's already been applied
- * @returns The condition
- */
-function getOncePerBattleCondition(ability: AbilityId): AbAttrCondition {
-  return (pokemon: Pokemon) => {
-    return !pokemon.waveData.abilitiesApplied.has(ability);
-  };
-}
-
-function getTerrainCondition(...terrainTypes: TerrainType[]): AbAttrCondition {
-  return (_pokemon: Pokemon) => {
-    const terrainType = globalScene.arena.terrain?.terrainType;
-    return !!terrainType && terrainTypes.indexOf(terrainType) > -1;
-  };
+  // Local fork (2026-11-14): passive rebalance. `allAbilities` is indexed by `AbilityId`, so an entry
+  // out of order would silently shift every ability after it.
+  const misplaced = allAbilities.findIndex((ability, index) => ability.id !== index);
+  if (misplaced !== -1) {
+    throw new Error(
+      `initAbilities: allAbilities[${misplaced}] is ${AbilityId[allAbilities[misplaced].id]}, expected ${AbilityId[misplaced]}`,
+    );
+  }
 }
 
 /**
@@ -2411,46 +2405,6 @@ const anticipationCondition: AbAttrCondition = (pokemon: Pokemon) =>
   );
 
 /**
- * Condition function checking whether a move can have its type changed by an ability.
- * - Variable-type moves (e.g. {@linkcode MoveId.MULTI_ATTACK}) can't have their type changed.
- * - Tera-based moves can't have their type changed if the move's type would be changed due to the user being Terastallized.
- * @returns Whether the move can have its type changed by an ability
- * @remarks
- * Used for {@link https://bulbapedia.bulbagarden.net/wiki/Normalize_(Ability) | Normalize}
- * and as part of the conditions for similar type-changing abilities
- */
-const anyTypeMoveConversionCondition: PokemonAttackCondition = (user, _target, move): boolean => {
-  if (noAbilityTypeOverrideMoves.has(move.id)) {
-    return false;
-  }
-
-  if (!user.isTerastallized) {
-    return true;
-  }
-
-  if (move.id === MoveId.TERA_BLAST) {
-    return false;
-  }
-  if (
-    move.id === MoveId.TERA_STARSTORM
-    && user.getTeraType() === PokemonType.STELLAR
-    && user.hasSpecies(SpeciesId.TERAPAGOS)
-  ) {
-    return false;
-  }
-
-  return true;
-};
-
-/**
- * Similar to {@linkcode anyTypeMoveConversionCondition}, except that the given move must also be Normal-type.
- * @remarks
- * Used for {@link https://bulbapedia.bulbagarden.net/wiki/Pixilate_(Ability) | Pixilate} et al.
- */
-const normalTypeMoveConversionCondition: PokemonAttackCondition = (user, target, move): boolean =>
-  move.type === PokemonType.NORMAL && anyTypeMoveConversionCondition(user, target, move);
-
-/**
  * Condition function to applied to abilities related to Sheer Force.
  * Checks if last move used against target was affected by a Sheer Force user and:
  * Disables: Color Change, Pickpocket, Berserk, Anger Shell, Wimp Out, Emergency Exit
@@ -2468,8 +2422,11 @@ const sheerForceHitDisableAbCondition: AbAttrCondition = (pokemon: Pokemon): boo
   }
 
   /** `true` if the last move's chance is above 0 and the last attacker's ability is sheer force */
+  // Local fork (2026-11-16): Z / Max moves: the move as used (a Max / Z move has no secondary chance, so Sheer Force
+  // does not boost it and Emergency Exit / Wimp Out still trigger)
   const sheerForceAffected =
-    allMoves[lastReceivedAttack.move].chance >= 0 && lastAttacker.hasAbility(AbilityId.SHEER_FORCE);
+    allMoves[lastReceivedAttack.derivedMoveId ?? lastReceivedAttack.move].chance >= 0
+    && lastAttacker.hasAbility(AbilityId.SHEER_FORCE);
 
   return !sheerForceAffected;
 };
@@ -2487,13 +2444,19 @@ function drizzleAiMovegenEffect({ move, powerMult, accMult }: AiMovegenMoveStats
     powerMult.value *= 3;
     return;
   }
-  switch (move.type) {
-    case PokemonType.FIRE:
-      powerMult.value *= 0.5;
-      break;
-    case PokemonType.WATER:
-      powerMult.value *= 1.5;
-      break;
+  // Local fork (2026-11-14): custom moves. A move with the rain override (Sublimation, 승화) is boosted like a Water
+  // move instead of halved, as `droughtAiMovegenEffect` does for Hydro Steam (checked by attr, not by move id)
+  if (move.getAttrs("OverrideWeatherMultiplierAttr").some(attr => attr.weather === WeatherType.RAIN)) {
+    powerMult.value *= 1.5;
+  } else {
+    switch (move.type) {
+      case PokemonType.FIRE:
+        powerMult.value *= 0.5;
+        break;
+      case PokemonType.WATER:
+        powerMult.value *= 1.5;
+        break;
+    }
   }
   if (move.hasAttr("ThunderAccuracyAttr") || move.hasAttr("StormAccuracyAttr")) {
     accMult.value = Number.POSITIVE_INFINITY;
@@ -2501,56 +2464,4 @@ function drizzleAiMovegenEffect({ move, powerMult, accMult }: AiMovegenMoveStats
   if (move.hasAttr("AntiSunlightPowerDecreaseAttr")) {
     powerMult.value *= 0.5;
   }
-}
-
-/**
- * DRY implementation for the `AIMovegenMoveStatsAbAttr` effect of harsh-sunlight summoning abilities
- * @param __namedParameters.move - Needed for proper typedoc rendering
- */
-function droughtAiMovegenEffect({ move, powerMult, accMult, instantCharge }: AiMovegenMoveStatsAbAttrParams) {
-  if (move.id === MoveId.WEATHER_BALL) {
-    // double power in addition to weather boost
-    powerMult.value *= 3;
-    return;
-  }
-
-  if (move.id === MoveId.HYDRO_STEAM || move.type === PokemonType.FIRE) {
-    powerMult.value *= 1.5;
-  } else if (move.type === PokemonType.WATER) {
-    powerMult.value *= 0.5;
-  }
-
-  if (move.hasAttr("ThunderAccuracyAttr")) {
-    accMult.value *= 0.5;
-  }
-
-  if (
-    move.isChargingMove()
-    && move.getChargeAttrs("WeatherInstantChargeAttr").some(attr => attr.weatherTypes.includes(WeatherType.SUNNY))
-  ) {
-    instantCharge.value = true;
-  }
-}
-
-/**
- * DRY implementation for the `PostVictoryStatStageChangeAbAttr`
- * abilities that boost the highest stat on victory.
- *
- * @remarks Used for {@link https://bulbapedia.bulbagarden.net/wiki/Beast_Boost_(Ability) | Beast Boost}
- * and {@link https://bulbapedia.bulbagarden.net/wiki/Eelevate_(Ability) | Beast Boost}
- *
- * @param pokemon - The Pokémon under consideration
- */
-function beastBoostHighestStatCalc(pokemon: Pokemon) {
-  let highestStat: EffectiveStat;
-  let highestValue = 0;
-  for (const s of EFFECTIVE_STATS) {
-    const value = pokemon.getStat(s, false);
-    if (value > highestValue) {
-      highestStat = s;
-      highestValue = value;
-    }
-  }
-  // Bang is safe here as for loop ensuers highestStat is assigned.
-  return [{ stat: highestStat!, stages: 1 }];
 }

@@ -1,6 +1,8 @@
 import { applyAbAttrs } from "#abilities/apply-ab-attrs";
 import { globalScene } from "#app/global-scene";
 import { getPokemonNameWithAffix } from "#app/messages";
+// Local fork (2026-11-14): custom moves. Grassy Terrain or the Garden
+import { hasGrassyEffect } from "#data/arena-tag";
 import { TerrainType } from "#data/terrain";
 import { BattlerTagLapseType } from "#enums/battler-tag-lapse-type";
 import { WeatherType } from "#enums/weather-type";
@@ -44,7 +46,9 @@ export class TurnEndPhase extends FieldPhase {
         // Local fork (2026-11-09): Radioactive Waste (방사성폐기물) heals a Poison-type holder by 1/8, as Leftovers heals
         globalScene.applyModifiers(RadioactiveWasteModifier, pokemon.isPlayer(), pokemon, "heal");
 
-        if (globalScene.arena.terrain?.terrainType === TerrainType.GRASSY && pokemon.isGrounded()) {
+        // Local fork (2026-11-14): custom moves. Grassy Terrain or a Garden (정원) on its side heals a grounded
+        // Pokémon 1/16, once even when both are up (`hasGrassyEffect`)
+        if (hasGrassyEffect(pokemon)) {
           globalScene.phaseManager.unshiftNew(
             "PokemonHealPhase",
             pokemon.getBattlerIndex(),

@@ -1862,7 +1862,8 @@ export class StarterSelectUiHandler extends MessageUiHandler {
 
     // Local fork (2026-11-17): once an alpha of the line has been caught or hatched, the starter can be taken as an
     // alpha with the line's best boost; this switches it on and off (alpha-pokemon.ts)
-    const alphaBoost = normalizeAlphaBoost(persistentStarterData.alphaBoost);
+    // Local fork (2026-11-17): read from the challenge copy, which Fresh Start clears, so the option is not offered there
+    const alphaBoost = normalizeAlphaBoost(starterData.alphaBoost);
     if (alphaBoost > 0) {
       options.push({
         label: i18next.t(
@@ -1878,7 +1879,8 @@ export class StarterSelectUiHandler extends MessageUiHandler {
           // A starter already in the party keeps its own copy of the choice
           const partyIndex = this.partyStarterIds.indexOf(this.lastStarterId);
           if (partyIndex > -1) {
-            this.partyStarters[partyIndex].alphaBoost = getStarterAlphaBoost(persistentStarterData);
+            // Local fork (2026-11-17): from the challenge copy, as addToParty does
+            this.partyStarters[partyIndex].alphaBoost = getStarterAlphaBoost(starterData);
           }
           ui.setMode(UiMode.STARTER_SELECT).then(() => {
             this.showText(
@@ -2450,9 +2452,10 @@ export class StarterSelectUiHandler extends MessageUiHandler {
         (starterDataEntry.passiveAttr & (PassiveAttr.ENABLED | PassiveAttr.UNLOCKED))
         === (PassiveAttr.ENABLED | PassiveAttr.UNLOCKED),
       customPassiveSpecies: starterDataEntry.customPassiveSpecies?.slice() ?? [],
-      // Local fork (2026-11-17): taken as an alpha if that is switched on for the starter (alpha-pokemon.ts)
-      alphaBoost: getStarterAlphaBoost(globalScene.gameData.starterData[starterId]),
-      partnerMark: !!globalScene.gameData.starterData[starterId].partnerMark,
+      // Local fork (2026-11-17): taken as an alpha if that is switched on for the starter (alpha-pokemon.ts). Both come
+      // from the challenge copy, like the passive: Fresh Start takes away the alpha and the Partner Mark
+      alphaBoost: getStarterAlphaBoost(starterDataEntry),
+      partnerMark: !!starterDataEntry.partnerMark,
       nature,
       moveset,
       pokerus: this.pokerusSpeciesIds.includes(starterId),
