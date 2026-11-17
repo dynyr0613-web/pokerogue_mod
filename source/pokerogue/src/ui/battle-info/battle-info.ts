@@ -2,7 +2,7 @@ import { globalScene } from "#app/global-scene";
 import { settings } from "#app/global-settings-manager";
 import { ALPHA_MAX_BOOST } from "#data/alpha-pokemon";
 import { Gender, getGenderColor, getGenderSymbol } from "#data/gender";
-import { getMarkKey, getPokemonTitle, MARKS_ATLAS_KEY } from "#data/pokemon-marks";
+import { getMarkKey, getPokemonTitle, MARKS_ATLAS_KEY, WILD_MARKS } from "#data/pokemon-marks";
 import { getTypeRgb } from "#data/type";
 import { PokemonMark } from "#enums/pokemon-mark";
 import { PokemonType } from "#enums/pokemon-type";
@@ -43,6 +43,10 @@ export type BattleInfoParamList = {
     statOverflow: number;
   };
 };
+
+/** Local fork (2026-11-17): the mark icons are 40 px; 0.2 makes them 8 px, one px apart */
+const MARK_ICON_SCALE = 0.2;
+const MARK_ICON_PITCH = 9;
 
 /** Local fork (2026-11-17): the room the name keeps next to a title, and the gap between the two, in px */
 const TITLE_NAME_MIN = 30;
@@ -89,8 +93,16 @@ export abstract class BattleInfo extends Phaser.GameObjects.Container {
    */
   protected titleText: Phaser.GameObjects.Text;
   protected lastTitle = "";
-  /** Where the name starts without a title */
-  private nameTextBaseX = 0;
+  /** Where the name starts without a title: the left end of the row under it too */
+  protected nameTextBaseX = 0;
+  /**
+   * Local fork (2026-11-17): the Pokémon's mark icons, for the player's and the enemy's Pokémon alike, from the far
+   * left of the row under the name (the user: "증표 아이콘은 아군 적 둘다 흰부분 맨 왼쪽부터 붙어있게"): the mark it
+   * wears, then its wild mark and the Mini Mark, two at most. The other icons of the row and the status come after.
+   */
+  protected markIcons: Phaser.GameObjects.Image[] = [];
+  /** How many of them the Pokémon has marks for, and the width they take */
+  protected shownMarkCount = 0;
   protected statusIndicator: Phaser.GameObjects.Sprite;
   protected levelContainer: Phaser.GameObjects.Container;
   protected hpLabel: Phaser.GameObjects.Image;
@@ -166,6 +178,19 @@ export abstract class BattleInfo extends Phaser.GameObjects.Container {
       // A dark outline keeps the small digits readable over the icon
       .setStroke("#282030", 14);
     this.add([this.alphaIcon, this.alphaBoostText]);
+
+    // Local fork (2026-11-17): the mark icons, see the field; below the stats container like the enemy's other icons
+    for (let i = 0; i < 2; i++) {
+      this.markIcons.push(
+        globalScene.add
+          .image(0, 0, MARKS_ATLAS_KEY, getMarkKey(PokemonMark.RARE_MARK))
+          .setName(`icon_mark_${i}`)
+          .setVisible(false)
+          .setOrigin(0, 0)
+          .setScale(MARK_ICON_SCALE),
+      );
+    }
+    this.addAt(this.markIcons, this.getIndex(this.statsContainer));
   }
 
   /**
@@ -412,8 +437,38 @@ export abstract class BattleInfo extends Phaser.GameObjects.Container {
     }
   }
 
+  /**
+   * Local fork (2026-11-17): set the mark icons for the Pokémon, from the left end of the row under the name.
+   * @param pokemon - The Pokémon this info is for
+   * @param visible - Whether to show them; the enemy's give way when there is no room next to a status
+   */
+  protected updateMarkIcons(pokemon: Pokemon, visible = true): void {
+    const shownMarks = [
+      ...new Set([
+        ...(pokemon.equippedMark !== null && pokemon.marks.includes(pokemon.equippedMark)
+          ? [pokemon.equippedMark]
+          : []),
+        ...pokemon.marks.filter(m => WILD_MARKS.includes(m) || m === PokemonMark.MINI_MARK),
+      ]),
+    ];
+    this.shownMarkCount = Math.min(shownMarks.length, this.markIcons.length);
+    this.markIcons.forEach((icon, i) => {
+      const mark = shownMarks[i];
+      icon.setVisible(mark !== undefined && visible);
+      if (mark !== undefined) {
+        icon.setFrame(getMarkKey(mark)).setPosition(this.nameTextBaseX + i * MARK_ICON_PITCH, this.nameText.y + 11.75);
+      }
+    });
+  }
+
+  /** The width the shown mark icons take in the row under the name */
+  protected getMarkIconsWidth(): number {
+    return this.markIcons.filter(icon => icon.visible).length * MARK_ICON_PITCH;
+  }
+
   initInfo(pokemon: Pokemon) {
     this.updateNameText(pokemon);
+    this.updateMarkIcons(pokemon);
     const nameTextWidth = this.nameText.displayWidth;
 
     this.name = pokemon.getNameToRender({ prependFormName: false });
@@ -509,7 +564,7 @@ export abstract class BattleInfo extends Phaser.GameObjects.Container {
    * @param pokemon - The pokemon object attached to this battle info
    * @param xOffset - The offset from the name text
    */
-  updateStatusIcon(pokemon: Pokemon, xOffset = 0) {
+  updateStatusIcon(pokemon: Pokemon, xOffset = this.getMarkIconsWidth()) {
     if (this.lastStatus !== (pokemon.status?.effect || StatusEffect.NONE)) {
       this.lastStatus = pokemon.status?.effect || StatusEffect.NONE;
 
@@ -517,8 +572,11 @@ export abstract class BattleInfo extends Phaser.GameObjects.Container {
         this.statusIndicator.setFrame(StatusEffect[this.lastStatus].toLowerCase());
       }
 
-      this.statusIndicator.setVisible(!!this.lastStatus).setPositionRelative(this.nameText, xOffset, 11.5);
+      this.statusIndicator.setVisible(!!this.lastStatus);
     }
+    // Local fork (2026-11-17): from the left end of the row, after the mark icons (and the enemy's other icons), not
+    // from the name, which a title moves right; placed every time, since the marks can change without the status
+    this.statusIndicator.setPosition(this.nameTextBaseX + xOffset, this.nameText.y + 11.5);
   }
 
   /** Update the pokemon name inside the container */
@@ -665,6 +723,7 @@ export abstract class BattleInfo extends Phaser.GameObjects.Container {
     // its name changing (the shiny icon's visibility is settled further down, but its position is not)
     this.updateAlphaBadge(pokemon);
 
+    this.updateMarkIcons(pokemon);
     this.updateStatusIcon(pokemon);
 
     this.setTypes(pokemon.getTypes({ useIllusion: true }));

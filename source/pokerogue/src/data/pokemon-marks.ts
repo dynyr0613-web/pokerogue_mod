@@ -253,6 +253,9 @@ export function getCollectedMarks(entry: StarterDataEntry | undefined): PokemonM
 export const COMPLETION_EXEMPT_MARKS: readonly PokemonMark[] = [
   PokemonMark.ONCE_IN_A_LIFETIME_RIBBON,
   PokemonMark.MIGHTIEST_MARK,
+  // The user: "엔드리스 마스터 리본, 눈부신증표 넣어두죠": clearing Endless, and an epic shiny
+  PokemonMark.ENDLESS_MASTER_RIBBON,
+  PokemonMark.EPIC_SHINY_MARK,
 ];
 
 /** @returns Whether the marks are every mark and ribbon there is, but for {@linkcode COMPLETION_EXEMPT_MARKS} */

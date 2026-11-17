@@ -177,9 +177,14 @@ describe("Local fork - earned ribbons, the worn mark and the line's collection",
     expect(hasEverObtainedMark(PokemonMark.PARTNER_MARK)).toBe(true);
   });
 
-  it("a collection is complete with every mark but the Once-in-a-Lifetime Ribbon and the Mightiest Mark", () => {
+  it("a collection is complete with every mark but the hidden ones", () => {
     const needed = orderedPokemonMarks.filter(m => !COMPLETION_EXEMPT_MARKS.includes(m));
-    expect(COMPLETION_EXEMPT_MARKS).toEqual([PokemonMark.ONCE_IN_A_LIFETIME_RIBBON, PokemonMark.MIGHTIEST_MARK]);
+    expect(COMPLETION_EXEMPT_MARKS).toEqual([
+      PokemonMark.ONCE_IN_A_LIFETIME_RIBBON,
+      PokemonMark.MIGHTIEST_MARK,
+      PokemonMark.ENDLESS_MASTER_RIBBON,
+      PokemonMark.EPIC_SHINY_MARK,
+    ]);
     expect(isMarkCollectionComplete(needed)).toBe(true);
     expect(isMarkCollectionComplete(needed.slice(1))).toBe(false);
     expect(isMarkCollectionComplete([])).toBe(false);
