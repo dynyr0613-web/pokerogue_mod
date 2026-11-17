@@ -111,6 +111,8 @@ export class PlayerBattleInfo extends BattleInfo {
 
     const offsetElements = [
       this.nameText,
+      // Local fork (2026-11-17): the worn mark's title stays on the name's line
+      this.titleText,
       this.genderText,
       this.teraIcon,
       this.splicedIcon,

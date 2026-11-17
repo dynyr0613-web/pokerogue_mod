@@ -33,6 +33,7 @@ import {
   getMarkKey,
   getMarkName,
   hasEternatusMark,
+  hasEverObtainedMark,
   isMarkCollectionComplete,
   MARKS_ATLAS_KEY,
   orderedPokemonMarks,
@@ -230,9 +231,11 @@ export class MarkDexUiHandler extends MessageUiHandler {
   /** Read every starter line's collection from the save */
   private readCollection(): void {
     const { starterData } = globalScene.gameData;
+    // Local fork (2026-11-17): a line is its root species' entry, where its marks are collected; Pikachu, a starter of
+    // its own with Pichu as its root, is part of Pichu's line here (GameData.registerMarks)
     this.starterIds = Object.keys(starterData)
       .map(Number)
-      .filter(id => speciesDataRegistry.getSpecies(id))
+      .filter(id => speciesDataRegistry.getSpecies(id) && !speciesDataRegistry.hasPrevolution(id))
       .sort((a, b) => a - b);
     // "Every Pokémon" leaves Eternatus out: its own collection is for the Eternatus Mark's outline
     this.countedIds = this.starterIds.filter(id => id !== SpeciesId.ETERNATUS);
@@ -257,7 +260,9 @@ export class MarkDexUiHandler extends MessageUiHandler {
       // The Eternatus Mark is the player's: all or nothing, and golden by Eternatus' own collection
       const isPlayerMark = cell.mark === PokemonMark.ETERNATUS_MARK;
       const count = isPlayerMark ? (hasEternatusMark() ? total : 0) : (this.speciesCounts.get(cell.mark) ?? 0);
-      cell.obtained = count > 0;
+      // Local fork (2026-11-17): or obtained before the lines kept their own collections (markCounts only), as the
+      // Pokédex page's mark list counts it
+      cell.obtained = count > 0 || (!isPlayerMark && hasEverObtainedMark(cell.mark));
       cell.golden = isPlayerMark
         ? cell.obtained && isMarkCollectionComplete(this.collected.get(SpeciesId.ETERNATUS) ?? [])
         : count >= total;
@@ -377,6 +382,8 @@ export class MarkDexUiHandler extends MessageUiHandler {
   private showSpeciesView(mark: PokemonMark): void {
     this.openMark = mark;
     this.markContainer.setVisible(false);
+    // Local fork (2026-11-17): the list's ▲/▼ is not this view's (showMarkView brings it back)
+    this.scrollHint.setVisible(false);
     this.speciesContainer.setVisible(true);
     this.scrollBar.setVisible(true);
     this.scrollBar.setTotalRows(Math.ceil(this.starterIds.length / SPECIES_COLS));
@@ -416,7 +423,9 @@ export class MarkDexUiHandler extends MessageUiHandler {
       if (this.collected.get(id)?.includes(mark)) {
         icon.clearTint().setAlpha(1);
       } else {
-        icon.setTint(MISSING_TINT).setTintMode(Phaser.TintModes.FILL).setAlpha(MISSING_ALPHA);
+        // Local fork (2026-11-17): opaque over a golden outline, which would shine through a faded grey icon
+        const complete = isMarkCollectionComplete(this.collected.get(id) ?? []);
+        icon.setTint(MISSING_TINT).setTintMode(Phaser.TintModes.FILL).setAlpha(complete ? 1 : MISSING_ALPHA);
       }
       // A line that has collected everything but the hidden marks is outlined in gold
       if (isMarkCollectionComplete(this.collected.get(id) ?? [])) {

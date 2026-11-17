@@ -1721,10 +1721,18 @@ export class GameData {
       if (!isWildLine(speciesRootForm)) {
         pokemon.addMark(PokemonMark.MASTER_BALL_MARK);
       }
-      // Local fork (2026-11-17): and its marks join the collection (the mark achievements)
-      this.registerMarks(pokemon.marks, pokemon);
+      // Local fork (2026-11-17): and its marks join the collection. The mark achievements are checked once the
+      // species is caught: the Eternatus Mark (and the hidden-mark achievement) asks for Eternatus caught, which it is
+      // only now when the last Pokémon caught is Eternatus
+      this.registerMarks(pokemon.marks, pokemon, false);
     }
-    return this.setPokemonSpeciesCaught(pokemon, pokemon.species, incrementCount, fromEgg, showMessage);
+    const caught = await this.setPokemonSpeciesCaught(pokemon, pokemon.species, incrementCount, fromEgg, showMessage);
+    if (incrementCount) {
+      for (const achv of markCollectionAchvs) {
+        globalScene.validateAchv(achv);
+      }
+    }
+    return caught;
   }
 
   /**

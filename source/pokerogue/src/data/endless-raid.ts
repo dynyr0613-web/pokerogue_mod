@@ -41,8 +41,12 @@ export const RAID_HP_MULTIPLIER = 3;
 /** The shares of its max HP at which the raid boss clears stat changes, highest first */
 export const RAID_RESET_THRESHOLDS: readonly number[] = [0.75, 0.5, 0.25];
 
-/** How many of {@linkcode RAID_RESET_THRESHOLDS} each raid boss (by Pokémon id) has already answered */
-const answeredThresholds = new Map<number, number>();
+/**
+ * How many of {@linkcode RAID_RESET_THRESHOLDS} each raid boss has already answered. Local fork (2026-11-17): kept by
+ * the Pokémon object, not its id: a retry or a session loaded again in the same window brings the boss back at full HP
+ * as a new object with the same id, and it answers every threshold again.
+ */
+const answeredThresholds = new WeakMap<Pokemon, number>();
 
 /** @returns Whether the Pokémon is the raid's boss: the enemy boss with the Mightiest Mark on the raid wave */
 export function isRaidBoss(pokemon: Pokemon): boolean {
@@ -91,10 +95,10 @@ export function applyRaidTurnEnd(pokemon: Pokemon): void {
   }
 
   const passed = getRaidThresholdsPassed(pokemon.getHpRatio());
-  if (passed <= (answeredThresholds.get(pokemon.id) ?? 0)) {
+  if (passed <= (answeredThresholds.get(pokemon) ?? 0)) {
     return;
   }
-  answeredThresholds.set(pokemon.id, passed);
+  answeredThresholds.set(pokemon, passed);
   for (const stat of BATTLE_STATS) {
     for (const player of globalScene.getPlayerField()) {
       if (player.getStatStage(stat) > 0) {

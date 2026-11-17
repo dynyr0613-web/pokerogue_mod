@@ -498,10 +498,13 @@ export function getBattleFormOptions(pokemon: Pokemon): EnemyBattleFormOption[] 
 /**
  * Local fork (2026-11-10): whether `pokemon` can be given a battle form: not a fusion, not already in a Mega / Primal /
  * Max form, and with a battle form to go to (Eternatus has none: Eternamax is not a battle form here).
+ * 2026-11-17: nor Terastallized (the Endless raid's boss, endless-raid.ts, is from the start): Mega / Max and Tera
+ * never meet.
  */
 export function canTakeBattleForm(pokemon: Pokemon): boolean {
   return (
     !pokemon.isFusion()
+    && !pokemon.isTerastallized
     && !pokemon.isMega()
     && !pokemon.isMax()
     && pokemon.species.speciesId !== SpeciesId.ETERNATUS

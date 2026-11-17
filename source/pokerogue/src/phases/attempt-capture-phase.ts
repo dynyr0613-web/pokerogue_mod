@@ -5,6 +5,7 @@ import { globalScene } from "#app/global-scene";
 import { IS_TEST, isBeta, isDev } from "#constants/app-constants";
 import { SubstituteTag } from "#data/battler-tags";
 import { prepareBattleFormCapture } from "#data/enemy-battle-forms"; // Local fork (2026-11-10)
+import { isRaidBoss, RAID_HP_MULTIPLIER } from "#data/endless-raid"; // Local fork (2026-11-17)
 import { Gender } from "#data/gender";
 import {
   doPokeballBounceAnim,
@@ -19,6 +20,7 @@ import { ChallengeType } from "#enums/challenge-type";
 import { PartyUiMode } from "#enums/party-ui-mode";
 import { PokeballType } from "#enums/pokeball";
 import { PokemonMark } from "#enums/pokemon-mark";
+import { Stat } from "#enums/stat";
 import { StatusEffect } from "#enums/status-effect";
 import { UiMode } from "#enums/ui-mode";
 import type { EnemyPokemon } from "#field/pokemon";
@@ -348,6 +350,17 @@ export class AttemptCapturePhase extends PokemonPhase {
                       pokemon.nature,
                       pokemon,
                     );
+                    // Local fork (2026-11-17): the preview shares the raid boss' stats, its max HP tripled
+                    // (endless-raid.ts). It shows them as they will be in the party: with the held items, which go
+                    // over with it (so not recalculated here, where they are still the enemy's), and the HP without
+                    // the raid's multiplier, the last step of the max HP before Wonder Guard's 1
+                    if (isRaidBoss(pokemon)) {
+                      newPokemon.stats = pokemon.stats.slice();
+                      if (newPokemon.stats[Stat.HP] > 1) {
+                        newPokemon.stats[Stat.HP] = Math.floor(newPokemon.stats[Stat.HP] / RAID_HP_MULTIPLIER);
+                      }
+                      newPokemon.hp = Math.min(newPokemon.hp, newPokemon.stats[Stat.HP]);
+                    }
                     ui.setMode(
                       UiMode.SUMMARY,
                       newPokemon,

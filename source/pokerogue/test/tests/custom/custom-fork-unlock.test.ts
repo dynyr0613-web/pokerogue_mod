@@ -88,11 +88,11 @@ describe("Custom - fork content unlocks with the first Classic clear", () => {
   // Local fork (2026-11-12): 37 items with the Piercing Token (관통 토큰), 39 with the Weight Band and the Champion Belt
   // (중량밴드 / 챔피언벨트), 45 with the six EV items (파워웨이트 … 파워앵클릿); Local fork (2026-11-13): 46 with the
   // Guard Token (방호 토큰, 09 명세 4번); Local fork (2026-11-16): 49 with the Z-Ring, Dynamax Candy and Z crystals
-  // (Z링 / 다이사탕 / Z크리스탈)
-  it("keeps the gate in one frozen table: Endless's unlock flag and 49 items + 5 Mega Stones", () => {
+  // (Z링 / 다이사탕 / Z크리스탈); 2026-11-17: 50 with the Mark Charm (증표부적)
+  it("keeps the gate in one frozen table: Endless's unlock flag and 50 items + 5 Mega Stones", () => {
     expect(Object.isFrozen(FORK_UNLOCK)).toBe(true);
     expect(FORK_UNLOCK.unlockable).toBe(Unlockables.ENDLESS_MODE);
-    expect(FORK_UNLOCK.gatedItems.size).toBe(54);
+    expect(FORK_UNLOCK.gatedItems.size).toBe(55);
     const pool = getModifierPoolForType(ModifierPoolType.PLAYER);
     const poolIds = new Set(Object.values(pool).flatMap(tier => tier.map(w => w.modifierType.id)));
     for (const id of FORK_UNLOCK.gatedItems) {
@@ -139,8 +139,8 @@ describe("Custom - fork content unlocks with the first Classic clear", () => {
 
     const lockedPoolIds = [...FORK_UNLOCK.gatedItems].filter(id => locked.has(id));
     // Local fork (2026-11-12): 39 -> 45 with the six EV items; 2026-11-13: 46 with the Guard Token; 2026-11-16: 49 with
-    // the Z-Ring, Dynamax Candy and Z crystals
-    expect(lockedPoolIds).toHaveLength(49);
+    // the Z-Ring, Dynamax Candy and Z crystals; 2026-11-17: 50 with the Mark Charm
+    expect(lockedPoolIds).toHaveLength(50);
     expect(lockedPoolIds.filter(id => locked.get(id) !== false)).toEqual([]);
     // Unlocked, the plain ones are back (the others wait for their own conditions)
     const plain = ["ASSAULT_VEST", "BULLETPROOF_VEST", "LIFE_ORB", "CANDY_PILE", "CHOICE_SCARF", "METRONOME"];

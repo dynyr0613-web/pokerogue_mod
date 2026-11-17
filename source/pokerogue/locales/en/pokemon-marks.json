@@ -259,7 +259,7 @@
   },
   "onceInALifetimeRibbon": {
     "name": "Once-in-a-Lifetime Ribbon",
-    "description": "A Ribbon for a Pokémon met through a once-in-a-lifetime Wonder Trade.",
+    "description": "A Ribbon for a Pokémon from a rare, lucky Wonder Trade.",
     "title": "the Once-in-a-Lifetime"
   },
   "jumboMark": {
@@ -304,7 +304,7 @@
   "count": "Marks {{count}}/{{total}}",
   "bestFriendsRibbon": {
     "name": "Best Friends Ribbon",
-    "description": "A Ribbon for a Pokémon that is the best of friends with its Trainer.",
+    "description": "A Ribbon for a Pokémon who is best friends with its Trainer.",
     "title": "the Great Friend"
   },
   "effortRibbon": {
@@ -349,7 +349,7 @@
   },
   "grandFootprintRibbon": {
     "name": "Grand Footprint Ribbon",
-    "description": "A Ribbon for a Pokémon that reached level 100000 in Endless.",
+    "description": "A Ribbon for a Pokémon that hit level 100000 in Endless.",
     "title": "the Far Strider"
   },
   "endlessMasterRibbon": {

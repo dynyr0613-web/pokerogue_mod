@@ -24,6 +24,10 @@ export class StarterContainer extends Phaser.GameObjects.Container {
 
   constructor(speciesId: SpeciesId) {
     super(globalScene, 0, 0);
+    // Local fork (2026-11-17): the golden outline stops following its icon with the container
+    this.once(Phaser.GameObjects.Events.DESTROY, () =>
+      globalScene.events.off(Phaser.Scenes.Events.POST_UPDATE, this.syncMarkOutline),
+    );
 
     const defaultProps = globalScene.gameData.getSpeciesDefaultDexAttrProps(speciesId);
 
@@ -90,6 +94,28 @@ export class StarterContainer extends Phaser.GameObjects.Container {
 
   /** Local fork (2026-11-17): the golden outline of a line with a complete mark collection, under the icon */
   private markOutline: Phaser.GameObjects.Image[] = [];
+  /** Where each piece of the outline stands from the icon */
+  private markOutlineOffsets: [number, number][] = [];
+
+  /**
+   * Local fork (2026-11-17): keep the outline with its icon every frame: the icon bobs and jumps under the cursor
+   * (`PokemonIconAnimHelper`), changes its frame with the form, gender or shininess, and fades when it cannot be
+   * taken, which the opaque outline would shine through, so it is hidden then.
+   */
+  private readonly syncMarkOutline = (): void => {
+    const icon = this.icon;
+    if (!icon?.active) {
+      return;
+    }
+    const show = icon.visible && icon.alpha >= 1;
+    this.markOutline.forEach((outline, i) => {
+      const [dx, dy] = this.markOutlineOffsets[i];
+      outline.setPosition(icon.x + dx, icon.y + dy).setVisible(show);
+      if (outline.texture.key !== icon.texture.key || outline.frame.name !== icon.frame.name) {
+        outline.setTexture(icon.texture.key, icon.frame.name);
+      }
+    });
+  };
 
   public setSpecies(speciesId: SpeciesId, props: DexAttrProps) {
     this.species = speciesDataRegistry.getSpecies(speciesId);
@@ -114,11 +140,14 @@ export class StarterContainer extends Phaser.GameObjects.Container {
       this.remove(outline, true);
     }
     this.markOutline = [];
+    globalScene.events.off(Phaser.Scenes.Events.POST_UPDATE, this.syncMarkOutline);
     if (
       isMarkCollectionComplete(getCollectedMarks(globalScene.gameData.starterData[this.species.getRootSpeciesId()]))
     ) {
       this.markOutline = createMarkOutline(this.icon);
+      this.markOutlineOffsets = this.markOutline.map(outline => [outline.x - this.icon.x, outline.y - this.icon.y]);
       this.add(this.markOutline);
+      globalScene.events.on(Phaser.Scenes.Events.POST_UPDATE, this.syncMarkOutline);
     }
     this.add(this.icon);
 

@@ -2295,11 +2295,14 @@ export class StarterSelectUiHandler extends MessageUiHandler {
             if (species) {
               starterContainer = this.starterContainers[this.cursor];
               const persistentStarterData = globalScene.gameData.starterData[this.lastStarterId];
-              // Local fork (2026-11-17): a starter already in the party follows the mark worn on the Pokédex page
-              const partyStarter = this.partyStarters[this.partyStarterIds.indexOf(this.lastStarterId)];
-              if (partyStarter) {
-                partyStarter.equippedMark = getStarterEquippedMark(persistentStarterData) ?? undefined;
-              }
+              // Local fork (2026-11-17): the starters already in the party follow the mark worn on the Pokédex page:
+              // every one of the line, which wears one mark (Pichu and Pikachu can both be taken)
+              const rootId = species.getRootSpeciesId();
+              this.partyStarterIds.forEach((id, i) => {
+                if (speciesDataRegistry.getSpecies(id).getRootSpeciesId() === rootId) {
+                  this.partyStarters[i].equippedMark = this.getWornMark(id);
+                }
+              });
               this.updateCandyUpgradeDisplay(starterContainer);
               this.updateStarterValueLabel(starterContainer);
               starterContainer.starterPassiveBgs.setVisible(
@@ -2430,6 +2433,16 @@ export class StarterSelectUiHandler extends MessageUiHandler {
     return [isDupe, removeIndex];
   }
 
+  /**
+   * Local fork (2026-11-17): the mark a starter wears. It is kept with its line's collection, on the root species'
+   * entry (`GameData.registerMarks`, the Pokédex page's mark list), which for Pikachu is Pichu's; and it is read from
+   * the challenge copy, as the passive is, so that Fresh Start takes it away (also when the Pokédex page is closed).
+   */
+  private getWornMark(starterId: StarterSpeciesId): PokemonMark | undefined {
+    const rootId = speciesDataRegistry.getSpecies(starterId).getRootSpeciesId() as StarterSpeciesId;
+    return getStarterEquippedMark(getStarterData(rootId).starterDataEntry) ?? undefined;
+  }
+
   private addToParty(
     starterId: StarterSpeciesId,
     dexAttr: bigint,
@@ -2473,7 +2486,7 @@ export class StarterSelectUiHandler extends MessageUiHandler {
       alphaBoost: getStarterAlphaBoost(starterDataEntry),
       partnerMark: !!starterDataEntry.partnerMark,
       bestFriendsRibbon: !!starterDataEntry.bestFriendsRibbon,
-      equippedMark: getStarterEquippedMark(starterDataEntry) ?? undefined,
+      equippedMark: this.getWornMark(starterId),
       nature,
       moveset,
       pokerus: this.pokerusSpeciesIds.includes(starterId),

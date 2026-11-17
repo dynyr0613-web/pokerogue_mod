@@ -50,6 +50,11 @@ Additions in this modified build
   (https://github.com/kwsch/PKHeX, PKHeX.Drawing.Misc/Resources/img/ribbons), used unedited. GPL-3.0
   (licenses/code/GPL-3.0-only.txt). The Golden Alpha Mark is PKHeX's Alpha Mark recoloured, and the three
   shiny marks are PokeRogue's Shiny Charm item icon recoloured.
+  The six stat Effort Ribbons and the Grand Footprint Ribbon are PKHeX's Effort and Footprint Ribbons
+  recoloured, the Endless Master Ribbon uses its Tower Master Ribbon; the Egg Move, Perfect IV, Master Ball
+  and Eternatus Marks are PokeRogue's Mystery Egg, HP Up (gold), Master Ball and Mini Black Hole icons.
+- Mark Charm item icon: the Mark Charm sprite of the PokeAPI sprites repository
+  (https://github.com/PokeAPI/sprites, sprites/items/mark-charm.png), halved to 32x32.
 - Named trainer battle sprites, used unedited from the Pokémon Showdown trainer sprite index
   (https://play.pokemonshowdown.com/sprites/trainers/?filter=credited):
     Brumirage: Volo, Irida, Adaman, Sonia, Hop, Peony. Free to use with credit

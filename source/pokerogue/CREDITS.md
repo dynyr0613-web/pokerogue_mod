@@ -829,3 +829,10 @@ and [everyone else](https://github.com/pagefaultgames/pokerogue/graphs/contribut
   (`LICENSES/GPL-3.0-only.txt`). The marks' and ribbons' Korean and English names are the main series' own.
   The Golden Alpha Mark's icon is PKHeX's Alpha Mark recoloured, and the three shiny marks' icons are PokéRogue's
   Shiny Charm item icon recoloured (`tools/port/mark-icons/ribbonmarkalphagold.png`, `ribbonmarkshiny*.png`).
+  Added the same night from the repository: the six stat Effort Ribbons are PKHeX's Effort Ribbon with recoloured
+  petals, the Grand Footprint Ribbon is its Footprint Ribbon recoloured violet, and the Endless Master Ribbon uses its
+  Tower Master Ribbon; the Egg Move, Perfect IV and Master Ball Marks are PokéRogue's Mystery Egg, HP Up (recoloured
+  gold) and Master Ball icons, and the Eternatus Mark is PokéRogue's Mini Black Hole icon recoloured.
+- Local fork (2026-11-17), the Mark Charm item icon (`mark_charm` in `assets/images/items.png`, installed by
+  `tools/port/install_mark_charm_icon.py`): the Mark Charm sprite of the [PokeAPI sprites](https://github.com/PokeAPI/sprites)
+  repository (`sprites/items/mark-charm.png`), halved to 32x32. The sprite itself is the main series' own art.
