@@ -3,6 +3,7 @@ import { globalScene } from "#app/global-scene";
 import { getPokemonNameWithAffix } from "#app/messages";
 // Local fork (2026-11-14): custom moves. Grassy Terrain or the Garden
 import { hasGrassyEffect } from "#data/arena-tag";
+import { applyRaidTurnEnd } from "#data/endless-raid";
 import { TerrainType } from "#data/terrain";
 import { BattlerTagLapseType } from "#enums/battler-tag-lapse-type";
 import { WeatherType } from "#enums/weather-type";
@@ -67,6 +68,8 @@ export class TurnEndPhase extends FieldPhase {
         }
 
         applyAbAttrs("PostTurnAbAttr", { pokemon });
+        // Local fork (2026-11-17): the raid boss shakes off its status and answers its HP thresholds (endless-raid.ts)
+        applyRaidTurnEnd(pokemon);
       }
 
       globalScene.applyModifiers(TurnStatusEffectModifier, pokemon.isPlayer(), pokemon);

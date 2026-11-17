@@ -370,5 +370,6 @@
   "eternatusMark": {
     "name": "무한다이노의증표",
     "description": "모든 포켓몬과 무한다이노를 잡은 트레이너의 증표."
-  }
+  },
+  "raidStatReset": "{{pokemonName}}[[가]] 능력 변화를\n원래대로 되돌렸다!"
 }

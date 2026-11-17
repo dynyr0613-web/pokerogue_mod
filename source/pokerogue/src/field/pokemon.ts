@@ -80,7 +80,7 @@ import {
   PokemonWaveData,
 } from "#data/pokemon-data";
 import type { SpeciesFormChange } from "#data/pokemon-forms";
-import { isEndlessRaidWave } from "#data/endless-raid";
+import { applyRaidHpMultiplier, isEndlessRaidWave } from "#data/endless-raid";
 import { applyWildMark, normalizeMarks } from "#data/pokemon-marks";
 import type { PokemonSpeciesForm } from "#data/pokemon-species";
 import { PokemonSpecies } from "#data/pokemon-species";
@@ -1783,6 +1783,8 @@ export abstract class Pokemon extends Phaser.GameObjects.Container {
         statHolder.value = applyEndlessBossHpCorrection(this, statHolder.value);
         // Local fork (2026-11-17): an alpha's boost, on the finished max HP (alpha-pokemon.ts)
         statHolder.value = applyAlphaStatBoost(this, statHolder.value);
+        // Local fork (2026-11-17): the raid boss' HP multiplier (endless-raid.ts)
+        statHolder.value = applyRaidHpMultiplier(this, statHolder.value);
         if (this.hasAbility(AbilityId.WONDER_GUARD, false, true)) {
           statHolder.value = 1;
         }
@@ -7175,6 +7177,9 @@ export class EnemyPokemon extends Pokemon {
       if (boss && isEndlessRaidWave(globalScene.gameMode, globalScene.currentBattle?.waveIndex)) {
         this.isTerastallized = true;
         this.addMark(PokemonMark.MIGHTIEST_MARK);
+        // The mark makes it the raid's boss, whose max HP is multiplied
+        this.calculateStats();
+        this.hp = this.getMaxHp();
       }
     }
 

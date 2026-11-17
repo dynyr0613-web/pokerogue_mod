@@ -11,7 +11,16 @@ import {
   SingleGenerationChallenge,
   SingleTypeChallenge,
 } from "#data/challenge";
-import { getMarkKey, MARKS_ATLAS_KEY, TRAINER_RIBBONS, WILD_MARKS } from "#data/pokemon-marks";
+import {
+  COMPLETION_EXEMPT_MARKS,
+  getCollectedMarks,
+  getMarkKey,
+  hasEternatusMark,
+  isMarkCollectionComplete,
+  MARKS_ATLAS_KEY,
+  TRAINER_RIBBONS,
+  WILD_MARKS,
+} from "#data/pokemon-marks";
 import { Challenges } from "#enums/challenges";
 import { PlayerGender } from "#enums/player-gender";
 import { PokemonMark } from "#enums/pokemon-mark";
@@ -49,7 +58,8 @@ const CHAMPION_RIBBONS: readonly PokemonMark[] = [...new Set(Object.values(TRAIN
 
 /**
  * Local fork (2026-11-17): the marks the "every kind" achievement asks for: the 41 wild marks and the Jumbo, Mini,
- * Partner and three shiny marks (the user: "증표 도감 완성에는 파트너, 조그만, 이로치 3종, 커다란도 넣어두고")
+ * Partner and shiny marks (the user: "증표 도감 완성에는 파트너, 조그만, 이로치 3종, 커다란도 넣어두고"), but for the
+ * epic shiny mark since it became a hidden mark: no collection asks for a hidden mark.
  */
 export const ALL_KINDS_MARKS: readonly PokemonMark[] = [
   ...WILD_MARKS,
@@ -58,7 +68,6 @@ export const ALL_KINDS_MARKS: readonly PokemonMark[] = [
   PokemonMark.PARTNER_MARK,
   PokemonMark.SHINY_MARK,
   PokemonMark.RARE_SHINY_MARK,
-  PokemonMark.EPIC_SHINY_MARK,
 ];
 
 /** Local fork (2026-11-17): the wild marks collected so far, counting every one */
@@ -807,6 +816,29 @@ export const achvs = {
   MEMORIAL_RIBBONS_ALL_KINDS: new MarkCollectionAchv("memorialRibbonsAllKinds", PokemonMark.LEGEND_RIBBON, 100, () =>
     CHAMPION_RIBBONS.every(m => getMarkCount(m) > 0),
   ),
+  // Local fork (2026-11-17): the collection per Pokémon, the earned ribbons and the hidden marks
+  MARK_DEX_ONE: new MarkCollectionAchv("markDexOne", PokemonMark.PARTNER_MARK, 150, () =>
+    Object.values(globalScene.gameData.starterData).some(entry => isMarkCollectionComplete(getCollectedMarks(entry))),
+  ),
+  EFFORT_RIBBON: new MarkCollectionAchv(
+    "effortRibbon",
+    PokemonMark.EFFORT_RIBBON,
+    50,
+    () => getMarkCount(PokemonMark.EFFORT_RIBBON) > 0,
+  ),
+  HIDDEN_MARK: new MarkCollectionAchv(
+    "hiddenMark",
+    PokemonMark.ONCE_IN_A_LIFETIME_RIBBON,
+    75,
+    () => COMPLETION_EXEMPT_MARKS.some(m => getMarkCount(m) > 0) || hasEternatusMark(),
+  ),
+  MIGHTIEST_MARK: new MarkCollectionAchv(
+    "mightiestMark",
+    PokemonMark.MIGHTIEST_MARK,
+    150,
+    () => getMarkCount(PokemonMark.MIGHTIEST_MARK) > 0,
+  ),
+  ETERNATUS_MARK: new MarkCollectionAchv("eternatusMark", PokemonMark.ETERNATUS_MARK, 150, () => hasEternatusMark()),
 };
 
 /** Local fork (2026-11-17): the achievements for collecting marks and ribbons, in the order they are checked */

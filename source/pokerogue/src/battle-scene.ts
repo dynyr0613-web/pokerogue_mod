@@ -1576,6 +1576,11 @@ export class BattleScene extends SceneBase {
    */
   private checkIsDouble({ double: forcedDouble, battleType, waveIndex, trainer }: NewBattleConstructedProps): boolean {
     // TODO: enforce using the proper override depending on whether it's a trainer or a wild battle
+    // Local fork (2026-11-17): the raid is always two of the player's Pokémon against the one boss (endless-raid.ts)
+    if (isEndlessRaidWave(this.gameMode, waveIndex) && battleType === BattleType.WILD) {
+      return true;
+    }
+
     const doubleBattleOverride = this.doCheckDoubleOverride(waveIndex);
     if (doubleBattleOverride != null) {
       return doubleBattleOverride;
@@ -1585,7 +1590,6 @@ export class BattleScene extends SceneBase {
     if (
       this.gameMode.isWaveFinal(waveIndex) // Endless bosses and classic mode finales are never double battles
       || this.gameMode.isEndlessBoss(waveIndex)
-      || isEndlessRaidWave(this.gameMode, waveIndex) // Local fork (2026-11-17): nor is the raid (endless-raid.ts)
       || battleType === BattleType.MYSTERY_ENCOUNTER // MEs are never double battles
     ) {
       return false;

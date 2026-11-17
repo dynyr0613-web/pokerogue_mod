@@ -48,6 +48,9 @@ export type BattleInfoParamList = {
 const MARK_ICON_SCALE = 0.2;
 const MARK_ICON_PITCH = 9;
 
+/** Local fork (2026-11-17): a `lastTitle` no Pokémon has, to have the name and the title worked out again */
+export const TITLE_STALE = "\u0000";
+
 /** Local fork (2026-11-17): the room the name keeps next to a title, and the gap between the two, in px */
 const TITLE_NAME_MIN = 30;
 const TITLE_GAP = 1.5;

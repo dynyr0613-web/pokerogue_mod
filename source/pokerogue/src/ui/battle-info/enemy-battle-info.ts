@@ -6,7 +6,7 @@ import { TypeHints } from "#enums/type-hints";
 import type { EnemyPokemon } from "#field/pokemon";
 import { BattleFlyout } from "#ui/battle-flyout";
 import type { BattleInfoParamList } from "#ui/battle-info";
-import { BattleInfo } from "#ui/battle-info";
+import { BattleInfo, TITLE_STALE } from "#ui/battle-info";
 import { addTextObject } from "#ui/text";
 import { addWindow, WindowVariant } from "#ui/ui-theme";
 import { getLocalizedSpriteKey } from "#utils/common";
@@ -203,6 +203,8 @@ export class EnemyBattleInfo extends BattleInfo {
       ].map(e => (e.x += 48 * (boss ? -1 : 1)));
       // Local fork (2026-11-17): and so does the left end of the row, which the name and the icons are placed from
       this.nameTextBaseX += 48 * (boss ? -1 : 1);
+      // The boss box has more room for the name and the title, so they are worked out again at the next update
+      this.lastTitle = TITLE_STALE;
       this.hpBar.x += 38 * (boss ? -1 : 1);
       this.hpBar.y += 2 * (this.boss ? -1 : 1);
       this.hpBar.setTexture(`overlay_hp${boss ? "_boss" : ""}`);

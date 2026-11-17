@@ -1,9 +1,11 @@
 import { globalScene } from "#app/global-scene";
 import { speciesDataRegistry } from "#app/global-species-data-registry";
+import { getCollectedMarks, isMarkCollectionComplete } from "#data/pokemon-marks";
 import type { PokemonSpecies } from "#data/pokemon-species";
 import type { SpeciesId } from "#enums/species-id";
 import { TextStyle } from "#enums/text-style";
 import type { DexAttrProps } from "#types/save-data";
+import { createMarkOutline } from "#ui/mark-tray-container";
 import { addTextObject } from "#ui/text";
 import Phaser from "phaser";
 
@@ -86,6 +88,9 @@ export class StarterContainer extends Phaser.GameObjects.Container {
     this.candyUpgradeOverlayIcon = candyUpgradeOverlayIcon;
   }
 
+  /** Local fork (2026-11-17): the golden outline of a line with a complete mark collection, under the icon */
+  private markOutline: Phaser.GameObjects.Image[] = [];
+
   public setSpecies(speciesId: SpeciesId, props: DexAttrProps) {
     this.species = speciesDataRegistry.getSpecies(speciesId);
 
@@ -103,6 +108,18 @@ export class StarterContainer extends Phaser.GameObjects.Container {
       .setFrame(this.species.getIconId(female, formIndex, shiny, variant))
       .setTint(0);
     this.checkIconId(female, formIndex, shiny, variant);
+    // Local fork (2026-11-17): a golden outline for a line that has collected every mark and ribbon but the hidden
+    // ones (the user: "도감을 완성한 포켓몬 금테두리")
+    for (const outline of this.markOutline) {
+      this.remove(outline, true);
+    }
+    this.markOutline = [];
+    if (
+      isMarkCollectionComplete(getCollectedMarks(globalScene.gameData.starterData[this.species.getRootSpeciesId()]))
+    ) {
+      this.markOutline = createMarkOutline(this.icon);
+      this.add(this.markOutline);
+    }
     this.add(this.icon);
 
     [

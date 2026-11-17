@@ -322,7 +322,7 @@
   "marksAllKinds": {
     "name": "Every Mark",
     "name_female": "Every Mark",
-    "description": "Obtain all 41 wild Pokémon marks and the Jumbo, Mini, Partner and three shiny marks."
+    "description": "Obtain all 41 wild Pokémon marks and the Jumbo, Mini, Partner, Shiny and rare shiny marks."
   },
   "alphaMarks10": {
     "name": "Alpha Hunter",
@@ -363,5 +363,30 @@
     "name": "Champion Road",
     "name_female": "Champion Road",
     "description": "Receive every kind of memorial ribbon."
+  },
+  "markDexOne": {
+    "name": "One of a Kind",
+    "name_female": "One of a Kind",
+    "description": "Collect every mark and ribbon but the hidden ones with one Pokémon."
+  },
+  "effortRibbon": {
+    "name": "Hard Work Pays Off",
+    "name_female": "Hard Work Pays Off",
+    "description": "Obtain the Effort Ribbon."
+  },
+  "hiddenMark": {
+    "name": "Hidden Mark",
+    "name_female": "Hidden Mark",
+    "description": "Obtain a hidden mark."
+  },
+  "mightiestMark": {
+    "name": "Proof of the Mightiest",
+    "name_female": "Proof of the Mightiest",
+    "description": "Catch a Pokémon with the Mightiest Mark."
+  },
+  "eternatusMark": {
+    "name": "The End of Eternity",
+    "name_female": "The End of Eternity",
+    "description": "Obtain the Eternatus Mark."
   }
 }

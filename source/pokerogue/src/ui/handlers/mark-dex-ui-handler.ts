@@ -8,7 +8,7 @@
  *   also named "???" (the user: "그쪽도 ???으로 가리도록"), and one every line has gets a golden outline, so that all
  *   of them have it once everything is collected ("증표 도감에서 모든 포켓몬의 증표를 전부 모을 경우에도 테두리 금색").
  * - The action button on a mark opens the second view: every starter line's icon, bright if the line has that mark
- *   and grey if not, with the line's own count ("증표 n/70") under the cursor.
+ *   and grey if not, outlined in gold if the line has collected everything, with the line's own count ("증표 n/70") under the cursor.
  *
  * - The hidden marks are not in the list: the Once-in-a-Lifetime Ribbon, the Mightiest Mark and the player's own
  *   Eternatus Mark (`hasEternatusMark`). Once every listed mark has been obtained the list can be scrolled down past
@@ -104,6 +104,8 @@ export class MarkDexUiHandler extends MessageUiHandler {
 
   private speciesContainer: Phaser.GameObjects.Container;
   private speciesIcons: Phaser.GameObjects.Sprite[] = [];
+  /** The golden outlines of the shown Pokémon whose lines have collected everything */
+  private speciesOutlines: Phaser.GameObjects.Image[] = [];
   private scrollBar: ScrollBar;
 
   private cursorObj: Phaser.GameObjects.Image;
@@ -399,6 +401,10 @@ export class MarkDexUiHandler extends MessageUiHandler {
     this.speciesScroll = scroll;
     this.scrollBar.setScrollCursor(scroll);
     const mark = this.openMark;
+    for (const outline of this.speciesOutlines) {
+      this.speciesContainer.remove(outline, true);
+    }
+    this.speciesOutlines = [];
     this.speciesIcons.forEach((icon, i) => {
       const id = this.starterIds[scroll * SPECIES_COLS + i];
       const species = id === undefined ? null : speciesDataRegistry.getSpecies(id);
@@ -411,6 +417,12 @@ export class MarkDexUiHandler extends MessageUiHandler {
         icon.clearTint().setAlpha(1);
       } else {
         icon.setTint(MISSING_TINT).setTintMode(Phaser.TintModes.FILL).setAlpha(MISSING_ALPHA);
+      }
+      // A line that has collected everything but the hidden marks is outlined in gold
+      if (isMarkCollectionComplete(this.collected.get(id) ?? [])) {
+        const outline = createMarkOutline(icon);
+        this.speciesContainer.addAt(outline, this.speciesContainer.getIndex(icon));
+        this.speciesOutlines.push(...outline);
       }
     });
   }
@@ -431,8 +443,9 @@ export class MarkDexUiHandler extends MessageUiHandler {
       this.showText(
         i18next.t("pokemonMarks:dex.speciesMarks", {
           name: caught ? species.name : i18next.t("pokemonMarks:dex.unknownSpecies"),
+          // The hidden marks count past the total here too
           count: this.collected.get(id)?.length ?? 0,
-          total: orderedPokemonMarks.length,
+          total: LISTED_MARKS.length,
         }),
       );
     }

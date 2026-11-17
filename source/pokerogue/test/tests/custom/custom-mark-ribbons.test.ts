@@ -4,6 +4,7 @@
 // 10만레벨 달성 시 하나 / 배틀타워는 엔드리스 클리어 증표처럼 하고 이름을 바꿔보죠 / 포켓몬별 증표 n/50몇개".
 
 import { getBestFriendsRibbonCandyCount, getPartnerMarkCandyCount } from "#balance/starters";
+import { modifierTypes } from "#data/data-lists";
 import {
   awardPartyRibbon,
   awardProgressRibbons,
@@ -15,10 +16,12 @@ import {
   getMarkTitle,
   getPokemonTitle,
   getStarterEquippedMark,
+  getWildMarkRolls,
   hasEternatusMark,
   hasEverObtainedMark,
   isMarkCollectionComplete,
   isPokemonMark,
+  MARK_CHARM_ID,
   normalizeMarks,
   orderedPokemonMarks,
   STAT_EFFORT_RIBBONS,
@@ -29,6 +32,7 @@ import { PokemonMark } from "#enums/pokemon-mark";
 import { SpeciesId } from "#enums/species-id";
 import { PERMANENT_STATS, Stat } from "#enums/stat";
 import { getEvCap } from "#modifiers/ev-items";
+import type { PersistentModifier } from "#modifiers/modifier";
 import { PokemonData } from "#system/pokemon-data";
 import { GameManager } from "#test/framework/game-manager";
 import { getAppRootDir } from "#test/utils/sprite-utils";
@@ -211,6 +215,24 @@ describe("Local fork - earned ribbons, the worn mark and the line's collection",
       const file = path.join(getAppRootDir(), "locales", lang, "pokemon-marks.json");
       expect(JSON.parse(fs.readFileSync(file, "utf8")).eternatusMark?.name, lang).toBeTruthy();
     }
+  });
+
+  it("the Mark Charm rolls a wild Pokémon's mark three times, and twice more for each further charm", async () => {
+    await game.classicMode.startBattle(SpeciesId.BULBASAUR);
+    expect(getWildMarkRolls()).toBe(1);
+
+    const charm = modifierTypes
+      .MARK_CHARM()
+      .withIdFromFunc(modifierTypes.MARK_CHARM)
+      .newModifier() as PersistentModifier;
+    expect(charm.type.id).toBe(MARK_CHARM_ID);
+    expect(charm.getMaxStackCount()).toBe(3);
+    game.scene.addModifier(charm, true);
+    expect(getWildMarkRolls()).toBe(3);
+    game.scene.addModifier(charm.clone(), true);
+    expect(getWildMarkRolls()).toBe(5);
+    // In the Master pool, and with its texts
+    expect(i18next.t("modifierType:ModifierType.MARK_CHARM.name")).not.toContain("MARK_CHARM");
   });
 
   it("the Best Friends Ribbon costs twice the Partner Mark", () => {

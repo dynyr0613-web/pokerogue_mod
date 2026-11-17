@@ -34,7 +34,7 @@ import { WeatherType } from "#enums/weather-type";
 import type { Pokemon } from "#field/pokemon";
 import { getEvCap } from "#modifiers/ev-items";
 import type { StarterDataEntry } from "#types/save-data";
-import { randSeedInt, randSeedItem } from "#utils/common";
+import { NumberHolder, randSeedInt, randSeedItem } from "#utils/common";
 import { toCamelCase } from "#utils/strings";
 import i18next from "i18next";
 import Phaser from "phaser";
@@ -379,6 +379,19 @@ export function getWildRollSeedOffset(pokemon: Pokemon, salt: number): number {
   return (globalScene.currentBattle?.waveIndex ?? 0) * 16 + (pokemon.id % 65521) + salt;
 }
 
+/** The modifier type id of the Mark Charm (modifier-type.ts); looked up by id, since the modifiers import this file */
+export const MARK_CHARM_ID = "MARK_CHARM";
+
+/**
+ * How many times a wild Pokémon's mark is rolled: once, and with the player's Mark Charms as often as
+ * `MarkRateBoosterModifier` says (three times with one charm, as in Sword and Shield).
+ */
+export function getWildMarkRolls(): number {
+  const rolls = new NumberHolder(1);
+  globalScene.findModifier(m => m.type.id === MARK_CHARM_ID, true)?.apply(rolls);
+  return rolls.value;
+}
+
 /**
  * Give a freshly generated wild Pokémon its mark, if the roll says so. The roll has its own seed
  * ({@linkcode getWildRollSeedOffset}), so it changes nothing else the wave generates.
@@ -391,9 +404,14 @@ export function applyWildMark(pokemon: Pokemon): void {
   }
   globalScene.executeWithSeedOffset(
     () => {
-      const mark = rollWildMark(globalScene.arena.getTimeOfDay(), globalScene.arena.weatherType);
-      if (mark !== null) {
-        pokemon.addMark(mark);
+      // The Mark Charm rolls again: three times with one, as in Sword and Shield (MarkRateBoosterModifier)
+      const rolls = getWildMarkRolls();
+      for (let i = 0; i < rolls; i++) {
+        const mark = rollWildMark(globalScene.arena.getTimeOfDay(), globalScene.arena.weatherType);
+        if (mark !== null) {
+          pokemon.addMark(mark);
+          break;
+        }
       }
     },
     getWildRollSeedOffset(pokemon, 7919),

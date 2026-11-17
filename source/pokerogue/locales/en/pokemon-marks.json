@@ -370,5 +370,6 @@
   "eternatusMark": {
     "name": "Eternatus Mark",
     "description": "A mark for catching every Pokémon and Eternatus."
-  }
+  },
+  "raidStatReset": "{{pokemonName}} reset the stat changes!"
 }

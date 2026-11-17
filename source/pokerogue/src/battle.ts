@@ -8,6 +8,7 @@ import {
   getEndlessLevelBonus,
 } from "#balance/endless-level-scaling";
 import { isDailyFinalBoss } from "#data/daily-seed-utils";
+import { isEndlessRaidWave } from "#data/endless-raid";
 import { ArenaTagType } from "#enums/arena-tag-type";
 import { BattleType } from "#enums/battle-type";
 import { BattlerIndex } from "#enums/battler-index";
@@ -135,7 +136,10 @@ export class Battle {
       battleType === BattleType.TRAINER
         ? trainer?.getPartyLevels(this.waveIndex)
         : // TODO: Remove array.fill.map
-          new Array(double ? 2 : 1).fill(null).map(() => this.getLevelForWave());
+          // Local fork (2026-11-17): the raid is two against one: a double battle with a single boss (endless-raid.ts)
+          new Array(double && !isEndlessRaidWave(gameMode, waveIndex) ? 2 : 1)
+            .fill(null)
+            .map(() => this.getLevelForWave());
   }
 
   public get isClassicFinalBoss(): boolean {

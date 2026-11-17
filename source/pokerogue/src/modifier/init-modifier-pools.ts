@@ -1075,6 +1075,8 @@ function initMasterModifierPool() {
   modifierPool[ModifierTier.MASTER] = [
     new WeightedModifierType(modifierTypes.MASTER_BALL, () => (hasMaximumBalls(PokeballType.MASTER_BALL) ? 0 : 24), 24),
     new WeightedModifierType(modifierTypes.SHINY_CHARM, 14),
+    // Local fork (2026-11-17): the Mark Charm, next to the Shiny Charm
+    new WeightedModifierType(modifierTypes.MARK_CHARM, 14),
     new WeightedModifierType(modifierTypes.HEALING_CHARM, 18),
     new WeightedModifierType(modifierTypes.MULTI_LENS, 18),
     // Local fork: the vests and Prism; since 2026-11-06 each is left out while one party member holds 3

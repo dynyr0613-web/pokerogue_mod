@@ -17,6 +17,7 @@
 
 import { globalScene } from "#app/global-scene";
 import {
+  COMPLETION_EXEMPT_MARKS,
   getMarkDescription,
   getMarkKey,
   getMarkName,
@@ -59,13 +60,16 @@ const OUTLINE_OFFSETS: readonly [number, number][] = [
 /**
  * Local fork (2026-11-17): the golden outline of a mark icon (the user: "한 포켓몬의 도감을 전부 채울경우 모든 증표/리본
  * 테두리에 금색"): four golden copies of the icon, each half a pixel to one side, to put under it.
- * @param icon - The mark's icon
+ * The same outline goes around the icon of a Pokémon whose line has collected everything (starter select, the mark
+ * Pokédex: "도감을 완성한 포켓몬 금테두리").
+ * @param icon - The mark's icon, or a Pokémon's
  * @returns The copies, not yet added to anything
  */
 export function createMarkOutline(icon: Phaser.GameObjects.Image): Phaser.GameObjects.Image[] {
   return OUTLINE_OFFSETS.map(([dx, dy]) =>
     globalScene.add
       .image(icon.x + dx, icon.y + dy, icon.texture.key, icon.frame.name)
+      .setOrigin(icon.originX, icon.originY)
       .setScale(icon.scaleX, icon.scaleY)
       .setTint(GOLD_TINT)
       .setTintMode(Phaser.TintModes.FILL),
@@ -227,7 +231,8 @@ export class MarkTray extends Phaser.GameObjects.Container {
     this.headerText.setText(
       i18next.t("pokemonMarks:count", {
         count: orderedPokemonMarks.filter(m => source.owned.includes(m)).length,
-        total: orderedPokemonMarks.length,
+        // The hidden marks count past the total, as in the mark Pokédex
+        total: orderedPokemonMarks.filter(m => !COMPLETION_EXEMPT_MARKS.includes(m)).length,
       }),
     );
     this.updateEquippedFrame();

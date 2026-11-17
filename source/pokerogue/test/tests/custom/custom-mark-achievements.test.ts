@@ -38,7 +38,7 @@ describe("Local fork - mark collection achievements", () => {
   });
 
   it("has a name, a description and a mark icon for each, in both languages", () => {
-    expect(markCollectionAchvs).toHaveLength(11);
+    expect(markCollectionAchvs).toHaveLength(16);
     const root = getAppRootDir();
     const atlas = JSON.parse(fs.readFileSync(path.join(root, "assets", "images", "marks", "marks.json"), "utf8"));
     const frames = new Set<string>(atlas.textures[0].frames.map((f: { filename: string }) => f.filename));
@@ -68,9 +68,11 @@ describe("Local fork - mark collection achievements", () => {
     // The same name as in the every-kind achievement's text
     expect(ko.marksAllKinds.description).toContain("일반 증표 41종");
     expect(ko.marksAllKinds.description).not.toContain("이로치");
-    for (const name of ["커다란", "조그만", "파트너의증표", "빛나는", "찬란한", "눈부신증표"]) {
+    for (const name of ["커다란", "조그만", "파트너의증표", "빛나는", "찬란한증표"]) {
       expect(ko.marksAllKinds.description).toContain(name);
     }
+    // The epic shiny mark is a hidden mark, which no collection asks for
+    expect(ko.marksAllKinds.description).not.toContain("눈부신");
   });
 
   it("counts a caught Pokémon's marks and unlocks the 10 Alpha Marks achievement on the tenth", async () => {
@@ -125,8 +127,8 @@ describe("Local fork - mark collection achievements", () => {
     expect(unlocked(achvs.MARKS_100)).toBe(true);
     expect(unlocked(achvs.MARKS_ALL_KINDS)).toBe(false);
 
-    // Every kind: the 41 wild marks and the Jumbo, Mini, Partner and three shiny marks
-    expect(ALL_KINDS_MARKS).toHaveLength(47);
+    // Every kind: the 41 wild marks and the Jumbo, Mini, Partner and two shiny marks (the epic one is hidden)
+    expect(ALL_KINDS_MARKS).toHaveLength(46);
     gameData.registerMarks(wildMarks);
     expect(unlocked(achvs.MARKS_ALL_KINDS)).toBe(false);
     const others = ALL_KINDS_MARKS.filter(m => !wildMarks.includes(m));
@@ -136,7 +138,6 @@ describe("Local fork - mark collection achievements", () => {
       PokemonMark.PARTNER_MARK,
       PokemonMark.SHINY_MARK,
       PokemonMark.RARE_SHINY_MARK,
-      PokemonMark.EPIC_SHINY_MARK,
     ]);
     gameData.registerMarks(others.slice(1));
     expect(unlocked(achvs.MARKS_ALL_KINDS)).toBe(false);
