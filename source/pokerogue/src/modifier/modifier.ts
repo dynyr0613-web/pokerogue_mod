@@ -116,7 +116,9 @@ export class ModifierBar extends Phaser.GameObjects.Container {
       icon.setInteractive(new Phaser.Geom.Rectangle(0, 0, 32, 24), Phaser.Geom.Rectangle.Contains);
       icon.on("pointerover", () => {
         // Local fork (2026-11-13), round-3 review: the item's own text (an enemy's Health Candy says 3%, 09 명세 2-2)
-        globalScene.ui.showTooltip(modifier.type.name, modifier.getTooltipDescription());
+        // Local fork (2026-11-17): above the UI (`overlap`), so the message window at the bottom of the screen no
+        // longer covers the description of an item in the lower rows
+        globalScene.ui.showTooltip(modifier.type.name, modifier.getTooltipDescription(), true);
         if (this.modifierCache && this.modifierCache.length > iconOverflowIndex) {
           this.updateModifierOverflowVisibility(true);
         }

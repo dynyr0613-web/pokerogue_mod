@@ -46,6 +46,14 @@ import { toCamelCase, toTitleCase } from "#utils/strings";
 import i18next from "i18next";
 import Phaser from "phaser";
 
+// Local fork (2026-11-17): the stats page's held-item box. The icons sit 17 to a row and three rows fit above the stats
+// title; `SUMMARY_ITEM_BOX` is the box on screen (in the 320x180 UI space), which the icons are clipped to.
+const SUMMARY_ITEMS_PER_ROW = 17;
+const SUMMARY_ITEM_ROW_HEIGHT = 14;
+const SUMMARY_ITEM_FIRST_ROW_Y = 11;
+const SUMMARY_ITEM_VISIBLE_ROWS = 3;
+const SUMMARY_ITEM_BOX = { x: 108, y: 32, width: 209 } as const;
+
 enum Page {
   PROFILE,
   STATS,
@@ -139,6 +147,11 @@ export class SummaryUiHandler extends UiHandler {
   private statsContainerExpBarTitle: Phaser.GameObjects.Image;
 
   private descriptionScrollTween: Phaser.Tweens.Tween | null;
+  /**
+   * Local fork (2026-11-17): the stats page's held-item rows past the third are clipped and scrolled (after 1.2 s like
+   * an overflowing message, or by the mouse wheel); see {@linkcode setupItemScroll}
+   */
+  private itemScrollCleanup: (() => void) | null = null;
   private moveCursorBlinkTimer: Phaser.Time.TimerEvent | null;
 
   private pokemon: PlayerPokemon | null;
@@ -937,6 +950,8 @@ export class SummaryUiHandler extends UiHandler {
       this.descriptionScrollTween.remove();
       this.descriptionScrollTween = null;
     }
+    this.itemScrollCleanup?.();
+    this.itemScrollCleanup = null;
 
     switch (page) {
       case Page.PROFILE: {
@@ -1269,13 +1284,18 @@ export class SummaryUiHandler extends UiHandler {
           // Local fork (2026-11-08): held-item icons 10% smaller (the fork's candies another 10%), centred in place
           const icon = item.getIcon(true, SUMMARY_ITEM_ICON_SCALE);
 
-          icon.setPosition((i % 17) * 12 + 3, 14 * Math.floor(i / 17) + 11);
+          icon.setPosition(
+            (i % SUMMARY_ITEMS_PER_ROW) * 12 + 3,
+            SUMMARY_ITEM_ROW_HEIGHT * Math.floor(i / SUMMARY_ITEMS_PER_ROW) + SUMMARY_ITEM_FIRST_ROW_Y,
+          );
           itemIconsContainer.add(icon);
 
           icon.setInteractive(new Phaser.Geom.Rectangle(0, 0, 32, 32), Phaser.Geom.Rectangle.Contains);
           icon.on("pointerover", () => globalScene.ui.showTooltip(item.type.name, item.type.getDescription(), true));
           icon.on("pointerout", () => globalScene.ui.hideTooltip());
         });
+        // Local fork (2026-11-17): more than three rows of held items no longer run over the stats below
+        this.setupItemScroll(itemIconsContainer, Math.ceil(itemModifiers.length / SUMMARY_ITEMS_PER_ROW));
 
         const pkmLvl = this.pokemon?.level!; // TODO: is this bang correct?
         const pkmLvlExp = this.pokemon?.levelExp!; // TODO: is this bang correct?
@@ -1571,6 +1591,99 @@ export class SummaryUiHandler extends UiHandler {
     });
   }
 
+  /**
+   * Local fork (2026-11-17): keep the stats page's held-item icons inside the item box.
+   *
+   * The icons are clipped to the box's three rows. With more rows, the list scrolls by itself after 1.2 s (the rule an
+   * overflowing message follows: 1.2 s wait, 1.2 s per extra row, 1.2 s hold, then back to the top), and the mouse
+   * wheel scrolls it a row at a time, which stops the automatic scrolling for as long as the page is shown. Icons
+   * outside the box do not answer the pointer, so no tooltip opens for an item that is not on screen.
+   * @param container - The container holding the item icons, at the stats page's origin
+   * @param rows - The number of icon rows
+   */
+  private setupItemScroll(container: Phaser.GameObjects.Container, rows: number): void {
+    const maskRect = globalScene.make
+      .graphics({})
+      .setScale(6)
+      .fillStyle(0xffffff)
+      .beginPath()
+      .fillRect(
+        SUMMARY_ITEM_BOX.x,
+        SUMMARY_ITEM_BOX.y,
+        SUMMARY_ITEM_BOX.width,
+        SUMMARY_ITEM_ROW_HEIGHT * SUMMARY_ITEM_VISIBLE_ROWS,
+      );
+    addMask(container, maskRect);
+    container.once(Phaser.GameObjects.Events.DESTROY, () => maskRect.destroy());
+
+    const extraRows = rows - SUMMARY_ITEM_VISIBLE_ROWS;
+    if (extraRows <= 0) {
+      return;
+    }
+
+    const maxScroll = extraRows * SUMMARY_ITEM_ROW_HEIGHT;
+    const lastVisibleRowY = SUMMARY_ITEM_FIRST_ROW_Y + SUMMARY_ITEM_ROW_HEIGHT * (SUMMARY_ITEM_VISIBLE_ROWS - 1);
+    const updateInteractive = (): void => {
+      for (const icon of container.list as Phaser.GameObjects.Container[]) {
+        if (!icon.input) {
+          continue;
+        }
+        const y = icon.y + container.y;
+        // Half a row of tolerance, so an icon that is mostly on screen while the list moves still shows its tooltip
+        icon.input.enabled =
+          y > SUMMARY_ITEM_FIRST_ROW_Y - SUMMARY_ITEM_ROW_HEIGHT / 2
+          && y < lastVisibleRowY + SUMMARY_ITEM_ROW_HEIGHT / 2;
+      }
+    };
+    updateInteractive();
+
+    let tween: Phaser.Tweens.Tween | null = globalScene.tweens.add({
+      targets: container,
+      delay: fixedInt(1200),
+      loop: -1,
+      loopDelay: fixedInt(1200),
+      hold: fixedInt(1200),
+      duration: fixedInt(extraRows * 1200),
+      y: -maxScroll,
+      onUpdate: updateInteractive,
+      onLoop: updateInteractive,
+    });
+
+    const onWheel = (
+      pointer: Phaser.Input.Pointer,
+      _over: Phaser.GameObjects.GameObject[],
+      _deltaX: number,
+      deltaY: number,
+    ): void => {
+      const x = pointer.x / 6;
+      const y = pointer.y / 6;
+      // Only over the item box (and the title bar above it), so the wheel stays free for anything else on screen
+      if (
+        deltaY === 0
+        || x < SUMMARY_ITEM_BOX.x
+        || x > SUMMARY_ITEM_BOX.x + SUMMARY_ITEM_BOX.width
+        || y < SUMMARY_ITEM_BOX.y - 10
+        || y > SUMMARY_ITEM_BOX.y + SUMMARY_ITEM_ROW_HEIGHT * SUMMARY_ITEM_VISIBLE_ROWS
+      ) {
+        return;
+      }
+      tween?.remove();
+      tween = null;
+      // Snap to a whole row first: the automatic scrolling may have been stopped between two rows
+      const row = Math.round(-container.y / SUMMARY_ITEM_ROW_HEIGHT) + Math.sign(deltaY);
+      container.setY(-Phaser.Math.Clamp(row * SUMMARY_ITEM_ROW_HEIGHT, 0, maxScroll));
+      globalScene.ui.hideTooltip();
+      updateInteractive();
+    };
+    globalScene.input.on(Phaser.Input.Events.POINTER_WHEEL, onWheel);
+
+    this.itemScrollCleanup = () => {
+      tween?.remove();
+      tween = null;
+      globalScene.input.off(Phaser.Input.Events.POINTER_WHEEL, onWheel);
+    };
+  }
+
   hideMoveEffect(instant?: boolean) {
     if (!this.moveEffectsVisible) {
       return;
@@ -1586,6 +1699,8 @@ export class SummaryUiHandler extends UiHandler {
 
   clear() {
     super.clear();
+    this.itemScrollCleanup?.();
+    this.itemScrollCleanup = null;
     this.pokemon = null;
     this.cursor = -1;
     this.newMove = null;
