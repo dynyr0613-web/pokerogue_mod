@@ -6,6 +6,7 @@ import { Phase } from "#app/phase";
 import { SpeciesFormChangeMoveLearnedTrigger } from "#data/form-change-triggers";
 import { Gender } from "#data/gender";
 import { ChallengeType } from "#enums/challenge-type";
+import { PokemonMark } from "#enums/pokemon-mark";
 import { UiMode } from "#enums/ui-mode";
 import { overrideHeldItems, overrideModifiers } from "#modifiers/modifier";
 import type { Starter } from "#types/save-data";
@@ -80,6 +81,10 @@ export class SelectStarterPhase extends Phase {
       starterPokemon.customPassiveSpecies = starter.customPassiveSpecies?.slice() ?? [];
       // Local fork (2026-11-17): a starter taken as an alpha (alpha-pokemon.ts)
       starterPokemon.setAlphaBoost(starter.alphaBoost ?? 0);
+      // Local fork (2026-11-17): and with the Partner Mark bought for it (pokemon-marks.ts)
+      if (starter.partnerMark) {
+        starterPokemon.addMark(PokemonMark.PARTNER_MARK);
+      }
       starterPokemon.luck = globalScene.gameData.getDexAttrLuck(
         globalScene.gameData.dexData[species.speciesId].caughtAttr,
       );

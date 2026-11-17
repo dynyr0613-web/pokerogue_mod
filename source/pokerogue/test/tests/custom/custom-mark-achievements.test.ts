@@ -3,13 +3,13 @@
 // 수집, 모든 포켓몬의 우두머리 증표 수집 등등".
 import { speciesDataRegistry } from "#app/global-species-data-registry";
 import { ALPHA_MAX_BOOST } from "#data/alpha-pokemon";
-import { awardTrainerRibbon, getMarkKey, isRibbon, orderedPokemonMarks, TRAINER_RIBBONS } from "#data/pokemon-marks";
+import { awardTrainerRibbon, getMarkKey, TRAINER_RIBBONS, WILD_MARKS } from "#data/pokemon-marks";
 import { MoveId } from "#enums/move-id";
 import { PokeballType } from "#enums/pokeball";
 import { PokemonMark } from "#enums/pokemon-mark";
 import { SpeciesId } from "#enums/species-id";
 import { TrainerType } from "#enums/trainer-type";
-import { achvs, markCollectionAchvs } from "#system/achv";
+import { ALL_KINDS_MARKS, achvs, markCollectionAchvs } from "#system/achv";
 import { GameManager } from "#test/framework/game-manager";
 import { getAppRootDir } from "#test/utils/sprite-utils";
 import fs from "node:fs";
@@ -92,9 +92,7 @@ describe("Local fork - mark collection achievements", () => {
 
   it("unlocks the wild mark achievements by number and by kind", () => {
     const { gameData } = game.scene;
-    const wildMarks = orderedPokemonMarks.filter(
-      m => !isRibbon(m) && m !== PokemonMark.ALPHA_MARK && m !== PokemonMark.GOLDEN_ALPHA_MARK,
-    );
+    const wildMarks = WILD_MARKS;
     expect(wildMarks).toHaveLength(41);
 
     // Alpha marks and ribbons are not wild marks
@@ -109,9 +107,22 @@ describe("Local fork - mark collection achievements", () => {
     expect(unlocked(achvs.MARKS_100)).toBe(true);
     expect(unlocked(achvs.MARKS_ALL_KINDS)).toBe(false);
 
-    gameData.registerMarks(wildMarks.slice(1));
+    // Every kind: the 41 wild marks and the Jumbo, Mini, Partner and three shiny marks
+    expect(ALL_KINDS_MARKS).toHaveLength(47);
+    gameData.registerMarks(wildMarks);
     expect(unlocked(achvs.MARKS_ALL_KINDS)).toBe(false);
-    gameData.registerMarks([wildMarks[0]]);
+    const others = ALL_KINDS_MARKS.filter(m => !wildMarks.includes(m));
+    expect(others).toEqual([
+      PokemonMark.JUMBO_MARK,
+      PokemonMark.MINI_MARK,
+      PokemonMark.PARTNER_MARK,
+      PokemonMark.SHINY_MARK,
+      PokemonMark.RARE_SHINY_MARK,
+      PokemonMark.EPIC_SHINY_MARK,
+    ]);
+    gameData.registerMarks(others.slice(1));
+    expect(unlocked(achvs.MARKS_ALL_KINDS)).toBe(false);
+    gameData.registerMarks([others[0]]);
     expect(unlocked(achvs.MARKS_ALL_KINDS)).toBe(true);
   });
 

@@ -23,6 +23,8 @@ export enum PokemonMark {
   PALDEA_CHAMPION_RIBBON = 7,
   /** HeartGold / SoulSilver: Red */
   LEGEND_RIBBON = 8,
+  /** The Once-in-a-Lifetime Ribbon (천재일우리본): 1 Hyper GTS Wonder Trade Pokémon in 10 comes with it */
+  ONCE_IN_A_LIFETIME_RIBBON = 9,
   // #endregion
 
   // #region Marks a wild Pokémon may be met with (see `rollWildMark`)
@@ -74,5 +76,22 @@ export enum PokemonMark {
   ALPHA_MARK = 200,
   /** The Golden Alpha Mark (황금우두머리의증표), this fork's own: an alpha with the full 20% boost */
   GOLDEN_ALPHA_MARK = 201,
+  /** The Jumbo Mark (커다란증표): every alpha, with its Alpha Mark */
+  JUMBO_MARK = 202,
+  // #endregion
+
+  /** The Mini Mark (조그만증표): a wild Pokémon met 10% smaller (alpha-pokemon.ts) */
+  MINI_MARK = 203,
+  /** The Partner Mark (파트너의증표): bought for a starter with its candies (starter select) */
+  PARTNER_MARK = 204,
+  /**
+   * The Mightiest Mark (최강의증표). Defined and shown, but nothing gives it yet. Planned: wave 5849 of Endless set up
+   * like a 7-star Tera Raid, and the boss Pokémon met there carries this mark when it is caught.
+   */
+  MIGHTIEST_MARK = 205,
+  // #region Shiny marks, this fork's own: a shiny Pokémon that is caught or hatched gets its tier's
+  SHINY_MARK = 206,
+  RARE_SHINY_MARK = 207,
+  EPIC_SHINY_MARK = 208,
   // #endregion
 }

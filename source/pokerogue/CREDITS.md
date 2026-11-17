@@ -816,3 +816,5 @@ and [everyone else](https://github.com/pagefaultgames/pokerogue/graphs/contribut
   `tools/port/make_marks_atlas.py` from `tools/port/mark-icons/`): the 40x40 ribbon sprites of
   [PKHeX](https://github.com/kwsch/PKHeX) (`PKHeX.Drawing.Misc/Resources/img/ribbons`), used unedited. GPL-3.0
   (`LICENSES/GPL-3.0-only.txt`). The marks' and ribbons' Korean and English names are the main series' own.
+  The Golden Alpha Mark's icon is PKHeX's Alpha Mark recoloured, and the three shiny marks' icons are PokéRogue's
+  Shiny Charm item icon recoloured (`tools/port/mark-icons/ribbonmarkalphagold.png`, `ribbonmarkshiny*.png`).

@@ -18,7 +18,7 @@ import { EntryHazardTag } from "#data/arena-tag";
 import { getSerializedDailyRunConfig, parseDailySeed } from "#data/daily-seed-utils";
 import { allMoves } from "#data/data-lists";
 import type { Egg } from "#data/egg";
-import { isPokemonMark } from "#data/pokemon-marks";
+import { getShinyMark, isPokemonMark } from "#data/pokemon-marks";
 import type { PokemonSpecies } from "#data/pokemon-species";
 import { loadPositionalTag } from "#data/positional-tags/load-positional-tag";
 import { AbilityAttr } from "#enums/ability-attr";
@@ -1671,6 +1671,10 @@ export class GameData {
     // Local fork (2026-11-17): a caught or hatched alpha makes its line's starter available as one (alpha-pokemon.ts)
     if (incrementCount) {
       registerAlpha(pokemon);
+      // Local fork (2026-11-17): a shiny Pokémon that is caught or hatched gets its tier's shiny mark
+      if (pokemon.isShiny()) {
+        pokemon.addMark(getShinyMark(pokemon.variant));
+      }
       // Local fork (2026-11-17): and its marks join the collection (the mark achievements)
       this.registerMarks(pokemon.marks);
     }

@@ -2,6 +2,7 @@ import { audioManager } from "#app/global-audio-manager";
 import { globalScene } from "#app/global-scene";
 import { Phase } from "#app/phase";
 import { getCharVariantFromDialogue } from "#data/dialogue";
+import { getTitledName } from "#data/pokemon-marks";
 import { ArenaTagSide } from "#enums/arena-tag-side";
 import { BattlerTagLapseType } from "#enums/battler-tag-lapse-type";
 import { BattlerTagType } from "#enums/battler-tag-type";
@@ -357,11 +358,12 @@ export class MysteryEncounterBattlePhase extends Phase {
 
     return enemyField.length === 1
       ? i18next.t("battle:singleWildAppeared", {
-          pokemonName: enemyField[0].name,
+          // Local fork (2026-11-17): with the title its mark gives it (pokemon-marks.ts)
+          pokemonName: getTitledName(enemyField[0], enemyField[0].name),
         })
       : i18next.t("battle:multiWildAppeared", {
-          pokemonName1: enemyField[0].name,
-          pokemonName2: enemyField[1].name,
+          pokemonName1: getTitledName(enemyField[0], enemyField[0].name),
+          pokemonName2: getTitledName(enemyField[1], enemyField[1].name),
         });
   }
 

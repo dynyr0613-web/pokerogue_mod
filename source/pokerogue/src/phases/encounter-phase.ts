@@ -10,6 +10,7 @@ import { initEncounterAnims, loadEncounterAnimAssets } from "#data/battle-anims"
 import { getCharVariantFromDialogue } from "#data/dialogue";
 import { rollTrainerBattleForm, rollWildBattleForm } from "#data/enemy-battle-forms"; // Local fork (2026-11-10)
 import { getNatureName } from "#data/nature";
+import { getTitledName } from "#data/pokemon-marks";
 import { BattleType } from "#enums/battle-type";
 import { BattlerIndex } from "#enums/battler-index";
 import { BiomeId } from "#enums/biome-id";
@@ -432,11 +433,12 @@ export class EncounterPhase extends BattlePhase {
 
     return enemyField.length === 1
       ? i18next.t("battle:singleWildAppeared", {
-          pokemonName: enemyField[0].getNameToRender(),
+          // Local fork (2026-11-17): with the title its mark gives it (pokemon-marks.ts), here and below
+          pokemonName: getTitledName(enemyField[0], enemyField[0].getNameToRender()),
         })
       : i18next.t("battle:multiWildAppeared", {
-          pokemonName1: enemyField[0].getNameToRender(),
-          pokemonName2: enemyField[1].getNameToRender(),
+          pokemonName1: getTitledName(enemyField[0], enemyField[0].getNameToRender()),
+          pokemonName2: getTitledName(enemyField[1], enemyField[1].getNameToRender()),
         });
   }
 

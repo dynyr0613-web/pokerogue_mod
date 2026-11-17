@@ -3,7 +3,8 @@
 The 40x40 icons in mark-icons/ are PKHeX's ribbon sprites (https://github.com/kwsch/PKHeX,
 PKHeX.Drawing.Misc/Resources/img/ribbons, GPL-3.0), named as there. Each atlas frame is named after its
 `PokemonMark` in camelCase (`getMarkKey`). ribbonmarkalphagold.png is not PKHeX's: it is ribbonmarkalpha.png
-recoloured for this fork's Golden Alpha Mark.
+recoloured for this fork's Golden Alpha Mark, and ribbonmarkshiny*.png are PokéRogue's Shiny Charm item icon
+recoloured for this fork's three shiny marks.
 
     python -I make_marks_atlas.py <game folder>      e.g. the installed resources/game, or pokerogue/assets
 """
@@ -32,6 +33,16 @@ SOURCES = {
     "ALPHA_MARK": "markalpha",
     # This fork's own mark: mark-icons/ribbonmarkalphagold.png is the Alpha Mark's icon with its red recoloured gold
     "GOLDEN_ALPHA_MARK": "markalphagold",
+    "ONCE_IN_A_LIFETIME_RIBBON": "onceinalifetime",
+    "JUMBO_MARK": "markjumbo",
+    "MINI_MARK": "markmini",
+    "PARTNER_MARK": "markpartner",
+    "MIGHTIEST_MARK": "markmightiest",
+    # This fork's own marks: PokéRogue's Shiny Charm item icon, scaled 1.5x and recoloured yellow, mint and red for
+    # the three shiny tiers (mark-icons/ribbonmarkshiny*.png)
+    "SHINY_MARK": "markshinyyellow",
+    "RARE_SHINY_MARK": "markshinymint",
+    "EPIC_SHINY_MARK": "markshinyred",
 }
 for name in (
     "LUNCHTIME SLEEPY_TIME DUSK DAWN RAINY STORMY SNOWY BLIZZARD DRY SANDSTORM MISTY UNCOMMON RARE ROWDY "

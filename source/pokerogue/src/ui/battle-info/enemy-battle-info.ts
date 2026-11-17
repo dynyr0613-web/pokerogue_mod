@@ -1,5 +1,7 @@
 import { globalScene } from "#app/global-scene";
 import { settings } from "#app/global-settings-manager";
+import { getMarkKey, MARKS_ATLAS_KEY, WILD_MARKS } from "#data/pokemon-marks";
+import { PokemonMark } from "#enums/pokemon-mark";
 import { Stat } from "#enums/stat";
 import { TextStyle } from "#enums/text-style";
 import { TypeHints } from "#enums/type-hints";
@@ -17,6 +19,11 @@ export class EnemyBattleInfo extends BattleInfo {
   protected player: false = false;
   protected championRibbon: Phaser.GameObjects.Sprite;
   protected ownedIcon: Phaser.GameObjects.Sprite;
+  /**
+   * Local fork (2026-11-17): the icons of a wild Pokémon's marks, after the two icons below the name: its one wild
+   * mark and the Mini Mark (pokemon-marks.ts; an alpha's marks are its badge next to the name). The user: "야생 증표 표시"
+   */
+  protected markIcons: Phaser.GameObjects.Image[] = [];
   protected flyoutMenu: BattleFlyout;
 
   protected hpBarSegmentDividers: GameObjects.Rectangle[] = [];
@@ -75,8 +82,19 @@ export class EnemyBattleInfo extends BattleInfo {
       .setVisible(false)
       .setOrigin(0, 0)
       .setPositionRelative(this.nameText, 8, 11.75);
-    // Ensure these two icons are positioned below the stats container
-    this.addAt([this.ownedIcon, this.championRibbon], this.getIndex(this.statsContainer));
+    // Local fork (2026-11-17): the mark icons, see the field. The mark icons are 40 px; 0.2 makes them 8 px
+    for (let i = 0; i < 2; i++) {
+      this.markIcons.push(
+        globalScene.add
+          .image(0, 0, MARKS_ATLAS_KEY, getMarkKey(PokemonMark.RARE_MARK))
+          .setName(`icon_mark_${i}`)
+          .setVisible(false)
+          .setOrigin(0, 0)
+          .setScale(0.2),
+      );
+    }
+    // Ensure these icons are positioned below the stats container
+    this.addAt([this.ownedIcon, this.championRibbon, ...this.markIcons], this.getIndex(this.statsContainer));
 
     this.flyoutMenu = new BattleFlyout(this.player);
     this.add(this.flyoutMenu);
@@ -141,6 +159,18 @@ export class EnemyBattleInfo extends BattleInfo {
     if (this.boss) {
       this.updateBossSegmentDividers(pokemon as EnemyPokemon);
     }
+
+    // Local fork (2026-11-17): the wild mark and the Mini Mark, after the icons above
+    const shownMarks = pokemon.marks.filter(m => WILD_MARKS.includes(m) || m === PokemonMark.MINI_MARK);
+    let markX = (this.ownedIcon.visible ? 8 : 0) + (this.championRibbon.visible ? 8 : 0);
+    this.markIcons.forEach((icon, i) => {
+      const mark = shownMarks[i];
+      icon.setVisible(mark !== undefined);
+      if (mark !== undefined) {
+        icon.setFrame(getMarkKey(mark)).setPositionRelative(this.nameText, markX, 11.75);
+        markX += 9;
+      }
+    });
   }
 
   /**

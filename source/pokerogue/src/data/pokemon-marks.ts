@@ -6,7 +6,11 @@
  *   Destiny, size and picnic marks have nothing to stand for here and are left out.
  * - Ribbons: the party that beats a champion gets that champion's ribbon (`TRAINER_RIBBONS`). Lance, Alder and Iris
  *   have none because the main series has no Johto or Unova champion ribbon.
- * - The Alpha Mark and the Golden Alpha Mark belong to alpha Pokémon (alpha-pokemon.ts).
+ * - The Alpha, Golden Alpha and Jumbo Marks belong to alpha Pokémon, the Mini Mark to a wild Pokémon met small
+ *   (alpha-pokemon.ts).
+ * - The Once-in-a-Lifetime Ribbon comes with 1 Hyper GTS Wonder Trade Pokémon in 10, the Partner Mark is bought for
+ *   a starter with candy, and a shiny Pokémon that is caught or hatched gets its tier's shiny mark.
+ * - The Mightiest Mark is defined and shown, but nothing gives it yet (see the enum).
  *
  * A Pokémon's marks are `Pokemon.marks`, saved with it (`PokemonData.marks`) and shown on the Pokédex page opened
  * from the party (`MarkTray`). The icons are the atlas `marks` (tools/port/make_marks_atlas.py).
@@ -21,6 +25,7 @@ import type { Pokemon } from "#field/pokemon";
 import { randSeedInt, randSeedItem } from "#utils/common";
 import { toCamelCase } from "#utils/strings";
 import i18next from "i18next";
+import Phaser from "phaser";
 
 /** The key of the icon atlas, `images/marks/marks.png`; each frame is named after its mark (`getMarkKey`) */
 export const MARKS_ATLAS_KEY = "marks";
@@ -35,8 +40,16 @@ export const orderedPokemonMarks: readonly PokemonMark[] = [
   PokemonMark.GALAR_CHAMPION_RIBBON,
   PokemonMark.PALDEA_CHAMPION_RIBBON,
   PokemonMark.LEGEND_RIBBON,
+  PokemonMark.ONCE_IN_A_LIFETIME_RIBBON,
+  PokemonMark.MIGHTIEST_MARK,
   PokemonMark.GOLDEN_ALPHA_MARK,
   PokemonMark.ALPHA_MARK,
+  PokemonMark.JUMBO_MARK,
+  PokemonMark.MINI_MARK,
+  PokemonMark.PARTNER_MARK,
+  PokemonMark.SHINY_MARK,
+  PokemonMark.RARE_SHINY_MARK,
+  PokemonMark.EPIC_SHINY_MARK,
   PokemonMark.LUNCHTIME_MARK,
   PokemonMark.SLEEPY_TIME_MARK,
   PokemonMark.DUSK_MARK,
@@ -78,6 +91,35 @@ export const orderedPokemonMarks: readonly PokemonMark[] = [
   PokemonMark.THORNY_MARK,
   PokemonMark.VIGOR_MARK,
   PokemonMark.SLUMP_MARK,
+];
+
+/**
+ * The 41 marks a wild Pokémon is met with by the roll of {@linkcode rollWildMark} (time, weather, uncommon, rare and
+ * personality); a wild Pokémon has at most one of them, next to its size's (alpha or mini)
+ */
+export const WILD_MARKS: readonly PokemonMark[] = orderedPokemonMarks.filter(
+  m => m >= PokemonMark.LUNCHTIME_MARK && m <= PokemonMark.SLUMP_MARK,
+);
+
+/** The shiny mark of each shiny tier (`Pokemon.variant`) */
+const SHINY_MARKS: readonly PokemonMark[] = [
+  PokemonMark.SHINY_MARK,
+  PokemonMark.RARE_SHINY_MARK,
+  PokemonMark.EPIC_SHINY_MARK,
+];
+
+/**
+ * The marks that give a Pokémon a title, most telling first: the one wild mark, then its size, then the rest. The
+ * Jumbo Mark is left to the Alpha Mark it always comes with.
+ */
+const TITLE_MARKS: readonly PokemonMark[] = [
+  ...WILD_MARKS,
+  PokemonMark.MINI_MARK,
+  PokemonMark.GOLDEN_ALPHA_MARK,
+  PokemonMark.ALPHA_MARK,
+  PokemonMark.MIGHTIEST_MARK,
+  PokemonMark.ONCE_IN_A_LIFETIME_RIBBON,
+  PokemonMark.PARTNER_MARK,
 ];
 
 /** The 28 personality marks, one of which a wild Pokémon has 1 time in 100 */
@@ -158,6 +200,36 @@ export function getMarkDescription(mark: PokemonMark): string {
 }
 
 /**
+ * The shiny mark a shiny Pokémon of the given tier gets when it is caught or hatched.
+ * @param variant - The Pokémon's shiny tier, 0 to 2
+ */
+export function getShinyMark(variant: number): PokemonMark {
+  return SHINY_MARKS[Phaser.Math.Clamp(variant, 0, SHINY_MARKS.length - 1)];
+}
+
+/**
+ * The title a Pokémon's marks give it ("장난꾸러기", "the Rowdy"), as the main series shows when a Pokémon with a mark
+ * enters battle: that of the first mark of {@linkcode TITLE_MARKS} it carries.
+ * @param pokemon - The Pokémon
+ * @returns The title, or an empty string for none
+ */
+export function getPokemonTitle(pokemon: Pokemon): string {
+  const mark = TITLE_MARKS.find(m => pokemon.marks.includes(m));
+  return mark === undefined ? "" : i18next.t(`pokemonMarks:${getMarkKey(mark)}.title`, { defaultValue: "" });
+}
+
+/**
+ * A Pokémon's name with its title, for the messages that announce it (a wild Pokémon appearing, the player's being
+ * sent out); the plain name if it has no title.
+ * @param pokemon - The Pokémon
+ * @param name - Its name as the message would show it
+ */
+export function getTitledName(pokemon: Pokemon, name: string): string {
+  const title = getPokemonTitle(pokemon);
+  return title ? i18next.t("pokemonMarks:titledName", { title, name }) : name;
+}
+
+/**
  * Roll the mark a wild Pokémon is met with, by the odds of Sword and Shield: in this order a rare mark (1 in 1000), a
  * personality mark (1 in 100), the uncommon mark (1 in 50), the weather's mark (1 in 50) and the time of day's mark
  * (1 in 50); the first hit is the mark. About 1 wild Pokémon in 15 has one.
@@ -188,8 +260,19 @@ export function rollWildMark(timeOfDay: TimeOfDay, weather: WeatherType): Pokemo
 }
 
 /**
- * Give a freshly generated wild Pokémon its mark, if the roll says so. The roll has its own seed (the wave's, offset by
- * the Pokémon's place in the enemy party), so it changes nothing else the wave generates.
+ * The seed offset of a newly generated Pokémon's own rolls (its mark, alpha or mini): the wave and the Pokémon's id,
+ * so that several Pokémon generated on one wave (the GTS's offers, the Safari Zone's Pokémon, a double battle) each
+ * get their own result. The id comes from the seeded RNG, so reloading the wave gives the same Pokémon the same rolls.
+ * @param pokemon - The Pokémon being generated
+ * @param salt - A number that tells the kinds of roll apart
+ */
+export function getWildRollSeedOffset(pokemon: Pokemon, salt: number): number {
+  return (globalScene.currentBattle?.waveIndex ?? 0) * 16 + (pokemon.id % 65521) + salt;
+}
+
+/**
+ * Give a freshly generated wild Pokémon its mark, if the roll says so. The roll has its own seed
+ * ({@linkcode getWildRollSeedOffset}), so it changes nothing else the wave generates.
  * @param pokemon - The wild Pokémon
  */
 export function applyWildMark(pokemon: Pokemon): void {
@@ -204,7 +287,7 @@ export function applyWildMark(pokemon: Pokemon): void {
         pokemon.addMark(mark);
       }
     },
-    battle.waveIndex * 16 + battle.enemyParty.length + 7919,
+    getWildRollSeedOffset(pokemon, 7919),
     globalScene.waveSeed,
   );
 }
