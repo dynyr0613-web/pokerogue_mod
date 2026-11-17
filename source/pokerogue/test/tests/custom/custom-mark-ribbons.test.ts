@@ -14,6 +14,7 @@ import {
   getMarkTitle,
   getPokemonTitle,
   getStarterEquippedMark,
+  hasEverObtainedMark,
   orderedPokemonMarks,
   STAT_EFFORT_RIBBONS,
 } from "#data/pokemon-marks";
@@ -154,6 +155,18 @@ describe("Local fork - earned ribbons, the worn mark and the line's collection",
     expect(getStarterEquippedMark(entry)).toBe(PokemonMark.RARE_MARK);
     entry.equippedMark = PokemonMark.UNCOMMON_MARK;
     expect(getStarterEquippedMark(entry)).toBeNull();
+  });
+
+  it("tells a mark never obtained from one obtained on another Pokémon", async () => {
+    await game.classicMode.startBattle(SpeciesId.BULBASAUR);
+    const { gameData } = game.scene;
+    expect(hasEverObtainedMark(PokemonMark.RARE_MARK)).toBe(false);
+    gameData.registerMarks([PokemonMark.RARE_MARK], SpeciesId.CHARMANDER);
+    expect(hasEverObtainedMark(PokemonMark.RARE_MARK)).toBe(true);
+    expect(hasEverObtainedMark(PokemonMark.UNCOMMON_MARK)).toBe(false);
+    // A Partner Mark bought before the collection was counted per line
+    gameData.starterData[SpeciesId.SQUIRTLE].partnerMark = true;
+    expect(hasEverObtainedMark(PokemonMark.PARTNER_MARK)).toBe(true);
   });
 
   it("the Best Friends Ribbon costs twice the Partner Mark", () => {

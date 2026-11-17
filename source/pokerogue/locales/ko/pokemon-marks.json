@@ -364,5 +364,7 @@
     "markSpecies": "{{name}} - 가진 포켓몬 {{count}}/{{total}}",
     "speciesMarks": "{{name}} - 증표 {{count}}/{{total}}",
     "unknownSpecies": "???"
-  }
+  },
+  "unknownName": "???",
+  "neverObtained": "아직 획득한 적 없는 증표"
 }

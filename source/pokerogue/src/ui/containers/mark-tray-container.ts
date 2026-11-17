@@ -8,10 +8,22 @@
  * The same tray shows a starter line's collected marks on the Pokédex page opened anywhere else. Either way the
  * action button on a mark that is there wears it (its title goes before the name) or takes it off again, and the
  * header counts the marks: "증표 n/70" (the user: "증표 볼때 장착 가능하게", "포켓몬별 증표 n/50몇개").
+ *
+ * A mark that is not there is shown in one of two ways (the user: "아무 포켓몬도 획득한 적 없는 증표는 회색, 다른
+ * 포켓몬은 얻은 적 있지만 이 포켓몬에게는 없는 증표는 어두운 색으로 해두고 설명도 다르게"): one the player has never
+ * obtained on any Pokémon is a grey shape named "???" with "아직 획득한 적 없는 증표" for a description; one obtained
+ * on another Pokémon is dark, with its name, "(미획득)" and its own description.
  */
 
 import { globalScene } from "#app/global-scene";
-import { getMarkDescription, getMarkKey, getMarkName, MARKS_ATLAS_KEY, orderedPokemonMarks } from "#data/pokemon-marks";
+import {
+  getMarkDescription,
+  getMarkKey,
+  getMarkName,
+  hasEverObtainedMark,
+  MARKS_ATLAS_KEY,
+  orderedPokemonMarks,
+} from "#data/pokemon-marks";
 import { Button } from "#enums/buttons";
 import { PokemonMark } from "#enums/pokemon-mark";
 import { TextStyle } from "#enums/text-style";
@@ -25,9 +37,11 @@ import Phaser from "phaser";
 const ICON_SCALE = 0.275;
 const ICON_PITCH = 12;
 const COLUMNS = 10;
-/** A mark the Pokémon does not carry: grey and see-through */
+/** A mark the player has never obtained on any Pokémon: a grey, see-through shape */
 const MISSING_TINT = 0x8a8a96;
 const MISSING_ALPHA = 0.5;
+/** A mark obtained on another Pokémon but not there: darkened */
+const DARK_TINT = 0x4a4a58;
 /** The header line with the count, above the icons */
 const HEADER_HEIGHT = 9;
 /** The frame around the worn mark */
@@ -131,6 +145,10 @@ export class MarkTray extends Phaser.GameObjects.Container {
       // An alpha's marks also say how much its stats are raised; a mark that is not there says so, the worn one too
       const isAlphaMark = mark === PokemonMark.ALPHA_MARK || mark === PokemonMark.GOLDEN_ALPHA_MARK;
       const owned = this.source.owned.includes(mark);
+      if (!owned && !hasEverObtainedMark(mark)) {
+        this.handler.showText(`${i18next.t("pokemonMarks:unknownName")}\n${i18next.t("pokemonMarks:neverObtained")}`);
+        return changed;
+      }
       const note = owned
         ? this.source.equipped === mark
           ? ` ${i18next.t("pokemonMarks:equipped")}`
@@ -156,7 +174,11 @@ export class MarkTray extends Phaser.GameObjects.Container {
       const [x, y] = this.getIconPosition(index);
       const icon = globalScene.add.image(x + 6.5, y + 6.5, MARKS_ATLAS_KEY, getMarkKey(mark)).setScale(ICON_SCALE);
       if (!source.owned.includes(mark)) {
-        icon.setTint(MISSING_TINT).setTintMode(Phaser.TintModes.FILL).setAlpha(MISSING_ALPHA);
+        if (hasEverObtainedMark(mark)) {
+          icon.setTint(DARK_TINT).setTintMode(Phaser.TintModes.MULTIPLY);
+        } else {
+          icon.setTint(MISSING_TINT).setTintMode(Phaser.TintModes.FILL).setAlpha(MISSING_ALPHA);
+        }
       }
       this.add(icon);
       this.trayIcons.push(icon);

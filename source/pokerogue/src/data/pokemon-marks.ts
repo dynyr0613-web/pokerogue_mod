@@ -242,6 +242,15 @@ export function getCollectedMarks(entry: StarterDataEntry | undefined): PokemonM
   return orderedPokemonMarks.filter(m => marks.has(m));
 }
 
+/**
+ * Whether the player has ever obtained the mark on any Pokémon: the collection's count (`GameData.markCounts`,
+ * counted at every catch, hatch, award and purchase), or a starter line that has it.
+ */
+export function hasEverObtainedMark(mark: PokemonMark): boolean {
+  const { markCounts, starterData } = globalScene.gameData;
+  return (markCounts[mark] ?? 0) > 0 || Object.values(starterData).some(e => getCollectedMarks(e).includes(mark));
+}
+
 /** @returns The collected mark a starter is taken wearing, or `null` for none (or one it has not collected) */
 export function getStarterEquippedMark(entry: StarterDataEntry | undefined): PokemonMark | null {
   const equipped = entry?.equippedMark;

@@ -364,5 +364,7 @@
     "markSpecies": "{{name}} - Pokémon with it {{count}}/{{total}}",
     "speciesMarks": "{{name}} - marks {{count}}/{{total}}",
     "unknownSpecies": "???"
-  }
+  },
+  "unknownName": "???",
+  "neverObtained": "A mark you have not obtained yet"
 }
