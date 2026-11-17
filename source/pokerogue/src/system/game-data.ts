@@ -13,6 +13,7 @@ import { Tutorial } from "#app/tutorial";
 import { speciesEggMoves } from "#balance/egg-moves";
 import { bypassLogin, isBeta, isDev, systemSaveShortKeyMap } from "#constants/app-constants";
 import { MAX_STARTER_CANDY_COUNT } from "#constants/game-constants";
+import { registerAlpha } from "#data/alpha-pokemon";
 import { EntryHazardTag } from "#data/arena-tag";
 import { getSerializedDailyRunConfig, parseDailySeed } from "#data/daily-seed-utils";
 import { allMoves } from "#data/data-lists";
@@ -1633,6 +1634,10 @@ export class GameData {
     const speciesRootForm = pokemon.species.getRootSpeciesId();
     if (!incrementCount && !globalScene.gameData.dexData[speciesRootForm].caughtAttr) {
       return Promise.resolve(false);
+    }
+    // Local fork (2026-11-17): a caught or hatched alpha makes its line's starter available as one (alpha-pokemon.ts)
+    if (incrementCount) {
+      registerAlpha(pokemon);
     }
     return this.setPokemonSpeciesCaught(pokemon, pokemon.species, incrementCount, fromEgg, showMessage);
   }

@@ -2,7 +2,8 @@
 
 The 40x40 icons in mark-icons/ are PKHeX's ribbon sprites (https://github.com/kwsch/PKHeX,
 PKHeX.Drawing.Misc/Resources/img/ribbons, GPL-3.0), named as there. Each atlas frame is named after its
-`PokemonMark` in camelCase (`getMarkKey`).
+`PokemonMark` in camelCase (`getMarkKey`). ribbonmarkalphagold.png is not PKHeX's: it is ribbonmarkalpha.png
+recoloured for this fork's Golden Alpha Mark.
 
     python -I make_marks_atlas.py <game folder>      e.g. the installed resources/game, or pokerogue/assets
 """
@@ -29,6 +30,8 @@ SOURCES = {
     "PALDEA_CHAMPION_RIBBON": "championpaldea",
     "LEGEND_RIBBON": "legend",
     "ALPHA_MARK": "markalpha",
+    # This fork's own mark: mark-icons/ribbonmarkalphagold.png is the Alpha Mark's icon with its red recoloured gold
+    "GOLDEN_ALPHA_MARK": "markalphagold",
 }
 for name in (
     "LUNCHTIME SLEEPY_TIME DUSK DAWN RAINY STORMY SNOWY BLIZZARD DRY SANDSTORM MISTY UNCOMMON RARE ROWDY "

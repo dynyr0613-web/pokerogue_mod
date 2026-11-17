@@ -1,5 +1,6 @@
 import { globalScene } from "#app/global-scene";
 import { speciesDataRegistry } from "#app/global-species-data-registry";
+import { normalizeAlphaBoost } from "#data/alpha-pokemon";
 import type { Gender } from "#data/gender";
 import { CustomPokemonData, PokemonBattleData, PokemonSummonData } from "#data/pokemon-data";
 import { normalizeMarks } from "#data/pokemon-marks";
@@ -48,6 +49,11 @@ export class PokemonData {
    * one, so saves of Pokémon without any are unchanged, and a save without them loads as none
    */
   declare public marks?: PokemonMark[] | undefined;
+  /**
+   * Local fork (2026-11-17): an alpha's stat boost (`Pokemon.alphaBoost`, alpha-pokemon.ts); only set for an alpha, so
+   * other Pokémon's saves are unchanged
+   */
+  declare public alphaBoost?: number | undefined;
   public nature: Nature;
   public moveset: PokemonMove[];
   public status: Status | null;
@@ -141,6 +147,11 @@ export class PokemonData {
     const marks = normalizeMarks(source.marks);
     if (marks.length > 0) {
       this.marks = marks;
+    }
+    // Local fork (2026-11-17): alphas, see the field
+    const alphaBoost = normalizeAlphaBoost(source.alphaBoost);
+    if (alphaBoost > 0) {
+      this.alphaBoost = alphaBoost;
     }
 
     // TODO: Can't we move some of this verification stuff to an upgrade script?

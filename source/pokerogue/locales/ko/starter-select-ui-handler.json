@@ -50,5 +50,9 @@
   "passiveBase": "기본",
   "passiveCustom": "커스텀",
   "managePassiveLocked": "패시브 선택 (잠김)",
-  "customPassiveLocked": "커스텀 패시브는 클래식을 클리어하면 해금됩니다."
+  "customPassiveLocked": "커스텀 패시브는 클래식을 클리어하면 해금됩니다.",
+  "enableAlpha": "우두머리: 꺼짐 (+{{boost}}%)",
+  "disableAlpha": "우두머리: 켜짐 (+{{boost}}%)",
+  "alphaEnabled": "우두머리로 데려갑니다. (능력치 +{{boost}}%)",
+  "alphaDisabled": "보통 포켓몬으로 데려갑니다."
 }

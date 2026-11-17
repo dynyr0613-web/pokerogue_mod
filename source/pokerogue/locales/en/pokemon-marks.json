@@ -199,6 +199,11 @@
   },
   "alphaMark": {
     "name": "Alpha Mark",
-    "description": "A mark for a Pokémon that was once an alpha."
+    "description": "A mark for an alpha Pokémon."
+  },
+  "alphaBoost": "(stats +{{boost}}%)",
+  "goldenAlphaMark": {
+    "name": "Golden Alpha Mark",
+    "description": "A mark for an alpha Pokémon of the greatest strength."
   }
 }

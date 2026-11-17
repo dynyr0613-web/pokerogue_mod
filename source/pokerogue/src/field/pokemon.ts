@@ -27,6 +27,13 @@ import {
 import { BASE_HIDDEN_ABILITY_RATE, BASE_SHINY_CHANCE, SHINY_EPIC_CHANCE, SHINY_VARIANT_CHANCE } from "#balance/rates";
 import type { FORCED_RIVAL_SIGNATURE_MOVES } from "#balance/signature-moves";
 import { getStarterValueFriendshipCap, TRAINER_MAX_FRIENDSHIP_WAVE, TRAINER_MIN_FRIENDSHIP } from "#balance/starters";
+import {
+  ALPHA_MAX_BOOST,
+  ALPHA_SPRITE_SCALE,
+  applyAlphaStatBoost,
+  applyWildAlpha,
+  normalizeAlphaBoost,
+} from "#data/alpha-pokemon";
 import type { SuppressAbilitiesTag } from "#data/arena-tag";
 // Local fork (2026-11-11): ConditionalProtectTag for the Master Punching Glove's 1/4 through Quick Guard / Mat Block
 import { ConditionalProtectTag, NoCritTag, WeakenMoveScreenTag } from "#data/arena-tag";
@@ -105,7 +112,7 @@ import { Nature } from "#enums/nature";
 import { PartyUiMode } from "#enums/party-ui-mode";
 import { PokeballType } from "#enums/pokeball";
 import { PokemonAnimType } from "#enums/pokemon-anim-type";
-import type { PokemonMark } from "#enums/pokemon-mark";
+import { PokemonMark } from "#enums/pokemon-mark";
 import { PokemonType } from "#enums/pokemon-type";
 import { SpeciesFormKey } from "#enums/species-form-key";
 import { SpeciesId } from "#enums/species-id";
@@ -280,6 +287,13 @@ export abstract class Pokemon extends Phaser.GameObjects.Container {
    * beats them; a caught Pokémon keeps its marks, and they are saved with it (`PokemonData.marks`).
    */
   public marks: PokemonMark[] = [];
+  /**
+   * Local fork (2026-11-17): an alpha's stat boost in percent (1 to 20), 0 for an ordinary Pokémon (alpha-pokemon.ts).
+   * Every stat is raised by it in {@linkcode calculateStats} and the sprite is drawn 10% larger
+   * ({@linkcode getSpriteScale}). It belongs to the Pokémon, so evolution and form changes keep it; set it with
+   * {@linkcode setAlphaBoost}. Saved with the Pokémon (`PokemonData.alphaBoost`).
+   */
+  public alphaBoost = 0;
   public nature: Nature;
   public moveset: PokemonMove[];
   /**
@@ -422,6 +436,8 @@ export abstract class Pokemon extends Phaser.GameObjects.Container {
       this.evs = normalizeEvs(dataSource.evs);
       // Local fork (2026-11-17): marks and ribbons come with the data too (a caught Pokémon's, a saved one's)
       this.marks = normalizeMarks(dataSource.marks);
+      // Local fork (2026-11-17): and whether it is an alpha (alpha-pokemon.ts)
+      this.alphaBoost = normalizeAlphaBoost(dataSource.alphaBoost);
       this.passive = !!dataSource.passive;
       this.customPassiveSpecies = Array.isArray(dataSource.customPassiveSpecies)
         ? dataSource.customPassiveSpecies.slice()
@@ -554,6 +570,35 @@ export abstract class Pokemon extends Phaser.GameObjects.Container {
     }
     this.marks.push(mark);
     return true;
+  }
+
+  /**
+   * Local fork (2026-11-17): make this Pokémon an alpha with the given stat boost (alpha-pokemon.ts), or an ordinary
+   * Pokémon again with 0. An alpha gets the Alpha Mark, and with the full boost the Golden Alpha Mark; the marks stay
+   * if the boost is taken away. Its stats and sprite follow at once.
+   * @param boost - The boost in percent, 0 to 20
+   */
+  public setAlphaBoost(boost: number): void {
+    boost = normalizeAlphaBoost(boost);
+    if (boost > 0) {
+      this.addMark(PokemonMark.ALPHA_MARK);
+      if (boost >= ALPHA_MAX_BOOST) {
+        this.addMark(PokemonMark.GOLDEN_ALPHA_MARK);
+      }
+    }
+    if (boost === this.alphaBoost) {
+      return;
+    }
+    this.alphaBoost = boost;
+    if (this.stats) {
+      this.calculateStats();
+    }
+    this.updateScale();
+  }
+
+  /** Local fork (2026-11-17): whether this Pokémon is an alpha (alpha-pokemon.ts) */
+  public isAlpha(): boolean {
+    return this.alphaBoost > 0;
   }
 
   /** Local fork (2026-11-17): whether this Pokémon carries the mark or ribbon */
@@ -1247,6 +1292,8 @@ export abstract class Pokemon extends Phaser.GameObjects.Container {
   }
 
   getSpriteScale(): number {
+    // Local fork (2026-11-17): an alpha is 10% larger in every form (alpha-pokemon.ts)
+    const alphaScale = this.alphaBoost > 0 ? ALPHA_SPRITE_SCALE : 1;
     const formKey = this.getFormKey();
     if (
       // Local fork (2026-11-12), review fix: the head's own form, whose sprite is drawn, not `isMax()`, which also counts
@@ -1262,14 +1309,14 @@ export abstract class Pokemon extends Phaser.GameObjects.Container {
       || formKey === "caph-starmobile"
     ) {
       // G-Max and starmobiles have flat 1.5x scale
-      return 1.5;
+      return 1.5 * alphaScale;
     }
 
     // TODO: Rather than using -1 as a default... why don't we just change it to 1????????
     if (this.customPokemonData.spriteScale <= 0) {
-      return 1;
+      return alphaScale;
     }
-    return this.customPokemonData.spriteScale;
+    return this.customPokemonData.spriteScale * alphaScale;
   }
 
   /** Resets the pokemon's field sprite properties, including position, alpha, and scale */
@@ -1708,6 +1755,8 @@ export abstract class Pokemon extends Phaser.GameObjects.Container {
         // Local fork (2026-11-13): 08 명세 5번 보정 B: an Endless boss trainer's member past battle wave 200 with 2+ bars
         // has max HP x (1 + 0.25 x (bars - 1)), from the bars stored on it (endless-boss-bars.ts), after the belts
         statHolder.value = applyEndlessBossHpCorrection(this, statHolder.value);
+        // Local fork (2026-11-17): an alpha's boost, on the finished max HP (alpha-pokemon.ts)
+        statHolder.value = applyAlphaStatBoost(this, statHolder.value);
         if (this.hasAbility(AbilityId.WONDER_GUARD, false, true)) {
           statHolder.value = 1;
         }
@@ -1730,6 +1779,8 @@ export abstract class Pokemon extends Phaser.GameObjects.Container {
           );
         }
         globalScene.applyModifier(PokemonIncrementingStatModifier, this.isPlayer(), this, s, statHolder);
+        // Local fork (2026-11-17): an alpha's boost, on the finished stat (alpha-pokemon.ts)
+        statHolder.value = applyAlphaStatBoost(this, statHolder.value);
       }
 
       statHolder.value = Phaser.Math.Clamp(statHolder.value, 1, Number.MAX_SAFE_INTEGER);
@@ -1767,6 +1818,8 @@ export abstract class Pokemon extends Phaser.GameObjects.Container {
       );
     }
     globalScene.applyModifier(PokemonIncrementingStatModifier, this.isPlayer(), this, stat, statHolder);
+    // Local fork (2026-11-17): an alpha's boost, as in calculateStats
+    statHolder.value = applyAlphaStatBoost(this, statHolder.value);
     // Local fork (2026-11-13), review fix: never more than the stat the Pokémon really has. The Soul Dew's weight is
     // dropped only where it raises the stat: a nature that lowers Attack pushes it to 1 with ten Soul Dews (special
     // aces), and the plain x0.9 would have handed Foul Play about 10M Attack the Pokémon does not have (08 re-run: 17
@@ -6720,6 +6773,8 @@ export class PlayerPokemon extends Pokemon {
         newPokemon.evs = this.evs.slice();
         // Local fork (2026-11-17): and its marks and ribbons, as in the main series
         newPokemon.marks = this.marks.slice();
+        // Local fork (2026-11-17): an alpha Nincada leaves an alpha Shedinja
+        newPokemon.setAlphaBoost(this.alphaBoost);
         newPokemon.customPassiveSpecies = this.customPassiveSpecies.slice();
         newPokemon.moveset = this.moveset.slice();
         newPokemon.moveset = this.copyMoveset();
@@ -7014,6 +7069,10 @@ export class EnemyPokemon extends Pokemon {
     // has its own from the data, and trainers' Pokémon have none
     if (!dataSource && trainerSlot === TrainerSlot.NONE) {
       applyWildMark(this);
+      // Local fork (2026-11-17): and it may be an alpha (alpha-pokemon.ts); bosses are left as they are
+      if (!boss) {
+        applyWildAlpha(this);
+      }
     }
 
     if (activeOverrides.ENEMY_STATUS_OVERRIDE) {

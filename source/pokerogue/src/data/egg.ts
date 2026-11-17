@@ -29,6 +29,7 @@ import {
   SHINY_EPIC_CHANCE,
   SHINY_VARIANT_CHANCE,
 } from "#balance/rates";
+import { rollAlphaBoost } from "#data/alpha-pokemon";
 import { DexAttr } from "#enums/dex-attr";
 import { EggSourceType } from "#enums/egg-source-types";
 import { EggTier } from "#enums/egg-type";
@@ -275,6 +276,10 @@ export class Egg {
       for (let s = 0; s < ret.ivs.length; s++) {
         ret.ivs[s] = Math.max(ret.ivs[s], secondaryIvs[s]);
       }
+
+      // Local fork (2026-11-17): a hatched Pokémon may be an alpha, as a wild one may (alpha-pokemon.ts). Rolled last,
+      // so everything above comes out as it did before
+      ret.setAlphaBoost(rollAlphaBoost());
     };
 
     ret = ret!; // Tell TS compiler it's defined now

@@ -50,5 +50,9 @@
   "passiveBase": "Base",
   "passiveCustom": "Custom",
   "managePassiveLocked": "Choose Passives (Locked)",
-  "customPassiveLocked": "Custom passives unlock once you clear Classic."
+  "customPassiveLocked": "Custom passives unlock once you clear Classic.",
+  "enableAlpha": "Alpha: Off (+{{boost}}%)",
+  "disableAlpha": "Alpha: On (+{{boost}}%)",
+  "alphaEnabled": "It will join as an alpha. (stats +{{boost}}%)",
+  "alphaDisabled": "It will join as an ordinary Pokémon."
 }

@@ -140,6 +140,13 @@ export interface StarterDataEntry {
    * the base game's. Chosen per species in the starter menu, the way an ability is chosen for the line.
    */
   customPassiveSpecies?: SpeciesId[] | undefined;
+  /**
+   * Local fork (2026-11-17): the best stat boost (1 to 20, in percent) of the alphas caught or hatched in this
+   * starter's line (alpha-pokemon.ts); missing until the first one
+   */
+  alphaBoost?: number | undefined;
+  /** Local fork (2026-11-17): whether the starter is taken as an alpha with {@linkcode alphaBoost} (starter select) */
+  alphaEnabled?: boolean | undefined;
   valueReduction: number;
   classicWinCount: number;
   pity: [lastShiny: number, lastNewVariant: number];
@@ -194,6 +201,8 @@ export interface Starter {
   passive: boolean;
   /** Species in the line that use our table's passive; see {@linkcode StarterDataEntry.customPassiveSpecies} */
   customPassiveSpecies?: SpeciesId[] | undefined;
+  /** Local fork (2026-11-17): the alpha boost the starter is taken with, 0 or missing for none (alpha-pokemon.ts) */
+  alphaBoost?: number | undefined;
   nature: Nature;
   moveset?: StarterMoveset | undefined;
   pokerus: boolean;

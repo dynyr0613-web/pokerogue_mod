@@ -15,6 +15,7 @@ import {
   getValueReductionCandyCounts,
   POKERUS_STARTER_COUNT,
 } from "#balance/starters";
+import { getStarterAlphaBoost, normalizeAlphaBoost } from "#data/alpha-pokemon";
 import { allAbilities, allMoves } from "#data/data-lists";
 import { Egg } from "#data/egg";
 import { getNatureName } from "#data/nature";
@@ -1855,6 +1856,46 @@ export class StarterSelectUiHandler extends MessageUiHandler {
       });
     }
 
+    // Local fork (2026-11-17): once an alpha of the line has been caught or hatched, the starter can be taken as an
+    // alpha with the line's best boost; this switches it on and off (alpha-pokemon.ts)
+    const alphaBoost = normalizeAlphaBoost(persistentStarterData.alphaBoost);
+    if (alphaBoost > 0) {
+      options.push({
+        label: i18next.t(
+          persistentStarterData.alphaEnabled
+            ? "starterSelectUiHandler:disableAlpha"
+            : "starterSelectUiHandler:enableAlpha",
+          { boost: alphaBoost },
+        ),
+        handler: () => {
+          const enabled = !persistentStarterData.alphaEnabled;
+          persistentStarterData.alphaEnabled = enabled;
+          starterData.alphaEnabled = enabled;
+          // A starter already in the party keeps its own copy of the choice
+          const partyIndex = this.partyStarterIds.indexOf(this.lastStarterId);
+          if (partyIndex > -1) {
+            this.partyStarters[partyIndex].alphaBoost = getStarterAlphaBoost(persistentStarterData);
+          }
+          ui.setMode(UiMode.STARTER_SELECT).then(() => {
+            this.showText(
+              i18next.t(enabled ? "starterSelectUiHandler:alphaEnabled" : "starterSelectUiHandler:alphaDisabled", {
+                boost: alphaBoost,
+              }),
+              undefined,
+              () => this.showText("", 0),
+              2000,
+            );
+          });
+          globalScene.gameData.saveSystem().then(success => {
+            if (!success) {
+              return globalScene.reset(true);
+            }
+          });
+          return true;
+        },
+      });
+    }
+
     const passiveAttr = starterData.passiveAttr;
     if (passiveAttr & PassiveAttr.UNLOCKED) {
       // this is for enabling and disabling the passive
@@ -2360,6 +2401,8 @@ export class StarterSelectUiHandler extends MessageUiHandler {
         (starterDataEntry.passiveAttr & (PassiveAttr.ENABLED | PassiveAttr.UNLOCKED))
         === (PassiveAttr.ENABLED | PassiveAttr.UNLOCKED),
       customPassiveSpecies: starterDataEntry.customPassiveSpecies?.slice() ?? [],
+      // Local fork (2026-11-17): taken as an alpha if that is switched on for the starter (alpha-pokemon.ts)
+      alphaBoost: getStarterAlphaBoost(globalScene.gameData.starterData[starterId]),
       nature,
       moveset,
       pokerus: this.pokerusSpeciesIds.includes(starterId),

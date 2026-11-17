@@ -6,7 +6,7 @@
  *   Destiny, size and picnic marks have nothing to stand for here and are left out.
  * - Ribbons: the party that beats a champion gets that champion's ribbon (`TRAINER_RIBBONS`). Lance, Alder and Iris
  *   have none because the main series has no Johto or Unova champion ribbon.
- * - The Alpha Mark is defined and shown, but nothing gives it yet.
+ * - The Alpha Mark and the Golden Alpha Mark belong to alpha Pokémon (alpha-pokemon.ts).
  *
  * A Pokémon's marks are `Pokemon.marks`, saved with it (`PokemonData.marks`) and shown on the Pokédex page opened
  * from the party (`MarkTray`). The icons are the atlas `marks` (tools/port/make_marks_atlas.py).
@@ -25,7 +25,7 @@ import i18next from "i18next";
 /** The key of the icon atlas, `images/marks/marks.png`; each frame is named after its mark (`getMarkKey`) */
 export const MARKS_ATLAS_KEY = "marks";
 
-/** Every mark and ribbon in the order the tray shows them: ribbons, then the Alpha Mark, then the wild marks */
+/** Every mark and ribbon in the order the tray shows them: ribbons, then the alpha marks, then the wild marks */
 export const orderedPokemonMarks: readonly PokemonMark[] = [
   PokemonMark.CHAMPION_RIBBON,
   PokemonMark.HOENN_CHAMPION_RIBBON,
@@ -35,6 +35,7 @@ export const orderedPokemonMarks: readonly PokemonMark[] = [
   PokemonMark.GALAR_CHAMPION_RIBBON,
   PokemonMark.PALDEA_CHAMPION_RIBBON,
   PokemonMark.LEGEND_RIBBON,
+  PokemonMark.GOLDEN_ALPHA_MARK,
   PokemonMark.ALPHA_MARK,
   PokemonMark.LUNCHTIME_MARK,
   PokemonMark.SLEEPY_TIME_MARK,

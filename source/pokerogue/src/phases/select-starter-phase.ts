@@ -78,6 +78,8 @@ export class SelectStarterPhase extends Phase {
         starterPokemon.passive = true;
       }
       starterPokemon.customPassiveSpecies = starter.customPassiveSpecies?.slice() ?? [];
+      // Local fork (2026-11-17): a starter taken as an alpha (alpha-pokemon.ts)
+      starterPokemon.setAlphaBoost(starter.alphaBoost ?? 0);
       starterPokemon.luck = globalScene.gameData.getDexAttrLuck(
         globalScene.gameData.dexData[species.speciesId].caughtAttr,
       );

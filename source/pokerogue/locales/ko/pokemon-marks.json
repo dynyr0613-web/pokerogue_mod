@@ -199,6 +199,11 @@
   },
   "alphaMark": {
     "name": "우두머리의증표",
-    "description": "우두머리였던 포켓몬이라는 증표."
+    "description": "우두머리 포켓몬이라는 증표."
+  },
+  "alphaBoost": "(능력치 +{{boost}}%)",
+  "goldenAlphaMark": {
+    "name": "황금우두머리의증표",
+    "description": "가장 강한 우두머리 포켓몬이라는 증표."
   }
 }

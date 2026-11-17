@@ -6,10 +6,11 @@
 import { globalScene } from "#app/global-scene";
 import { getMarkDescription, getMarkKey, getMarkName, MARKS_ATLAS_KEY, orderedPokemonMarks } from "#data/pokemon-marks";
 import { Button } from "#enums/buttons";
-import type { PokemonMark } from "#enums/pokemon-mark";
+import { PokemonMark } from "#enums/pokemon-mark";
 import type { Pokemon } from "#field/pokemon";
 import type { MessageUiHandler } from "#ui/message-ui-handler";
 import { addWindow } from "#ui/ui-theme";
+import i18next from "i18next";
 import Phaser from "phaser";
 
 /** The icons are 40 px squares shown at half size */
@@ -23,6 +24,8 @@ export class MarkTray extends Phaser.GameObjects.Container {
   private trayIcons: Phaser.GameObjects.Image[] = [];
   private trayCursorObj: Phaser.GameObjects.Image;
   private trayCursor = 0;
+  /** The shown Pokémon's alpha boost (alpha-pokemon.ts), 0 for none */
+  private alphaBoost = 0;
 
   private readonly handler: MessageUiHandler;
 
@@ -76,7 +79,13 @@ export class MarkTray extends Phaser.GameObjects.Container {
 
     const mark = this.marks[cursor];
     if (mark !== undefined) {
-      this.handler.showText(`${getMarkName(mark)}\n${getMarkDescription(mark)}`);
+      // An alpha's marks also say how much its stats are raised
+      const isAlphaMark = mark === PokemonMark.ALPHA_MARK || mark === PokemonMark.GOLDEN_ALPHA_MARK;
+      const boost =
+        isAlphaMark && this.alphaBoost > 0
+          ? ` ${i18next.t("pokemonMarks:alphaBoost", { boost: this.alphaBoost })}`
+          : "";
+      this.handler.showText(`${getMarkName(mark)}${boost}\n${getMarkDescription(mark)}`);
     }
 
     return changed;
@@ -90,6 +99,7 @@ export class MarkTray extends Phaser.GameObjects.Container {
   public open(pokemon: Pokemon): boolean {
     this.close();
     this.marks = MarkTray.getDisplayedMarks(pokemon);
+    this.alphaBoost = pokemon.alphaBoost;
     if (this.marks.length === 0) {
       return false;
     }

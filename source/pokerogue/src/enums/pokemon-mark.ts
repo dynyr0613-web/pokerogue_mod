@@ -69,6 +69,10 @@ export enum PokemonMark {
   SLUMP_MARK = 140,
   // #endregion
 
-  /** The Alpha Mark (우두머리의증표). Defined and shown, but nothing gives it yet: call `Pokemon.addMark` to award it */
+  // #region Alpha marks, carried by alpha Pokémon (alpha-pokemon.ts)
+  /** The Alpha Mark (우두머리의증표): every alpha */
   ALPHA_MARK = 200,
+  /** The Golden Alpha Mark (황금우두머리의증표), this fork's own: an alpha with the full 20% boost */
+  GOLDEN_ALPHA_MARK = 201,
+  // #endregion
 }
