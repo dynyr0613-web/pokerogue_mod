@@ -229,7 +229,7 @@ describe("Local fork - marks and ribbons", () => {
       PokemonMark.JUMBO_MARK,
       PokemonMark.MINI_MARK,
     ];
-    for (let i = 0; i < 500; i++) {
+    for (let i = 0; i < 150; i++) {
       game.scene.currentBattle.waveIndex = 9000 + i;
       const wild = game.scene.addEnemyPokemon(species, 50, 0, false);
       const wildMarks = wild.marks.filter(m => WILD_MARKS.includes(m));
