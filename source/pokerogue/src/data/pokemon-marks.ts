@@ -222,7 +222,11 @@ export function awardTrainerRibbon(trainerType: TrainerType): PokemonMark | null
   }
   let awarded = false;
   for (const pokemon of globalScene.getPlayerParty()) {
-    awarded = pokemon.addMark(ribbon) || awarded;
+    if (pokemon.addMark(ribbon)) {
+      awarded = true;
+      // Each ribbon given counts for the collection (the mark achievements)
+      globalScene.gameData.registerMarks([ribbon]);
+    }
   }
   return awarded ? ribbon : null;
 }

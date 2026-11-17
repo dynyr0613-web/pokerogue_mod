@@ -308,5 +308,60 @@
     "name": "패시브 마스터",
     "name_female": "패시브 마스터",
     "description": "패시브 챌린지 모드 클리어."
+  },
+  "marks10": {
+    "name": "증표 수집가",
+    "name_female": "증표 수집가",
+    "description": "증표를 가진 포켓몬을 {{amount}}마리 획득"
+  },
+  "marks100": {
+    "name": "증표 마니아",
+    "name_female": "증표 마니아",
+    "description": "증표를 가진 포켓몬을 {{amount}}마리 획득"
+  },
+  "marksAllKinds": {
+    "name": "증표 도감 완성",
+    "name_female": "증표 도감 완성",
+    "description": "야생 포켓몬의 증표를 모든 종류 획득"
+  },
+  "alphaMarks10": {
+    "name": "우두머리 사냥꾼",
+    "name_female": "우두머리 사냥꾼",
+    "description": "우두머리의증표를 {{amount}}개 수집"
+  },
+  "alphaMarks100": {
+    "name": "우두머리들의 우두머리",
+    "name_female": "우두머리들의 우두머리",
+    "description": "우두머리의증표를 {{amount}}개 수집"
+  },
+  "alphaMarksAllSpecies": {
+    "name": "모든 무리의 정점",
+    "name_female": "모든 무리의 정점",
+    "description": "모든 포켓몬의 우두머리의증표를 수집"
+  },
+  "goldenAlphaMark": {
+    "name": "황금빛 위용",
+    "name_female": "황금빛 위용",
+    "description": "황금우두머리의증표를 수집"
+  },
+  "goldenAlphaMarks10": {
+    "name": "황금 군단",
+    "name_female": "황금 군단",
+    "description": "황금우두머리의증표를 {{amount}}개 수집"
+  },
+  "goldenAlphaMarksAllSpecies": {
+    "name": "황금의 시대",
+    "name_female": "황금의 시대",
+    "description": "모든 포켓몬의 황금우두머리의증표를 수집"
+  },
+  "memorialRibbon": {
+    "name": "전당의 기념품",
+    "name_female": "전당의 기념품",
+    "description": "챔피언을 이기고 기념 리본을 획득"
+  },
+  "memorialRibbonsAllKinds": {
+    "name": "챔피언 로드 완주",
+    "name_female": "챔피언 로드 완주",
+    "description": "기념 리본을 모든 종류 획득"
   }
 }

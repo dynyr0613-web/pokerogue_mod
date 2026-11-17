@@ -20,7 +20,7 @@ describe("Local fork - cost reduction down to 1 point", () => {
     game = new GameManager(phaserGame);
   });
 
-  it("keeps the base game's first two prices and adds rising ones after", () => {
+  it("keeps the base game's first two prices and raises the later ones by the same step", () => {
     const baseFirstTwo = [
       [25, 60],
       [25, 60],
@@ -37,8 +37,8 @@ describe("Local fork - cost reduction down to 1 point", () => {
       const counts = getValueReductionCandyCounts(cost);
       expect(counts).toHaveLength(getMaxValueReductions(cost));
       expect(counts.slice(0, 2), `cost ${cost}`).toEqual(baseFirstTwo[cost - 1]);
-      for (let n = 1; n < counts.length; n++) {
-        expect(counts[n], `cost ${cost}, reduction ${n + 1}`).toBeGreaterThan(counts[n - 1]);
+      for (let n = 2; n < counts.length; n++) {
+        expect(counts[n] - counts[n - 1], `cost ${cost}, reduction ${n + 1}`).toBe(counts[1] - counts[0]);
       }
     }
     expect(getMaxValueReductions(1)).toBe(2);
@@ -46,8 +46,9 @@ describe("Local fork - cost reduction down to 1 point", () => {
     expect(getMaxValueReductions(3)).toBe(2);
     expect(getMaxValueReductions(4)).toBe(3);
     expect(getMaxValueReductions(10)).toBe(9);
-    expect(getValueReductionCandyCounts(4)).toEqual([15, 40, 80]);
-    expect(getValueReductionCandyCounts(10)).toEqual([5, 15, 30, 50, 75, 105, 140, 180, 225]);
+    expect(getValueReductionCandyCounts(4)).toEqual([15, 40, 65]);
+    expect(getValueReductionCandyCounts(7)).toEqual([8, 20, 32, 44, 56, 68]);
+    expect(getValueReductionCandyCounts(10)).toEqual([5, 15, 25, 35, 45, 55, 65, 75, 85]);
   });
 
   it("brings every starter of 3 points and more down to exactly 1 point", async () => {

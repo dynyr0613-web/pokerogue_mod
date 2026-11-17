@@ -6,6 +6,7 @@ import type { MoveId } from "#enums/move-id";
 import type { MysteryEncounterType } from "#enums/mystery-encounter-type";
 import type { Nature } from "#enums/nature";
 import type { PlayerGender } from "#enums/player-gender";
+import type { PokemonMark } from "#enums/pokemon-mark";
 import type { PokemonType } from "#enums/pokemon-type";
 import type { SpeciesId } from "#enums/species-id";
 import type { MysteryEncounterSaveData } from "#mystery-encounters/mystery-encounter-save-data";
@@ -36,6 +37,8 @@ export interface SystemSaveData {
   gameStats: GameStats;
   unlocks: Unlocks;
   achvUnlocks: AchvUnlocks;
+  /** Local fork (2026-11-17): the mark collection, see `GameData.markCounts`; missing in saves from before it */
+  markCounts?: Partial<Record<PokemonMark, number>> | undefined;
   voucherUnlocks: VoucherUnlocks;
   voucherCounts: VoucherCounts;
   eggs: EggData[];

@@ -18,6 +18,7 @@ import { EntryHazardTag } from "#data/arena-tag";
 import { getSerializedDailyRunConfig, parseDailySeed } from "#data/daily-seed-utils";
 import { allMoves } from "#data/data-lists";
 import type { Egg } from "#data/egg";
+import { isPokemonMark } from "#data/pokemon-marks";
 import type { PokemonSpecies } from "#data/pokemon-species";
 import { loadPositionalTag } from "#data/positional-tags/load-positional-tag";
 import { AbilityAttr } from "#enums/ability-attr";
@@ -30,6 +31,7 @@ import { GameModes } from "#enums/game-modes";
 import { Nature } from "#enums/nature";
 import { Passive } from "#enums/passive";
 import { PlayerGender } from "#enums/player-gender";
+import type { PokemonMark } from "#enums/pokemon-mark";
 import { SpeciesId } from "#enums/species-id";
 import { StatusEffect } from "#enums/status-effect";
 import { TrainerVariant } from "#enums/trainer-variant";
@@ -43,7 +45,7 @@ import * as Modifier from "#modifiers/modifier";
 import { MysteryEncounterSaveData } from "#mystery-encounters/mystery-encounter-save-data";
 import { version } from "#package.json";
 import type { Variant } from "#sprites/variant";
-import { achvs } from "#system/achv";
+import { achvs, markCollectionAchvs } from "#system/achv";
 import { ArenaData, type SerializedArenaData } from "#system/arena-data";
 import { ChallengeData } from "#system/challenge-data";
 import { EggData } from "#system/egg-data";
@@ -107,6 +109,12 @@ export class GameData {
   public unlocks: Unlocks;
 
   public achvUnlocks: AchvUnlocks;
+  /**
+   * Local fork (2026-11-17): how many times each mark and ribbon (`PokemonMark`) has been collected, for the mark
+   * achievements: counted when a Pokémon carrying it is caught or hatched and when a ribbon is awarded
+   * ({@linkcode registerMarks}). Saved with the system data; a save without it starts from nothing.
+   */
+  public markCounts: Partial<Record<PokemonMark, number>> = {};
 
   public voucherUnlocks: VoucherUnlocks;
   public voucherCounts: VoucherCounts;
@@ -164,6 +172,7 @@ export class GameData {
       gameStats: this.gameStats,
       unlocks: this.unlocks,
       achvUnlocks: this.achvUnlocks,
+      markCounts: this.markCounts,
       voucherUnlocks: this.voucherUnlocks,
       voucherCounts: this.voucherCounts,
       eggs: this.eggs.map(e => new EggData(e)),
@@ -372,6 +381,15 @@ export class GameData {
         if (Object.hasOwn(this.unlocks, key)) {
           this.unlocks[key] = systemData.unlocks[key];
         }
+      }
+    }
+
+    // Local fork (2026-11-17): the mark collection; known marks with a sane count only
+    this.markCounts = {};
+    for (const [key, count] of Object.entries(systemData.markCounts ?? {})) {
+      const mark = Number(key);
+      if (isPokemonMark(mark) && typeof count === "number" && count > 0) {
+        this.markCounts[mark] = Math.floor(count);
       }
     }
 
@@ -1623,6 +1641,21 @@ export class GameData {
   // TODO: This return value is exclusively used inside Weird Dream (which manually displays the "new starter unlocked" message),
   // all for the purposes of playing a level up fanfare if 1+ species were unlocked.
   // Given its only use is effectively useless, we should consider removing this return value at a future date
+  /**
+   * Local fork (2026-11-17): add newly obtained marks or ribbons to the collection ({@linkcode markCounts}) and unlock
+   * the mark achievements they complete. Call it once for each Pokémon that is caught or hatched with marks, and for
+   * each Pokémon a ribbon is awarded to.
+   * @param marks - The marks or ribbons obtained
+   */
+  public registerMarks(marks: readonly PokemonMark[]): void {
+    for (const mark of marks) {
+      this.markCounts[mark] = (this.markCounts[mark] ?? 0) + 1;
+    }
+    for (const achv of markCollectionAchvs) {
+      globalScene.validateAchv(achv);
+    }
+  }
+
   async setPokemonCaught(
     pokemon: Pokemon,
     incrementCount = true,
@@ -1638,6 +1671,8 @@ export class GameData {
     // Local fork (2026-11-17): a caught or hatched alpha makes its line's starter available as one (alpha-pokemon.ts)
     if (incrementCount) {
       registerAlpha(pokemon);
+      // Local fork (2026-11-17): and its marks join the collection (the mark achievements)
+      this.registerMarks(pokemon.marks);
     }
     return this.setPokemonSpeciesCaught(pokemon, pokemon.species, incrementCount, fromEgg, showMessage);
   }

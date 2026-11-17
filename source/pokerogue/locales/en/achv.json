@@ -308,5 +308,60 @@
     "name": "Passive Mastery",
     "name_female": "Passive Mastery",
     "description": "Complete the Active Passives challenge."
+  },
+  "marks10": {
+    "name": "Mark Collector",
+    "name_female": "Mark Collector",
+    "description": "Obtain {{amount}} Pokémon that carry a mark."
+  },
+  "marks100": {
+    "name": "Mark Maniac",
+    "name_female": "Mark Maniac",
+    "description": "Obtain {{amount}} Pokémon that carry a mark."
+  },
+  "marksAllKinds": {
+    "name": "Every Mark",
+    "name_female": "Every Mark",
+    "description": "Obtain every kind of wild Pokémon mark."
+  },
+  "alphaMarks10": {
+    "name": "Alpha Hunter",
+    "name_female": "Alpha Hunter",
+    "description": "Collect {{amount}} Alpha Marks."
+  },
+  "alphaMarks100": {
+    "name": "Alpha of Alphas",
+    "name_female": "Alpha of Alphas",
+    "description": "Collect {{amount}} Alpha Marks."
+  },
+  "alphaMarksAllSpecies": {
+    "name": "Top of Every Pack",
+    "name_female": "Top of Every Pack",
+    "description": "Collect the Alpha Mark of every Pokémon."
+  },
+  "goldenAlphaMark": {
+    "name": "Golden Majesty",
+    "name_female": "Golden Majesty",
+    "description": "Collect a Golden Alpha Mark."
+  },
+  "goldenAlphaMarks10": {
+    "name": "Golden Legion",
+    "name_female": "Golden Legion",
+    "description": "Collect {{amount}} Golden Alpha Marks."
+  },
+  "goldenAlphaMarksAllSpecies": {
+    "name": "The Golden Age",
+    "name_female": "The Golden Age",
+    "description": "Collect the Golden Alpha Mark of every Pokémon."
+  },
+  "memorialRibbon": {
+    "name": "Hall of Fame Souvenir",
+    "name_female": "Hall of Fame Souvenir",
+    "description": "Beat a Champion and receive a memorial ribbon."
+  },
+  "memorialRibbonsAllKinds": {
+    "name": "Champion Road",
+    "name_female": "Champion Road",
+    "description": "Receive every kind of memorial ribbon."
   }
 }

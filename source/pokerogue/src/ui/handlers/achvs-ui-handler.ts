@@ -455,9 +455,14 @@ export class AchvsUiHandler extends MessageUiHandler {
         const achv = item as Achv;
         const hidden = !unlocked && achv.secret && (!achv.parentId || !Object.hasOwn(unlocks, achv.parentId));
         tinted &&= !hidden;
-        icon.setFrame(hidden ? "unknown" : achv.iconImage);
+        // Local fork (2026-11-17): an achievement's icon may come from another atlas than the items' (Achv.iconAtlas)
+        if (hidden) {
+          icon.setTexture("items", "unknown").setScale(0.5);
+        } else {
+          icon.setTexture(achv.iconAtlas, achv.iconImage).setScale(0.5 * achv.iconScale);
+        }
       } else {
-        icon.setFrame(getVoucherTypeIcon((item as Voucher).voucherType));
+        icon.setTexture("items", getVoucherTypeIcon((item as Voucher).voucherType)).setScale(0.5);
       }
 
       icon.setVisible(true);

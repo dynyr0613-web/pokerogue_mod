@@ -69,7 +69,12 @@ export class AchvBar extends Phaser.GameObjects.Container {
     const tier = achv.getTier();
 
     this.bg.setTexture(`achv_bar${tier ? `_${tier + 1}` : ""}`);
-    this.icon.setFrame(achv.getIconImage());
+    // Local fork (2026-11-17): an achievement's icon may come from another atlas than the items' (Achv.iconAtlas)
+    if (achv instanceof Achv) {
+      this.icon.setTexture(achv.iconAtlas, achv.getIconImage()).setScale(achv.iconScale);
+    } else {
+      this.icon.setTexture("items", achv.getIconImage()).setScale(1);
+    }
     this.titleText.setText(achv.name);
     this.scoreText.setVisible(achv instanceof Achv);
     if (achv instanceof Achv) {

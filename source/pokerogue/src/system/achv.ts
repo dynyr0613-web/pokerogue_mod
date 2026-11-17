@@ -1,6 +1,7 @@
 import { globalScene } from "#app/global-scene";
 import { settings } from "#app/global-settings-manager";
 import { speciesDataRegistry } from "#app/global-species-data-registry";
+import { ALPHA_MAX_BOOST, normalizeAlphaBoost } from "#data/alpha-pokemon";
 import type { Challenge } from "#data/challenge";
 import {
   FlipStatChallenge,
@@ -10,8 +11,10 @@ import {
   SingleGenerationChallenge,
   SingleTypeChallenge,
 } from "#data/challenge";
+import { getMarkKey, isRibbon, MARKS_ATLAS_KEY, orderedPokemonMarks } from "#data/pokemon-marks";
 import { Challenges } from "#enums/challenges";
 import { PlayerGender } from "#enums/player-gender";
+import { PokemonMark } from "#enums/pokemon-mark";
 import { PokemonType, type RegularPokemonType } from "#enums/pokemon-type";
 import { getShortenedStatKey, Stat } from "#enums/stat";
 import type { Modifier } from "#modifiers/modifier";
@@ -36,11 +39,33 @@ function getGenderStr(): string {
   return genderStr;
 }
 
+/** Local fork (2026-11-17): how many times the mark or ribbon has been collected (`GameData.markCounts`) */
+function getMarkCount(mark: PokemonMark): number {
+  return globalScene.gameData.markCounts[mark] ?? 0;
+}
+
+/** Local fork (2026-11-17): whether the mark is one a wild Pokémon is met with (not a ribbon, not an alpha's) */
+function isWildMark(mark: PokemonMark): boolean {
+  return !isRibbon(mark) && mark !== PokemonMark.ALPHA_MARK && mark !== PokemonMark.GOLDEN_ALPHA_MARK;
+}
+
+/** Local fork (2026-11-17): the wild marks collected so far, counting every one */
+function countWildMarks(): number {
+  return orderedPokemonMarks.filter(isWildMark).reduce((sum, mark) => sum + getMarkCount(mark), 0);
+}
+
 export class Achv {
   public localizationKey: string;
   public id: string;
   public iconImage: string;
   public score: number;
+
+  /**
+   * Local fork (2026-11-17): the atlas {@linkcode iconImage} is a frame of, and the scale it is drawn at next to an
+   * `items` icon (32 px); the mark achievements use the marks' 40 px icons ({@linkcode setIconAtlas})
+   */
+  public iconAtlas = "items";
+  public iconScale = 1;
 
   public secret: boolean;
   public hasParent: boolean;
@@ -68,6 +93,13 @@ export class Achv {
 
   getIconImage(): string {
     return this.iconImage;
+  }
+
+  /** Local fork (2026-11-17): take the icon from another atlas than `items` */
+  setIconAtlas(atlas: string, scale: number): this {
+    this.iconAtlas = atlas;
+    this.iconScale = scale;
+    return this;
   }
 
   setSecret(hasParent?: boolean): this {
@@ -125,6 +157,41 @@ export class RibbonAchv extends Achv {
     return i18next.t("achv:ribbonAchv.description", {
       context: getGenderStr(),
       ribbonAmount: this.ribbonAmount.toLocaleString("en-US"),
+    });
+  }
+}
+
+/**
+ * Local fork (2026-11-17): an achievement for collecting marks and ribbons (pokemon-marks.ts), checked against the
+ * collection in the system save (`GameData.markCounts`, the alphas per starter line). Its icon is a mark's.
+ */
+export class MarkCollectionAchv extends Achv {
+  private readonly amount: number | undefined;
+
+  /**
+   * @param localizationKey - The key in `achv.json`; the description takes `{{amount}}`
+   * @param mark - The mark whose icon it shows
+   * @param score - The achievement's score
+   * @param conditionFunc - Whether the collection has reached the goal
+   * @param amount - The number the description names, if it names one
+   */
+  constructor(
+    localizationKey: string,
+    mark: PokemonMark,
+    score: number,
+    conditionFunc: () => boolean,
+    amount?: number,
+  ) {
+    super(localizationKey, getMarkKey(mark), score, conditionFunc);
+    this.amount = amount;
+    // The marks' icons are 40 px, the items' 32 px
+    this.setIconAtlas(MARKS_ATLAS_KEY, 0.8);
+  }
+
+  public override get description(): string {
+    return i18next.t(`achv:${this.localizationKey}.description`, {
+      context: getGenderStr(),
+      amount: this.amount?.toLocaleString("en-US"),
     });
   }
 }
@@ -672,7 +739,68 @@ export const achvs = {
       && !randomizerChallengesAchvBlock(),
   ).setSecret(),
   BREEDERS_IN_SPACE: new Achv("breedersInSpace", "moon_stone", 50).setSecret(),
+  // Local fork (2026-11-17): collecting marks and ribbons (the user: "증표를 수집 요소로 넣었으니까 업적에도 증표 수집
+  // 관련을 넣어둡시다 / 10개의 우두머리 증표 수집, 100개의 우두머리 증표 수집, 모든 포켓몬의 우두머리 증표 수집 등등").
+  // Counted when a Pokémon with the mark is caught or hatched, and when a ribbon is awarded (GameData.registerMarks).
+  // New achievements go at the end: a secret one's parent is the entry before it.
+  MARKS_10: new MarkCollectionAchv("marks10", PokemonMark.UNCOMMON_MARK, 25, () => countWildMarks() >= 10, 10),
+  MARKS_100: new MarkCollectionAchv("marks100", PokemonMark.RARE_MARK, 75, () => countWildMarks() >= 100, 100),
+  MARKS_ALL_KINDS: new MarkCollectionAchv("marksAllKinds", PokemonMark.CHARISMATIC_MARK, 100, () =>
+    orderedPokemonMarks.filter(isWildMark).every(m => getMarkCount(m) > 0),
+  ),
+  ALPHA_MARKS_10: new MarkCollectionAchv(
+    "alphaMarks10",
+    PokemonMark.ALPHA_MARK,
+    50,
+    () => getMarkCount(PokemonMark.ALPHA_MARK) >= 10,
+    10,
+  ),
+  ALPHA_MARKS_100: new MarkCollectionAchv(
+    "alphaMarks100",
+    PokemonMark.ALPHA_MARK,
+    75,
+    () => getMarkCount(PokemonMark.ALPHA_MARK) >= 100,
+    100,
+  ),
+  ALPHA_MARKS_ALL_SPECIES: new MarkCollectionAchv("alphaMarksAllSpecies", PokemonMark.ALPHA_MARK, 150, () =>
+    speciesDataRegistry
+      .getAllStarters()
+      .every(s => normalizeAlphaBoost(globalScene.gameData.starterData[s]?.alphaBoost) > 0),
+  ),
+  GOLDEN_ALPHA_MARK: new MarkCollectionAchv(
+    "goldenAlphaMark",
+    PokemonMark.GOLDEN_ALPHA_MARK,
+    75,
+    () => getMarkCount(PokemonMark.GOLDEN_ALPHA_MARK) >= 1,
+  ),
+  GOLDEN_ALPHA_MARKS_10: new MarkCollectionAchv(
+    "goldenAlphaMarks10",
+    PokemonMark.GOLDEN_ALPHA_MARK,
+    100,
+    () => getMarkCount(PokemonMark.GOLDEN_ALPHA_MARK) >= 10,
+    10,
+  ),
+  GOLDEN_ALPHA_MARKS_ALL_SPECIES: new MarkCollectionAchv(
+    "goldenAlphaMarksAllSpecies",
+    PokemonMark.GOLDEN_ALPHA_MARK,
+    150,
+    () =>
+      speciesDataRegistry
+        .getAllStarters()
+        .every(s => normalizeAlphaBoost(globalScene.gameData.starterData[s]?.alphaBoost) >= ALPHA_MAX_BOOST),
+  ).setSecret(),
+  MEMORIAL_RIBBON: new MarkCollectionAchv("memorialRibbon", PokemonMark.CHAMPION_RIBBON, 25, () =>
+    orderedPokemonMarks.filter(isRibbon).some(m => getMarkCount(m) > 0),
+  ),
+  MEMORIAL_RIBBONS_ALL_KINDS: new MarkCollectionAchv("memorialRibbonsAllKinds", PokemonMark.LEGEND_RIBBON, 100, () =>
+    orderedPokemonMarks.filter(isRibbon).every(m => getMarkCount(m) > 0),
+  ),
 };
+
+/** Local fork (2026-11-17): the achievements for collecting marks and ribbons, in the order they are checked */
+export const markCollectionAchvs: readonly MarkCollectionAchv[] = Object.values(achvs).filter(
+  a => a instanceof MarkCollectionAchv,
+);
 
 export function initAchievements() {
   const achvKeys = Object.keys(achvs);
