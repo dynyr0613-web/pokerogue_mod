@@ -260,8 +260,19 @@ export function rollWildMark(timeOfDay: TimeOfDay, weather: WeatherType): Pokemo
 }
 
 /**
- * Give a freshly generated wild Pokémon its mark, if the roll says so. The roll has its own seed (the wave's, offset by
- * the Pokémon's place in the enemy party), so it changes nothing else the wave generates.
+ * The seed offset of a newly generated Pokémon's own rolls (its mark, alpha or mini): the wave and the Pokémon's id,
+ * so that several Pokémon generated on one wave (the GTS's offers, the Safari Zone's Pokémon, a double battle) each
+ * get their own result. The id comes from the seeded RNG, so reloading the wave gives the same Pokémon the same rolls.
+ * @param pokemon - The Pokémon being generated
+ * @param salt - A number that tells the kinds of roll apart
+ */
+export function getWildRollSeedOffset(pokemon: Pokemon, salt: number): number {
+  return (globalScene.currentBattle?.waveIndex ?? 0) * 16 + (pokemon.id % 65521) + salt;
+}
+
+/**
+ * Give a freshly generated wild Pokémon its mark, if the roll says so. The roll has its own seed
+ * ({@linkcode getWildRollSeedOffset}), so it changes nothing else the wave generates.
  * @param pokemon - The wild Pokémon
  */
 export function applyWildMark(pokemon: Pokemon): void {
@@ -276,7 +287,7 @@ export function applyWildMark(pokemon: Pokemon): void {
         pokemon.addMark(mark);
       }
     },
-    battle.waveIndex * 16 + battle.enemyParty.length + 7919,
+    getWildRollSeedOffset(pokemon, 7919),
     globalScene.waveSeed,
   );
 }

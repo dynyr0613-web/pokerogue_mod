@@ -47,6 +47,20 @@ function getMarkCount(mark: PokemonMark): number {
 /** Local fork (2026-11-17): the ribbons the champions give (the ribbon achievements) */
 const CHAMPION_RIBBONS: readonly PokemonMark[] = [...new Set(Object.values(TRAINER_RIBBONS))];
 
+/**
+ * Local fork (2026-11-17): the marks the "every kind" achievement asks for: the 41 wild marks and the Jumbo, Mini,
+ * Partner and three shiny marks (the user: "증표 도감 완성에는 파트너, 조그만, 이로치 3종, 커다란도 넣어두고")
+ */
+export const ALL_KINDS_MARKS: readonly PokemonMark[] = [
+  ...WILD_MARKS,
+  PokemonMark.JUMBO_MARK,
+  PokemonMark.MINI_MARK,
+  PokemonMark.PARTNER_MARK,
+  PokemonMark.SHINY_MARK,
+  PokemonMark.RARE_SHINY_MARK,
+  PokemonMark.EPIC_SHINY_MARK,
+];
+
 /** Local fork (2026-11-17): the wild marks collected so far, counting every one */
 function countWildMarks(): number {
   return WILD_MARKS.reduce((sum, mark) => sum + getMarkCount(mark), 0);
@@ -744,7 +758,7 @@ export const achvs = {
   MARKS_10: new MarkCollectionAchv("marks10", PokemonMark.UNCOMMON_MARK, 25, () => countWildMarks() >= 10, 10),
   MARKS_100: new MarkCollectionAchv("marks100", PokemonMark.RARE_MARK, 75, () => countWildMarks() >= 100, 100),
   MARKS_ALL_KINDS: new MarkCollectionAchv("marksAllKinds", PokemonMark.CHARISMATIC_MARK, 100, () =>
-    WILD_MARKS.every(m => getMarkCount(m) > 0),
+    ALL_KINDS_MARKS.every(m => getMarkCount(m) > 0),
   ),
   ALPHA_MARKS_10: new MarkCollectionAchv(
     "alphaMarks10",

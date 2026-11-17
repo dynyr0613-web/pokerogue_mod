@@ -9,7 +9,7 @@ import { PokeballType } from "#enums/pokeball";
 import { PokemonMark } from "#enums/pokemon-mark";
 import { SpeciesId } from "#enums/species-id";
 import { TrainerType } from "#enums/trainer-type";
-import { achvs, markCollectionAchvs } from "#system/achv";
+import { ALL_KINDS_MARKS, achvs, markCollectionAchvs } from "#system/achv";
 import { GameManager } from "#test/framework/game-manager";
 import { getAppRootDir } from "#test/utils/sprite-utils";
 import fs from "node:fs";
@@ -107,9 +107,22 @@ describe("Local fork - mark collection achievements", () => {
     expect(unlocked(achvs.MARKS_100)).toBe(true);
     expect(unlocked(achvs.MARKS_ALL_KINDS)).toBe(false);
 
-    gameData.registerMarks(wildMarks.slice(1));
+    // Every kind: the 41 wild marks and the Jumbo, Mini, Partner and three shiny marks
+    expect(ALL_KINDS_MARKS).toHaveLength(47);
+    gameData.registerMarks(wildMarks);
     expect(unlocked(achvs.MARKS_ALL_KINDS)).toBe(false);
-    gameData.registerMarks([wildMarks[0]]);
+    const others = ALL_KINDS_MARKS.filter(m => !wildMarks.includes(m));
+    expect(others).toEqual([
+      PokemonMark.JUMBO_MARK,
+      PokemonMark.MINI_MARK,
+      PokemonMark.PARTNER_MARK,
+      PokemonMark.SHINY_MARK,
+      PokemonMark.RARE_SHINY_MARK,
+      PokemonMark.EPIC_SHINY_MARK,
+    ]);
+    gameData.registerMarks(others.slice(1));
+    expect(unlocked(achvs.MARKS_ALL_KINDS)).toBe(false);
+    gameData.registerMarks([others[0]]);
     expect(unlocked(achvs.MARKS_ALL_KINDS)).toBe(true);
   });
 

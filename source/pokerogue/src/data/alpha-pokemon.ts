@@ -15,6 +15,7 @@
  */
 
 import { globalScene } from "#app/global-scene";
+import { getWildRollSeedOffset } from "#data/pokemon-marks";
 import { PokemonMark } from "#enums/pokemon-mark";
 import type { Pokemon } from "#field/pokemon";
 import type { StarterDataEntry } from "#types/save-data";
@@ -55,8 +56,8 @@ export function rollAlphaBoost(): number {
 }
 
 /**
- * Make a freshly generated wild Pokémon an alpha or a mini Pokémon, if the rolls say so. The roll has its own seed (the wave's, offset
- * by the Pokémon's place in the enemy party), so it changes nothing else the wave generates.
+ * Make a freshly generated wild Pokémon an alpha or a mini Pokémon, if the rolls say so. The rolls have their own
+ * seed (`getWildRollSeedOffset`), so they change nothing else the wave generates.
  * @param pokemon - The wild Pokémon
  */
 export function applyWildAlpha(pokemon: Pokemon): void {
@@ -73,7 +74,7 @@ export function applyWildAlpha(pokemon: Pokemon): void {
         pokemon.updateScale();
       }
     },
-    battle.waveIndex * 16 + battle.enemyParty.length + 104729,
+    getWildRollSeedOffset(pokemon, 104729),
     globalScene.waveSeed,
   );
 }

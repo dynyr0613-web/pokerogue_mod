@@ -3,6 +3,8 @@ import { timedEventManager } from "#app/global-event-manager";
 import { globalScene } from "#app/global-scene";
 import { speciesDataRegistry } from "#app/global-species-data-registry";
 import { NON_LEGEND_PARADOX_POKEMON, NON_LEGEND_ULTRA_BEASTS } from "#balance/special-species-groups";
+import { applyWildAlpha } from "#data/alpha-pokemon";
+import { applyWildMark } from "#data/pokemon-marks";
 import type { PokemonSpecies } from "#data/pokemon-species";
 import { AbilityId } from "#enums/ability-id";
 import { MysteryEncounterOptionMode } from "#enums/mystery-encounter-option-mode";
@@ -162,6 +164,10 @@ export const ThePokemonSalesmanEncounter: MysteryEncounter = MysteryEncounterBui
       pokemon = new PlayerPokemon(species, 5, 2, species.formIndex);
     }
     pokemon.generateAndPopulateMoveset();
+    // Local fork (2026-11-17): the salesman's Pokémon may have a mark and be an alpha or a mini one, as a wild
+    // Pokémon may (pokemon-marks.ts, alpha-pokemon.ts); it is made as the player's, which skips the wild rolls
+    applyWildMark(pokemon);
+    applyWildAlpha(pokemon);
 
     const { spriteKey, fileRoot } = getSpriteKeysFromPokemon(pokemon);
     encounter.spriteConfigs.push({

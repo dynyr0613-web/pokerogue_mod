@@ -22,8 +22,10 @@ import { PokeballType } from "#enums/pokeball";
 import { PokemonMark } from "#enums/pokemon-mark";
 import { SpeciesId } from "#enums/species-id";
 import { TimeOfDay } from "#enums/time-of-day";
+import { TrainerSlot } from "#enums/trainer-slot";
 import { TrainerType } from "#enums/trainer-type";
 import { WeatherType } from "#enums/weather-type";
+import { EnemyPokemon } from "#field/pokemon";
 import {
   generateHyperWonderTradePokemon,
   ONCE_IN_A_LIFETIME_RIBBON_RATE,
@@ -329,5 +331,29 @@ describe("Local fork - marks and ribbons", () => {
     expect(getPartnerMarkCandyCount(1)).toBe(40);
     expect(getPartnerMarkCandyCount(3)).toBe(35);
     expect(getPartnerMarkCandyCount(10)).toBe(10);
+  });
+
+  it("rolls each Pokémon of one wave on its own (GTS offers, the Safari Zone, the salesman)", async () => {
+    await game.classicMode.startBattle(SpeciesId.FEEBAS);
+    const species = game.field.getEnemyPokemon().species;
+    // Same wave, same place in the enemy party: only the Pokémon differ
+    let marked = 0;
+    let alphas = 0;
+    const total = 400;
+    for (let i = 0; i < total; i++) {
+      const wild = new EnemyPokemon(species, 20, TrainerSlot.NONE, false);
+      if (wild.marks.some(m => WILD_MARKS.includes(m))) {
+        marked++;
+      }
+      if (wild.isAlpha()) {
+        alphas++;
+      }
+      wild.destroy();
+    }
+    // Before, all of them shared one roll: every one marked or none
+    expect(marked).toBeGreaterThan(5);
+    expect(marked).toBeLessThan(80);
+    expect(alphas).toBeGreaterThan(0);
+    expect(alphas).toBeLessThan(40);
   });
 });

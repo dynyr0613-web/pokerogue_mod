@@ -475,6 +475,14 @@ async function doNewTeamPostProcess(transformations: PokemonTransformation[]) {
       atLeastOneNewStarter = true;
     }
 
+    // Local fork (2026-11-17): the transformed Pokémon is still the same individual, so it keeps its marks, its
+    // ribbons and being an alpha (pokemon-marks.ts, alpha-pokemon.ts). After the registration above, so the marks it
+    // already had are not counted for the collection a second time
+    for (const mark of previousPokemon.marks) {
+      newPokemon.addMark(mark);
+    }
+    newPokemon.setAlphaBoost(previousPokemon.alphaBoost);
+
     // Copy old items to new pokemon
     for (const item of transformation.heldItems) {
       item.pokemonId = newPokemon.id;
