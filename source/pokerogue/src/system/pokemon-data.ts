@@ -49,6 +49,8 @@ export class PokemonData {
    * one, so saves of Pokémon without any are unchanged, and a save without them loads as none
    */
   declare public marks?: PokemonMark[] | undefined;
+  /** Local fork (2026-11-17): the mark the Pokémon wears (`Pokemon.equippedMark`); only set when it wears one */
+  declare public equippedMark?: PokemonMark | undefined;
   /**
    * Local fork (2026-11-17): an alpha's stat boost (`Pokemon.alphaBoost`, alpha-pokemon.ts); only set for an alpha, so
    * other Pokémon's saves are unchanged
@@ -147,6 +149,9 @@ export class PokemonData {
     const marks = normalizeMarks(source.marks);
     if (marks.length > 0) {
       this.marks = marks;
+    }
+    if (source.equippedMark != null && marks.includes(source.equippedMark)) {
+      this.equippedMark = source.equippedMark;
     }
     // Local fork (2026-11-17): alphas, see the field
     const alphaBoost = normalizeAlphaBoost(source.alphaBoost);

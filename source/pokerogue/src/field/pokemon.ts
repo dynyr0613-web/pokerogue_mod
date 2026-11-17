@@ -289,6 +289,12 @@ export abstract class Pokemon extends Phaser.GameObjects.Container {
    */
   public marks: PokemonMark[] = [];
   /**
+   * Local fork (2026-11-17): the mark or ribbon this Pokémon wears, one of {@linkcode marks}: its title goes before
+   * the Pokémon's name (`getPokemonTitle`). `null` shows the title of its most telling mark, as before. Chosen on the
+   * Pokédex page's mark list; saved with the Pokémon (`PokemonData.equippedMark`).
+   */
+  public equippedMark: PokemonMark | null = null;
+  /**
    * Local fork (2026-11-17): an alpha's stat boost in percent (1 to 20), 0 for an ordinary Pokémon (alpha-pokemon.ts).
    * Every stat is raised by it in {@linkcode calculateStats} and the sprite is drawn 10% larger
    * ({@linkcode getSpriteScale}). It belongs to the Pokémon, so evolution and form changes keep it; set it with
@@ -437,6 +443,7 @@ export abstract class Pokemon extends Phaser.GameObjects.Container {
       this.evs = normalizeEvs(dataSource.evs);
       // Local fork (2026-11-17): marks and ribbons come with the data too (a caught Pokémon's, a saved one's)
       this.marks = normalizeMarks(dataSource.marks);
+      this.equippedMark = this.marks.find(m => m === dataSource.equippedMark) ?? null;
       // Local fork (2026-11-17): and whether it is an alpha (alpha-pokemon.ts)
       this.alphaBoost = normalizeAlphaBoost(dataSource.alphaBoost);
       this.passive = !!dataSource.passive;
@@ -6778,6 +6785,7 @@ export class PlayerPokemon extends Pokemon {
         newPokemon.evs = this.evs.slice();
         // Local fork (2026-11-17): and its marks and ribbons, as in the main series
         newPokemon.marks = this.marks.slice();
+        newPokemon.equippedMark = this.equippedMark;
         // Local fork (2026-11-17): an alpha Nincada leaves an alpha Shedinja
         newPokemon.setAlphaBoost(this.alphaBoost);
         newPokemon.customPassiveSpecies = this.customPassiveSpecies.slice();

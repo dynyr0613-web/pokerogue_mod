@@ -18,7 +18,7 @@ import { EntryHazardTag } from "#data/arena-tag";
 import { getSerializedDailyRunConfig, parseDailySeed } from "#data/daily-seed-utils";
 import { allMoves } from "#data/data-lists";
 import type { Egg } from "#data/egg";
-import { getShinyMark, isPokemonMark } from "#data/pokemon-marks";
+import { getShinyMark, isPokemonMark, normalizeMarks } from "#data/pokemon-marks";
 import type { PokemonSpecies } from "#data/pokemon-species";
 import { loadPositionalTag } from "#data/positional-tags/load-positional-tag";
 import { AbilityAttr } from "#enums/ability-attr";
@@ -1646,10 +1646,19 @@ export class GameData {
    * the mark achievements they complete. Call it once for each Pokémon that is caught or hatched with marks, and for
    * each Pokémon a ribbon is awarded to.
    * @param marks - The marks or ribbons obtained
+   * @param owner - The Pokémon that got them, or its starter species: the marks also join that line's own collection
+   *   (`StarterDataEntry.marks`, the mark Pokédex and the marks a starter can wear)
    */
-  public registerMarks(marks: readonly PokemonMark[]): void {
+  public registerMarks(marks: readonly PokemonMark[], owner?: Pokemon | SpeciesId): void {
     for (const mark of marks) {
       this.markCounts[mark] = (this.markCounts[mark] ?? 0) + 1;
+    }
+    if (owner !== undefined) {
+      const rootId = typeof owner === "number" ? owner : owner.species.getRootSpeciesId();
+      const entry = this.starterData[rootId];
+      if (entry) {
+        entry.marks = normalizeMarks([...(entry.marks ?? []), ...marks]);
+      }
     }
     for (const achv of markCollectionAchvs) {
       globalScene.validateAchv(achv);
@@ -1676,7 +1685,7 @@ export class GameData {
         pokemon.addMark(getShinyMark(pokemon.variant));
       }
       // Local fork (2026-11-17): and its marks join the collection (the mark achievements)
-      this.registerMarks(pokemon.marks);
+      this.registerMarks(pokemon.marks, pokemon);
     }
     return this.setPokemonSpeciesCaught(pokemon, pokemon.species, incrementCount, fromEgg, showMessage);
   }

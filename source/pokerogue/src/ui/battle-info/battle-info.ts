@@ -2,7 +2,7 @@ import { globalScene } from "#app/global-scene";
 import { settings } from "#app/global-settings-manager";
 import { ALPHA_MAX_BOOST } from "#data/alpha-pokemon";
 import { Gender, getGenderColor, getGenderSymbol } from "#data/gender";
-import { getMarkKey, MARKS_ATLAS_KEY } from "#data/pokemon-marks";
+import { getMarkKey, getPokemonTitle, MARKS_ATLAS_KEY } from "#data/pokemon-marks";
 import { getTypeRgb } from "#data/type";
 import { PokemonMark } from "#enums/pokemon-mark";
 import { PokemonType } from "#enums/pokemon-type";
@@ -44,6 +44,10 @@ export type BattleInfoParamList = {
   };
 };
 
+/** Local fork (2026-11-17): the room the name keeps next to a title, and the gap between the two, in px */
+const TITLE_NAME_MIN = 30;
+const TITLE_GAP = 1.5;
+
 export abstract class BattleInfo extends Phaser.GameObjects.Container {
   public static readonly EXP_GAINS_DURATION_BASE = 1650;
 
@@ -78,6 +82,15 @@ export abstract class BattleInfo extends Phaser.GameObjects.Container {
    */
   protected alphaIcon: Phaser.GameObjects.Image;
   protected alphaBoostText: Phaser.GameObjects.Text;
+  /**
+   * Local fork (2026-11-17): the title of the Pokémon's mark in small letters left of its name; the name and
+   * everything placed after it move right by its width (the user: "이름은 왼쪽에 칭호를 표시하고 다른 요소들을 더 밀면
+   * 될 것 같네요"). See `getPokemonTitle`.
+   */
+  protected titleText: Phaser.GameObjects.Text;
+  protected lastTitle = "";
+  /** Where the name starts without a title */
+  private nameTextBaseX = 0;
   protected statusIndicator: Phaser.GameObjects.Sprite;
   protected levelContainer: Phaser.GameObjects.Container;
   protected hpLabel: Phaser.GameObjects.Image;
@@ -284,6 +297,14 @@ export abstract class BattleInfo extends Phaser.GameObjects.Container {
       .setName("text_name")
       .setOrigin(0);
     this.add(this.nameText);
+
+    this.nameTextBaseX = posParams.nameTextX;
+    this.titleText = addTextObject(posParams.nameTextX, posParams.nameTextY + 2.5, "", TextStyle.BATTLE_INFO, {
+      fontSize: "52px",
+    })
+      .setName("text_title")
+      .setOrigin(0);
+    this.add(this.titleText);
 
     this.genderText = addTextObject(0, 0, "", TextStyle.BATTLE_INFO)
       .setName("text_gender")
@@ -503,7 +524,7 @@ export abstract class BattleInfo extends Phaser.GameObjects.Container {
   /** Update the pokemon name inside the container */
   protected updateName(pokemon: Pokemon): boolean {
     const name = pokemon.getNameToRender({ prependFormName: false });
-    if (this.lastName === name) {
+    if (this.lastName === name && this.lastTitle === getPokemonTitle(pokemon)) {
       return false;
     }
 
@@ -683,20 +704,33 @@ export abstract class BattleInfo extends Phaser.GameObjects.Container {
     nameTextWidth = nameSizeTest.displayWidth;
 
     const gender = pokemon.summonData.illusion?.gender ?? pokemon.gender;
+    const allowance =
+      (this.player || !this.boss ? 60 : 98)
+      - ((gender === Gender.GENDERLESS ? 0 : 6)
+        + (pokemon.fusionSpecies ? 8 : 0)
+        + (pokemon.isShiny() ? 8 : 0)
+        // Local fork (2026-11-17): and the alpha badge, now that a title can fill the rest
+        + (pokemon.isAlpha() ? 9 : 0)
+        + (Math.min(pokemon.level.toString().length, 3) - 3) * 8
+        + Math.max(pokemon.level.toString().length - 3, 0) * 8);
+
+    // Local fork (2026-11-17): the title takes its room from the same allowance. The name keeps up to TITLE_NAME_MIN
+    // px of it; the title is cut to what the name leaves and dropped if not even two letters fit
+    let title = getPokemonTitle(pokemon);
+    this.lastTitle = title;
+    this.titleText.setText(title);
+    const titleRoom = allowance - Math.min(nameTextWidth, TITLE_NAME_MIN) - TITLE_GAP;
+    while (title.length > 0 && this.titleText.displayWidth > titleRoom) {
+      title = title.length > 2 ? `${title.slice(0, title.endsWith(".") ? -2 : -1).trimEnd()}.` : "";
+      this.titleText.setText(title);
+    }
+    const titleWidth = title ? this.titleText.displayWidth + TITLE_GAP : 0;
+    this.nameText.setX(this.nameTextBaseX + titleWidth);
     // Local fork (2026-11-13): 08 명세 4번 (Endless levels up to ~320,000), the level container moves 8px left per digit
     // past the third (setLevelDisplay), so the name gets 8px less per such digit too: before, a 5-digit level's "Lv"
     // already covered the end of a long name and a 6-digit one covered about 12px of it. Levels under 1000 are unchanged.
     // The length guard stops the loop at "." if a huge level ever leaves no room at all (it would never end otherwise).
-    while (
-      displayName.length > 1
-      && nameTextWidth
-        > (this.player || !this.boss ? 60 : 98)
-          - ((gender === Gender.GENDERLESS ? 0 : 6)
-            + (pokemon.fusionSpecies ? 8 : 0)
-            + (pokemon.isShiny() ? 8 : 0)
-            + (Math.min(pokemon.level.toString().length, 3) - 3) * 8
-            + Math.max(pokemon.level.toString().length - 3, 0) * 8)
-    ) {
+    while (displayName.length > 1 && nameTextWidth > allowance - titleWidth) {
       displayName = `${displayName.slice(0, displayName.endsWith(".") ? -2 : -1).trimEnd()}.`;
       nameSizeTest.setText(displayName);
       nameTextWidth = nameSizeTest.displayWidth;

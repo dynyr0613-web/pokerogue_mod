@@ -77,10 +77,11 @@ describe("Local fork - marks and ribbons", () => {
 
   it("gives ribbons only for champions, and every ribbon has a champion", () => {
     const ribbons = orderedPokemonMarks.filter(isRibbon);
-    // The eight champions' ribbons and the Once-in-a-Lifetime Ribbon of the Hyper GTS
-    expect(ribbons).toHaveLength(9);
+    // The eight champions' ribbons, the Once-in-a-Lifetime Ribbon of the Hyper GTS, and the eleven that are bought or
+    // earned by raising a Pokémon (custom-mark-ribbons.test.ts)
+    expect(ribbons).toHaveLength(20);
     expect(new Set(Object.values(TRAINER_RIBBONS))).toEqual(
-      new Set(ribbons.filter(r => r !== PokemonMark.ONCE_IN_A_LIFETIME_RIBBON)),
+      new Set(ribbons.filter(r => r < PokemonMark.ONCE_IN_A_LIFETIME_RIBBON)),
     );
     for (const type of Object.keys(TRAINER_RIBBONS).map(Number)) {
       expect(type).toBeGreaterThanOrEqual(TrainerType.BLUE);

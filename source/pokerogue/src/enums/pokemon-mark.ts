@@ -25,6 +25,24 @@ export enum PokemonMark {
   LEGEND_RIBBON = 8,
   /** The Once-in-a-Lifetime Ribbon (천재일우리본): 1 Hyper GTS Wonder Trade Pokémon in 10 comes with it */
   ONCE_IN_A_LIFETIME_RIBBON = 9,
+  /** The Best Friends Ribbon (절친리본): bought for a starter with its candies, after the Partner Mark */
+  BEST_FRIENDS_RIBBON = 10,
+  /** The Effort Ribbon (노력리본): a Pokémon that has all six stat effort ribbons below */
+  EFFORT_RIBBON = 11,
+  // #region The stat effort ribbons, this fork's own: the stat's EVs at their cap
+  HP_EFFORT_RIBBON = 12,
+  ATK_EFFORT_RIBBON = 13,
+  DEF_EFFORT_RIBBON = 14,
+  SPATK_EFFORT_RIBBON = 15,
+  SPDEF_EFFORT_RIBBON = 16,
+  SPD_EFFORT_RIBBON = 17,
+  // #endregion
+  /** The Footprint Ribbon (발자국리본): a Pokémon that reaches level 200 */
+  FOOTPRINT_RIBBON = 18,
+  /** The Grand Footprint Ribbon (큰발자국리본), this fork's own: a Pokémon that reaches level 100,000 in Endless */
+  GRAND_FOOTPRINT_RIBBON = 19,
+  /** The Endless Master Ribbon (엔드리스마스터리본), after the Tower Master Ribbon: the party that clears Endless */
+  ENDLESS_MASTER_RIBBON = 20,
   // #endregion
 
   // #region Marks a wild Pokémon may be met with (see `rollWildMark`)

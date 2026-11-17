@@ -152,6 +152,15 @@ export interface StarterDataEntry {
   alphaEnabled?: boolean | undefined;
   /** Local fork (2026-11-17): the Partner Mark has been bought for this starter with candy; it carries it every run */
   partnerMark?: boolean | undefined;
+  /** Local fork (2026-11-17): the Best Friends Ribbon has been bought for this starter, after the Partner Mark */
+  bestFriendsRibbon?: boolean | undefined;
+  /**
+   * Local fork (2026-11-17): the marks and ribbons (`PokemonMark`) this starter's line has collected, each once
+   * (`GameData.registerMarks`); missing until the first one
+   */
+  marks?: number[] | undefined;
+  /** Local fork (2026-11-17): the collected mark the starter is taken wearing (starter select's Pokédex page) */
+  equippedMark?: number | undefined;
   valueReduction: number;
   classicWinCount: number;
   pity: [lastShiny: number, lastNewVariant: number];
@@ -210,6 +219,10 @@ export interface Starter {
   alphaBoost?: number | undefined;
   /** Local fork (2026-11-17): the starter carries the Partner Mark (bought with candy) */
   partnerMark?: boolean | undefined;
+  /** Local fork (2026-11-17): the starter carries the Best Friends Ribbon (bought with candy) */
+  bestFriendsRibbon?: boolean | undefined;
+  /** Local fork (2026-11-17): the collected mark the starter carries and wears (`StarterDataEntry.equippedMark`) */
+  equippedMark?: number | undefined;
   nature: Nature;
   moveset?: StarterMoveset | undefined;
   pokerus: boolean;

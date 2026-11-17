@@ -3,6 +3,7 @@ import { globalScene } from "#app/global-scene";
 import { settings } from "#app/global-settings-manager";
 import { getPokemonNameWithAffix } from "#app/messages";
 import { allMoves } from "#data/data-lists";
+import { awardProgressRibbons } from "#data/pokemon-marks";
 import { ExpNotification } from "#enums/exp-notification";
 import { LearnableMoveSource } from "#enums/learnable-move-source";
 import { getBaseLearnableMoveSource } from "#field/learnsets";
@@ -33,6 +34,8 @@ export class LevelUpPhase extends PlayerPartyMemberPokemonPhase {
     }
 
     globalScene.validateAchvs(LevelAchv, new NumberHolder(this.level));
+    // Local fork (2026-11-17): the footprint ribbons, for reaching level 200 and level 100,000 (pokemon-marks.ts)
+    awardProgressRibbons();
 
     const prevStats = this.pokemon.stats.slice(0);
 

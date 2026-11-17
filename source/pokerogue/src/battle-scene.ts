@@ -41,6 +41,7 @@ import { SpeciesFormChangeManualTrigger, SpeciesFormChangeTimeOfDayTrigger } fro
 import { Gender } from "#data/gender";
 import { getPokeballName, MAX_PER_TYPE_POKEBALLS } from "#data/pokeball";
 import type { SpeciesFormChange } from "#data/pokemon-forms";
+import { awardProgressRibbons } from "#data/pokemon-marks";
 import type { PokemonSpecies, PokemonSpeciesFilter } from "#data/pokemon-species";
 import { getTypeRgb } from "#data/type";
 import { BattleType } from "#enums/battle-type";
@@ -3587,6 +3588,8 @@ export class BattleScene extends SceneBase {
           // does not stop it and the EXP Share alone does not give it (gainEvsFromItems)
           if (gainEvsFromItems(partyMember)) {
             partyMember.updateInfo();
+            // Local fork (2026-11-17): the effort ribbons, for EVs at their cap (pokemon-marks.ts)
+            awardProgressRibbons();
           }
         }
         if (!expPartyMembers.includes(partyMember)) {

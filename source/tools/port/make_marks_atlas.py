@@ -43,6 +43,20 @@ SOURCES = {
     "SHINY_MARK": "markshinyyellow",
     "RARE_SHINY_MARK": "markshinymint",
     "EPIC_SHINY_MARK": "markshinyred",
+    "BEST_FRIENDS_RIBBON": "bestfriends",
+    "EFFORT_RIBBON": "effort",
+    # This fork's own ribbons: the Effort Ribbon with its petals recoloured for each stat (mark-icons/ribboneffort*.png)
+    "HP_EFFORT_RIBBON": "efforthp",
+    "ATK_EFFORT_RIBBON": "effortatk",
+    "DEF_EFFORT_RIBBON": "effortdef",
+    "SPATK_EFFORT_RIBBON": "effortspatk",
+    "SPDEF_EFFORT_RIBBON": "effortspdef",
+    "SPD_EFFORT_RIBBON": "effortspd",
+    "FOOTPRINT_RIBBON": "footprint",
+    # This fork's own ribbon: the Footprint Ribbon with its red recoloured violet
+    "GRAND_FOOTPRINT_RIBBON": "footprintgrand",
+    # This fork's own ribbon, with the Tower Master Ribbon's icon
+    "ENDLESS_MASTER_RIBBON": "towermaster",
 }
 for name in (
     "LUNCHTIME SLEEPY_TIME DUSK DAWN RAINY STORMY SNOWY BLIZZARD DRY SANDSTORM MISTY UNCOMMON RARE ROWDY "

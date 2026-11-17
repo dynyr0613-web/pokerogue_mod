@@ -3,35 +3,43 @@
   "empty": "This Pokémon has no marks or ribbons.",
   "championRibbon": {
     "name": "Champion Ribbon",
-    "description": "A Ribbon for beating the Kanto Champion, Blue."
+    "description": "A Ribbon for beating the Kanto Champion, Blue.",
+    "title": "the Champion"
   },
   "hoennChampionRibbon": {
     "name": "Hoenn Champion Ribbon",
-    "description": "A Ribbon for beating the Hoenn Champion."
+    "description": "A Ribbon for beating the Hoenn Champion.",
+    "title": "the Hoenn Champion"
   },
   "sinnohChampionRibbon": {
     "name": "Sinnoh Champion Ribbon",
-    "description": "A Ribbon for beating the Sinnoh Champion."
+    "description": "A Ribbon for beating the Sinnoh Champion.",
+    "title": "the Sinnoh Champion"
   },
   "kalosChampionRibbon": {
     "name": "Kalos Champion Ribbon",
-    "description": "A Ribbon for beating the Kalos Champion."
+    "description": "A Ribbon for beating the Kalos Champion.",
+    "title": "the Kalos Champion"
   },
   "alolaChampionRibbon": {
     "name": "Alola Champion Ribbon",
-    "description": "A Ribbon for beating the Alola Champion."
+    "description": "A Ribbon for beating the Alola Champion.",
+    "title": "the Alola Champion"
   },
   "galarChampionRibbon": {
     "name": "Galar Champion Ribbon",
-    "description": "A Ribbon for beating the Galar Champion."
+    "description": "A Ribbon for beating the Galar Champion.",
+    "title": "the Galar Champion"
   },
   "paldeaChampionRibbon": {
     "name": "Paldea Champion Ribbon",
-    "description": "A Ribbon for beating the Paldea Champion."
+    "description": "A Ribbon for beating the Paldea Champion.",
+    "title": "the Paldea Champion"
   },
   "legendRibbon": {
     "name": "Legend Ribbon",
-    "description": "A Ribbon for beating the legendary Trainer, Red."
+    "description": "A Ribbon for beating the legendary Trainer, Red.",
+    "title": "the Living Legend"
   },
   "lunchtimeMark": {
     "name": "Lunchtime Mark",
@@ -256,7 +264,8 @@
   },
   "jumboMark": {
     "name": "Jumbo Mark",
-    "description": "A mark for a Pokémon of great size."
+    "description": "A mark for a Pokémon of great size.",
+    "title": "the Great"
   },
   "miniMark": {
     "name": "Mini Mark",
@@ -275,16 +284,85 @@
   },
   "shinyMark": {
     "name": "Shiny Mark",
-    "description": "A mark for a shiny Pokémon."
+    "description": "A mark for a shiny Pokémon.",
+    "title": "the Shiny"
   },
   "rareShinyMark": {
     "name": "Rare Shiny Mark",
-    "description": "A mark for a rare shiny Pokémon."
+    "description": "A mark for a rare shiny Pokémon.",
+    "title": "the Radiant"
   },
   "epicShinyMark": {
     "name": "Epic Shiny Mark",
-    "description": "A mark for an epic shiny Pokémon."
+    "description": "A mark for an epic shiny Pokémon.",
+    "title": "the Dazzling"
   },
   "titledName": "{{name}} {{title}}",
-  "notObtained": "(not obtained)"
+  "notObtained": "(not obtained)",
+  "ribbonEarned": "{{pokemonName}} received\nthe {{ribbonName}}!",
+  "equipped": "(worn)",
+  "count": "Marks {{count}}/{{total}}",
+  "bestFriendsRibbon": {
+    "name": "Best Friends Ribbon",
+    "description": "A Ribbon for a Pokémon that is the best of friends with its Trainer.",
+    "title": "the Great Friend"
+  },
+  "effortRibbon": {
+    "name": "Effort Ribbon",
+    "description": "A Ribbon for a Pokémon whose EVs are full in every stat.",
+    "title": "the Once Well-Trained"
+  },
+  "hpEffortRibbon": {
+    "name": "HP Effort Ribbon",
+    "description": "A Ribbon for a Pokémon whose HP EVs are full.",
+    "title": "the HP-Trained"
+  },
+  "atkEffortRibbon": {
+    "name": "Attack Effort Ribbon",
+    "description": "A Ribbon for a Pokémon whose Attack EVs are full.",
+    "title": "the Attack-Trained"
+  },
+  "defEffortRibbon": {
+    "name": "Defense Effort Ribbon",
+    "description": "A Ribbon for a Pokémon whose Defense EVs are full.",
+    "title": "the Defense-Trained"
+  },
+  "spatkEffortRibbon": {
+    "name": "Sp. Atk Effort Ribbon",
+    "description": "A Ribbon for a Pokémon whose Sp. Atk EVs are full.",
+    "title": "the Sp. Atk-Trained"
+  },
+  "spdefEffortRibbon": {
+    "name": "Sp. Def Effort Ribbon",
+    "description": "A Ribbon for a Pokémon whose Sp. Def EVs are full.",
+    "title": "the Sp. Def-Trained"
+  },
+  "spdEffortRibbon": {
+    "name": "Speed Effort Ribbon",
+    "description": "A Ribbon for a Pokémon whose Speed EVs are full.",
+    "title": "the Speed-Trained"
+  },
+  "footprintRibbon": {
+    "name": "Footprint Ribbon",
+    "description": "A Ribbon for a Pokémon that reached level 200.",
+    "title": "the Strider"
+  },
+  "grandFootprintRibbon": {
+    "name": "Grand Footprint Ribbon",
+    "description": "A Ribbon for a Pokémon that reached level 100000 in Endless.",
+    "title": "the Far Strider"
+  },
+  "endlessMasterRibbon": {
+    "name": "Endless Master Ribbon",
+    "description": "A Ribbon for a Pokémon that cleared Endless.",
+    "title": "the Endless Master"
+  },
+  "dex": {
+    "title": "Mark Dex",
+    "kinds": "Kinds {{count}}/{{total}}",
+    "species": "Pokémon {{count}}/{{total}}",
+    "markSpecies": "{{name}} - Pokémon with it {{count}}/{{total}}",
+    "speciesMarks": "{{name}} - marks {{count}}/{{total}}",
+    "unknownSpecies": "???"
+  }
 }
