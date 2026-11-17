@@ -11,6 +11,7 @@ import { speciesEggMoves } from "#balance/egg-moves";
 import { isForkContentUnlocked } from "#balance/fork-unlock";
 import {
   getMaxValueReductions,
+  getPartnerMarkCandyCount,
   getPassiveCandyCount,
   getSameSpeciesEggCandyCounts,
   getValueReductionCandyCounts,
@@ -20,6 +21,7 @@ import { getStarterAlphaBoost, normalizeAlphaBoost } from "#data/alpha-pokemon";
 import { allAbilities, allMoves } from "#data/data-lists";
 import { Egg } from "#data/egg";
 import { getNatureName } from "#data/nature";
+import { getMarkName } from "#data/pokemon-marks";
 import type { PokemonSpecies } from "#data/pokemon-species";
 import { AbilityAttr } from "#enums/ability-attr";
 import { AbilityId } from "#enums/ability-id";
@@ -35,6 +37,7 @@ import type { MoveId } from "#enums/move-id";
 import type { Nature } from "#enums/nature";
 import { Passive as PassiveAttr } from "#enums/passive";
 import { PokemonIconAnimMode } from "#enums/pokemon-icon-anim-mode";
+import { PokemonMark } from "#enums/pokemon-mark";
 import { PokemonType } from "#enums/pokemon-type";
 import type { SpeciesId } from "#enums/species-id";
 import { TextStyle } from "#enums/text-style";
@@ -2121,6 +2124,47 @@ export class StarterSelectUiHandler extends MessageUiHandler {
         });
       }
 
+      // Local fork (2026-11-17): buy the Partner Mark; the starter then carries it every run (pokemon-marks.ts)
+      if (!persistentStarterData.partnerMark && !globalScene.gameMode.hasChallenge(Challenges.FRESH_START)) {
+        const partnerMarkCost = getPartnerMarkCandyCount(speciesDataRegistry.getStarterCost(this.lastStarterId));
+        const canBuyPartnerMark = (): boolean =>
+          activeOverrides.FREE_CANDY_UPGRADE_OVERRIDE || persistentStarterData.candyCount >= partnerMarkCost;
+        useCandiesOptions.push({
+          label: `×${partnerMarkCost} ${getMarkName(PokemonMark.PARTNER_MARK)}`,
+          handler: () => {
+            if (!canBuyPartnerMark()) {
+              return false;
+            }
+            persistentStarterData.partnerMark = true;
+            starterData.partnerMark = true;
+            if (isDupe) {
+              this.partyStarters[removeIndex].partnerMark = true;
+            }
+            if (!activeOverrides.FREE_CANDY_UPGRADE_OVERRIDE) {
+              persistentStarterData.candyCount -= partnerMarkCost;
+              starterData.candyCount = persistentStarterData.candyCount;
+            }
+            this.starterSummary.updateCandyCount(starterData.candyCount);
+            // The mark counts for the collection once, when it is bought
+            globalScene.gameData.registerMarks([PokemonMark.PARTNER_MARK]);
+            globalScene.gameData.saveSystem().then(success => {
+              if (!success) {
+                return globalScene.reset(true);
+              }
+            });
+            ui.setMode(UiMode.STARTER_SELECT);
+            this.setStarterDetails(this.lastStarterId);
+            audioManager.playSound("se/buy");
+            if (starterContainer) {
+              this.updateCandyUpgradeDisplay(starterContainer);
+            }
+            return true;
+          },
+          color: canBuyPartnerMark() ? TextStyle.WINDOW : TextStyle.SHADOW_TEXT,
+          iconsConfig: getCandyIconsConfig(getColors(() => canBuyPartnerMark())),
+        });
+      }
+
       // Reduce cost option
       const valueReduction = starterData.valueReduction;
       const starterCost = speciesDataRegistry.getStarterCost(this.lastStarterId);
@@ -2408,6 +2452,7 @@ export class StarterSelectUiHandler extends MessageUiHandler {
       customPassiveSpecies: starterDataEntry.customPassiveSpecies?.slice() ?? [],
       // Local fork (2026-11-17): taken as an alpha if that is switched on for the starter (alpha-pokemon.ts)
       alphaBoost: getStarterAlphaBoost(globalScene.gameData.starterData[starterId]),
+      partnerMark: !!globalScene.gameData.starterData[starterId].partnerMark,
       nature,
       moveset,
       pokerus: this.pokerusSpeciesIds.includes(starterId),

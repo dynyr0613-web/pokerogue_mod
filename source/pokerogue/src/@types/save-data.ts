@@ -150,6 +150,8 @@ export interface StarterDataEntry {
   alphaBoost?: number | undefined;
   /** Local fork (2026-11-17): whether the starter is taken as an alpha with {@linkcode alphaBoost} (starter select) */
   alphaEnabled?: boolean | undefined;
+  /** Local fork (2026-11-17): the Partner Mark has been bought for this starter with candy; it carries it every run */
+  partnerMark?: boolean | undefined;
   valueReduction: number;
   classicWinCount: number;
   pity: [lastShiny: number, lastNewVariant: number];
@@ -206,6 +208,8 @@ export interface Starter {
   customPassiveSpecies?: SpeciesId[] | undefined;
   /** Local fork (2026-11-17): the alpha boost the starter is taken with, 0 or missing for none (alpha-pokemon.ts) */
   alphaBoost?: number | undefined;
+  /** Local fork (2026-11-17): the starter carries the Partner Mark (bought with candy) */
+  partnerMark?: boolean | undefined;
   nature: Nature;
   moveset?: StarterMoveset | undefined;
   pokerus: boolean;

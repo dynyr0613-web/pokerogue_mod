@@ -5,6 +5,7 @@ import { settings } from "#app/global-settings-manager";
 import { getPokemonNameWithAffix } from "#app/messages";
 import { SpeciesFormChangeActiveTrigger } from "#data/form-change-triggers";
 import { getPokeballAtlasKey, getPokeballTintColor } from "#data/pokeball";
+import { getTitledName } from "#data/pokemon-marks";
 import { BattleType } from "#enums/battle-type";
 import { FieldPosition } from "#enums/field-position";
 import { MysteryEncounterMode } from "#enums/mystery-encounter-mode";
@@ -74,7 +75,8 @@ export class SummonPhase extends PartyMemberPokemonPhase {
     if (this.player) {
       globalScene.ui.showText(
         i18next.t("battle:playerGo", {
-          pokemonName: getPokemonNameWithAffix(this.getPokemon()),
+          // Local fork (2026-11-17): with the title its mark gives it (pokemon-marks.ts)
+          pokemonName: getTitledName(this.getPokemon(), getPokemonNameWithAffix(this.getPokemon())),
         }),
       );
       if (this.player) {

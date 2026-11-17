@@ -12,6 +12,7 @@ import { MysteryEncounterOptionMode } from "#enums/mystery-encounter-option-mode
 import { MysteryEncounterTier } from "#enums/mystery-encounter-tier";
 import { MysteryEncounterType } from "#enums/mystery-encounter-type";
 import type { PokeballType } from "#enums/pokeball";
+import { PokemonMark } from "#enums/pokemon-mark";
 import { SpeciesId } from "#enums/species-id";
 import { TrainerSlot } from "#enums/trainer-slot";
 import type { PlayerPokemon, Pokemon } from "#field/pokemon";
@@ -55,6 +56,8 @@ const namespace = "mysteryEncounters/hyperGlobalTradeSystem";
 export const HYPER_TRADE_BST_RANGE = 100;
 /** Fewest species a trade-offer pool may have before its lower bound is widened (10 at a time) */
 export const HYPER_TRADE_MIN_POOL = 5;
+/** Wonder Trade: 1 Pokémon in this many comes with the Once-in-a-Lifetime Ribbon (pokemon-marks.ts) */
+export const ONCE_IN_A_LIFETIME_RIBBON_RATE = 10;
 /** Wonder Trade: percent chance to receive a legendary, mythical or Paradox Pokémon */
 export const HYPER_WONDER_TRADE_SPECIAL_CHANCE = 25;
 /** Item trade: the received item is this many tiers above the sent one (capped at Master) */
@@ -480,6 +483,12 @@ export function generateHyperWonderTradePokemon(level: number): EnemyPokemon {
         }
       }
     }
+  }
+
+  // Local fork (2026-11-17): 1 Wonder Trade Pokémon in 10 comes with the Once-in-a-Lifetime Ribbon (the user:
+  // "천재일우의 리본 - 하이퍼 gts 미라클 교환에서 10% 확률로 달고 나옴"). Rolled last, so the Pokémon is otherwise as before
+  if (!randSeedInt(ONCE_IN_A_LIFETIME_RIBBON_RATE)) {
+    tradePokemon.addMark(PokemonMark.ONCE_IN_A_LIFETIME_RIBBON);
   }
 
   return tradePokemon;

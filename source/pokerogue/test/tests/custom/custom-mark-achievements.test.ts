@@ -3,7 +3,7 @@
 // 수집, 모든 포켓몬의 우두머리 증표 수집 등등".
 import { speciesDataRegistry } from "#app/global-species-data-registry";
 import { ALPHA_MAX_BOOST } from "#data/alpha-pokemon";
-import { awardTrainerRibbon, getMarkKey, isRibbon, orderedPokemonMarks, TRAINER_RIBBONS } from "#data/pokemon-marks";
+import { awardTrainerRibbon, getMarkKey, TRAINER_RIBBONS, WILD_MARKS } from "#data/pokemon-marks";
 import { MoveId } from "#enums/move-id";
 import { PokeballType } from "#enums/pokeball";
 import { PokemonMark } from "#enums/pokemon-mark";
@@ -92,9 +92,7 @@ describe("Local fork - mark collection achievements", () => {
 
   it("unlocks the wild mark achievements by number and by kind", () => {
     const { gameData } = game.scene;
-    const wildMarks = orderedPokemonMarks.filter(
-      m => !isRibbon(m) && m !== PokemonMark.ALPHA_MARK && m !== PokemonMark.GOLDEN_ALPHA_MARK,
-    );
+    const wildMarks = WILD_MARKS;
     expect(wildMarks).toHaveLength(41);
 
     // Alpha marks and ribbons are not wild marks

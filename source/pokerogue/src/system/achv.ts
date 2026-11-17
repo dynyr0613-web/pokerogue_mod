@@ -11,7 +11,7 @@ import {
   SingleGenerationChallenge,
   SingleTypeChallenge,
 } from "#data/challenge";
-import { getMarkKey, isRibbon, MARKS_ATLAS_KEY, orderedPokemonMarks } from "#data/pokemon-marks";
+import { getMarkKey, MARKS_ATLAS_KEY, TRAINER_RIBBONS, WILD_MARKS } from "#data/pokemon-marks";
 import { Challenges } from "#enums/challenges";
 import { PlayerGender } from "#enums/player-gender";
 import { PokemonMark } from "#enums/pokemon-mark";
@@ -44,14 +44,12 @@ function getMarkCount(mark: PokemonMark): number {
   return globalScene.gameData.markCounts[mark] ?? 0;
 }
 
-/** Local fork (2026-11-17): whether the mark is one a wild Pokémon is met with (not a ribbon, not an alpha's) */
-function isWildMark(mark: PokemonMark): boolean {
-  return !isRibbon(mark) && mark !== PokemonMark.ALPHA_MARK && mark !== PokemonMark.GOLDEN_ALPHA_MARK;
-}
+/** Local fork (2026-11-17): the ribbons the champions give (the ribbon achievements) */
+const CHAMPION_RIBBONS: readonly PokemonMark[] = [...new Set(Object.values(TRAINER_RIBBONS))];
 
 /** Local fork (2026-11-17): the wild marks collected so far, counting every one */
 function countWildMarks(): number {
-  return orderedPokemonMarks.filter(isWildMark).reduce((sum, mark) => sum + getMarkCount(mark), 0);
+  return WILD_MARKS.reduce((sum, mark) => sum + getMarkCount(mark), 0);
 }
 
 export class Achv {
@@ -746,7 +744,7 @@ export const achvs = {
   MARKS_10: new MarkCollectionAchv("marks10", PokemonMark.UNCOMMON_MARK, 25, () => countWildMarks() >= 10, 10),
   MARKS_100: new MarkCollectionAchv("marks100", PokemonMark.RARE_MARK, 75, () => countWildMarks() >= 100, 100),
   MARKS_ALL_KINDS: new MarkCollectionAchv("marksAllKinds", PokemonMark.CHARISMATIC_MARK, 100, () =>
-    orderedPokemonMarks.filter(isWildMark).every(m => getMarkCount(m) > 0),
+    WILD_MARKS.every(m => getMarkCount(m) > 0),
   ),
   ALPHA_MARKS_10: new MarkCollectionAchv(
     "alphaMarks10",
@@ -790,10 +788,10 @@ export const achvs = {
         .every(s => normalizeAlphaBoost(globalScene.gameData.starterData[s]?.alphaBoost) >= ALPHA_MAX_BOOST),
   ).setSecret(),
   MEMORIAL_RIBBON: new MarkCollectionAchv("memorialRibbon", PokemonMark.CHAMPION_RIBBON, 25, () =>
-    orderedPokemonMarks.filter(isRibbon).some(m => getMarkCount(m) > 0),
+    CHAMPION_RIBBONS.some(m => getMarkCount(m) > 0),
   ),
   MEMORIAL_RIBBONS_ALL_KINDS: new MarkCollectionAchv("memorialRibbonsAllKinds", PokemonMark.LEGEND_RIBBON, 100, () =>
-    orderedPokemonMarks.filter(isRibbon).every(m => getMarkCount(m) > 0),
+    CHAMPION_RIBBONS.every(m => getMarkCount(m) > 0),
   ),
 };
 

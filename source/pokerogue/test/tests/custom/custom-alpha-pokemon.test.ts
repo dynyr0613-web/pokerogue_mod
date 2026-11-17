@@ -7,6 +7,7 @@ import {
   ALPHA_RATE,
   ALPHA_SPRITE_SCALE,
   getStarterAlphaBoost,
+  MINI_SPRITE_SCALE,
   normalizeAlphaBoost,
   registerAlpha,
   rollAlphaBoost,
@@ -90,20 +91,20 @@ describe("Local fork - alpha Pokémon", () => {
       expect(pokemon.getStat(s, false), Stat[s]).toBe(Math.floor(before[i] * 1.1));
     });
     expect(pokemon.getSpriteScale()).toBeCloseTo(scale * ALPHA_SPRITE_SCALE);
-    expect(pokemon.marks).toEqual([PokemonMark.ALPHA_MARK]);
+    expect(pokemon.marks).toEqual([PokemonMark.ALPHA_MARK, PokemonMark.JUMBO_MARK]);
 
     // The full boost is a golden alpha
     pokemon.setAlphaBoost(ALPHA_MAX_BOOST);
     PERMANENT_STATS.forEach((s, i) => {
       expect(pokemon.getStat(s, false), Stat[s]).toBe(Math.floor(before[i] * 1.2));
     });
-    expect(pokemon.marks).toEqual([PokemonMark.ALPHA_MARK, PokemonMark.GOLDEN_ALPHA_MARK]);
+    expect(pokemon.marks).toEqual([PokemonMark.ALPHA_MARK, PokemonMark.JUMBO_MARK, PokemonMark.GOLDEN_ALPHA_MARK]);
 
     // Back to an ordinary Pokémon: the stats and the size return, the marks stay
     pokemon.setAlphaBoost(0);
     expect(PERMANENT_STATS.map(s => pokemon.getStat(s, false))).toEqual(before);
     expect(pokemon.getSpriteScale()).toBeCloseTo(scale);
-    expect(pokemon.marks).toHaveLength(2);
+    expect(pokemon.marks).toHaveLength(3);
   });
 
   it("stays an alpha through evolution and Mega Evolution", async () => {
@@ -164,7 +165,7 @@ describe("Local fork - alpha Pokémon", () => {
 
     const reloaded = new PokemonData(saved).toPokemon();
     expect(reloaded.alphaBoost).toBe(ALPHA_MAX_BOOST);
-    expect(reloaded.marks).toEqual([PokemonMark.ALPHA_MARK, PokemonMark.GOLDEN_ALPHA_MARK]);
+    expect(reloaded.marks).toEqual([PokemonMark.ALPHA_MARK, PokemonMark.JUMBO_MARK, PokemonMark.GOLDEN_ALPHA_MARK]);
     reloaded.calculateStats();
     expect(reloaded.stats).toEqual(stats);
     reloaded.destroy();
@@ -275,5 +276,45 @@ describe("Local fork - alpha Pokémon", () => {
     }
     expect(alphas).toBeGreaterThan(2);
     expect(alphas).toBeLessThan(30);
+  });
+
+  it("meets about 1 wild Pokémon in 50 as a mini one: 10% smaller, with the Mini Mark, never an alpha", async () => {
+    await game.classicMode.startBattle(SpeciesId.FEEBAS);
+    const species = game.field.getEnemyPokemon().species;
+    let minis = 0;
+    const total = 500;
+    for (let i = 0; i < total; i++) {
+      game.scene.currentBattle.waveIndex = 5000 + i;
+      const wild = game.scene.addEnemyPokemon(species, 50, 0, false);
+      if (wild.hasMark(PokemonMark.MINI_MARK)) {
+        minis++;
+        expect(wild.isAlpha()).toBe(false);
+        expect(wild.hasMark(PokemonMark.JUMBO_MARK)).toBe(false);
+        expect(wild.getSpriteScale()).toBeCloseTo(MINI_SPRITE_SCALE);
+      } else if (wild.isAlpha()) {
+        expect(wild.hasMark(PokemonMark.JUMBO_MARK)).toBe(true);
+        expect(wild.getSpriteScale()).toBeCloseTo(ALPHA_SPRITE_SCALE);
+      } else {
+        expect(wild.getSpriteScale()).toBeCloseTo(1);
+      }
+      wild.destroy();
+    }
+    expect(minis).toBeGreaterThan(2);
+    expect(minis).toBeLessThan(25);
+  });
+
+  it("keeps a mini Pokémon small when it is caught, with its stats unchanged", async () => {
+    await game.classicMode.startBattle(SpeciesId.FEEBAS);
+    const wild = game.field.getEnemyPokemon();
+    wild.alphaBoost = 0;
+    wild.marks = [];
+    const stats = wild.stats.slice();
+    wild.addMark(PokemonMark.MINI_MARK);
+    wild.calculateStats();
+    expect(wild.stats).toEqual(stats);
+
+    const caught = wild.addToParty(PokeballType.POKEBALL)!;
+    expect(caught.marks).toEqual([PokemonMark.MINI_MARK]);
+    expect(caught.getSpriteScale()).toBeCloseTo(MINI_SPRITE_SCALE);
   });
 });

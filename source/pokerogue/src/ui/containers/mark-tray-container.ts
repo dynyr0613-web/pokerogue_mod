@@ -1,6 +1,9 @@
 /*
  * Local fork (2026-11-17): the tray of one Pokémon's marks (증표) and memorial ribbons (리본) on the Pokédex page
  * opened from the party, after `RibbonTray` (the species' challenge ribbons). See pokemon-marks.ts.
+ *
+ * It lists every mark and ribbon there is; the ones the Pokémon does not carry are greyed out (the user: "포켓몬 도감의
+ * 증표 화면에서 증표를 얻지 않은것까지 표시하고, 얻지 않은것은 회색 혹은 반투명으로 표시").
  */
 
 import { globalScene } from "#app/global-scene";
@@ -13,23 +16,24 @@ import { addWindow } from "#ui/ui-theme";
 import i18next from "i18next";
 import Phaser from "phaser";
 
-/** The icons are 40 px squares shown at half size */
-const ICON_SCALE = 0.5;
-const ICON_PITCH_X = 21;
-const ICON_PITCH_Y = 21;
+/** The icons are 40 px squares shown at 11 px, ten to a row, so the whole list fits beside the menu */
+const ICON_SCALE = 0.275;
+const ICON_PITCH = 12;
+const COLUMNS = 10;
+/** A mark the Pokémon does not carry: grey and see-through */
+const MISSING_TINT = 0x8a8a96;
+const MISSING_ALPHA = 0.5;
 
 export class MarkTray extends Phaser.GameObjects.Container {
   private trayBg: Phaser.GameObjects.NineSlice;
-  private marks: PokemonMark[] = [];
   private trayIcons: Phaser.GameObjects.Image[] = [];
   private trayCursorObj: Phaser.GameObjects.Image;
   private trayCursor = 0;
-  /** The shown Pokémon's alpha boost (alpha-pokemon.ts), 0 for none */
+  /** The shown Pokémon's marks and alpha boost (alpha-pokemon.ts) */
+  private owned: readonly PokemonMark[] = [];
   private alphaBoost = 0;
 
   private readonly handler: MessageUiHandler;
-
-  private readonly maxColumns = 5;
 
   constructor(handler: MessageUiHandler, x: number, y: number) {
     super(globalScene, x, y);
@@ -38,27 +42,19 @@ export class MarkTray extends Phaser.GameObjects.Container {
     this.trayBg = addWindow(0, 0, 0, 0).setOrigin(0);
     this.add(this.trayBg);
 
-    this.trayCursorObj = globalScene.add.image(0, 0, "select_cursor").setOrigin(0);
+    // The cursor frame is made for 16 px icons
+    this.trayCursorObj = globalScene.add.image(0, 0, "select_cursor").setOrigin(0).setScale(0.75);
     this.add(this.trayCursorObj);
-  }
-
-  /**
-   * The marks and ribbons of a Pokémon in the tray's order: ribbons first, then marks.
-   * @param pokemon - The Pokémon
-   */
-  public static getDisplayedMarks(pokemon: Pokemon): PokemonMark[] {
-    return orderedPokemonMarks.filter(mark => pokemon.marks.includes(mark));
   }
 
   public processInput(button: Button): boolean {
     const count = this.trayIcons.length;
-    const columns = this.maxColumns;
     const cursor = this.trayCursor;
     switch (button) {
       case Button.UP:
-        return this.setTrayCursor(cursor >= columns ? cursor - columns : cursor);
+        return this.setTrayCursor(cursor >= COLUMNS ? cursor - COLUMNS : cursor);
       case Button.DOWN:
-        return this.setTrayCursor(cursor + columns < count ? cursor + columns : cursor);
+        return this.setTrayCursor(cursor + COLUMNS < count ? cursor + COLUMNS : cursor);
       case Button.LEFT:
         return this.setTrayCursor(cursor === 0 ? count - 1 : cursor - 1);
       case Button.RIGHT:
@@ -73,60 +69,63 @@ export class MarkTray extends Phaser.GameObjects.Container {
     this.trayCursor = cursor;
 
     this.trayCursorObj.setPosition(
-      6 + (cursor % this.maxColumns) * ICON_PITCH_X,
-      5 + Math.floor(cursor / this.maxColumns) * ICON_PITCH_Y,
+      3.5 + (cursor % COLUMNS) * ICON_PITCH,
+      3.5 + Math.floor(cursor / COLUMNS) * ICON_PITCH,
     );
 
-    const mark = this.marks[cursor];
+    const mark = orderedPokemonMarks[cursor];
     if (mark !== undefined) {
-      // An alpha's marks also say how much its stats are raised
+      // An alpha's marks also say how much its stats are raised; a mark it does not carry says so
       const isAlphaMark = mark === PokemonMark.ALPHA_MARK || mark === PokemonMark.GOLDEN_ALPHA_MARK;
-      const boost =
-        isAlphaMark && this.alphaBoost > 0
+      const owned = this.owned.includes(mark);
+      const note = owned
+        ? isAlphaMark && this.alphaBoost > 0
           ? ` ${i18next.t("pokemonMarks:alphaBoost", { boost: this.alphaBoost })}`
-          : "";
-      this.handler.showText(`${getMarkName(mark)}${boost}\n${getMarkDescription(mark)}`);
+          : ""
+        : ` ${i18next.t("pokemonMarks:notObtained")}`;
+      this.handler.showText(`${getMarkName(mark)}${note}\n${getMarkDescription(mark)}`);
     }
 
     return changed;
   }
 
   /**
-   * Show the tray for a Pokémon.
+   * Show the tray for a Pokémon, the cursor on the first mark it carries.
    * @param pokemon - The Pokémon whose marks and ribbons to show
-   * @returns Whether the tray opened; `false` if the Pokémon has none
    */
-  public open(pokemon: Pokemon): boolean {
+  public open(pokemon: Pokemon): void {
     this.close();
-    this.marks = MarkTray.getDisplayedMarks(pokemon);
+    this.owned = pokemon.marks.slice();
     this.alphaBoost = pokemon.alphaBoost;
-    if (this.marks.length === 0) {
-      return false;
-    }
 
-    this.marks.forEach((mark, index) => {
+    orderedPokemonMarks.forEach((mark, index) => {
       const icon = globalScene.add
         .image(
-          16 + (index % this.maxColumns) * ICON_PITCH_X,
-          15 + Math.floor(index / this.maxColumns) * ICON_PITCH_Y,
+          10 + (index % COLUMNS) * ICON_PITCH,
+          10 + Math.floor(index / COLUMNS) * ICON_PITCH,
           MARKS_ATLAS_KEY,
           getMarkKey(mark),
         )
         .setScale(ICON_SCALE);
+      if (!this.owned.includes(mark)) {
+        icon.setTint(MISSING_TINT).setTintMode(Phaser.TintModes.FILL).setAlpha(MISSING_ALPHA);
+      }
       this.add(icon);
       this.trayIcons.push(icon);
     });
     this.bringToTop(this.trayCursorObj);
 
-    const rows = Math.ceil(this.marks.length / this.maxColumns);
-    const columns = Math.min(this.marks.length, this.maxColumns);
-    this.trayBg.setSize(11 + columns * ICON_PITCH_X, 9 + rows * ICON_PITCH_Y);
+    const rows = Math.ceil(orderedPokemonMarks.length / COLUMNS);
+    this.trayBg.setSize(8 + COLUMNS * ICON_PITCH, 8 + rows * ICON_PITCH);
 
     this.setVisible(true);
     this.trayCursor = -1;
-    this.setTrayCursor(0);
-
-    return true;
+    this.setTrayCursor(
+      Math.max(
+        orderedPokemonMarks.findIndex(m => this.owned.includes(m)),
+        0,
+      ),
+    );
   }
 
   public close(): void {
@@ -134,7 +133,7 @@ export class MarkTray extends Phaser.GameObjects.Container {
       this.remove(icon, true);
     }
     this.trayIcons = [];
-    this.marks = [];
+    this.owned = [];
     this.setVisible(false);
   }
 }

@@ -6,6 +6,7 @@ import { SubstituteTag } from "#data/battler-tags";
 import { allMoves } from "#data/data-lists";
 import { SpeciesFormChangeActiveTrigger } from "#data/form-change-triggers";
 import { getPokeballTintColor } from "#data/pokeball";
+import { getTitledName } from "#data/pokemon-marks";
 import { ArenaTagSide } from "#enums/arena-tag-side";
 import { Command } from "#enums/command";
 import { SwitchType } from "#enums/switch-type";
@@ -301,12 +302,15 @@ export class SwitchSummonPhase extends SummonPhase {
     if (this.player) {
       // "Go! XYZ!"
       return i18next.t("battle:playerGo", {
-        pokemonName: getPokemonNameWithAffix(switchedInPokemon),
+        // Local fork (2026-11-17): with the title its mark gives it (pokemon-marks.ts)
+        pokemonName: getTitledName(switchedInPokemon, getPokemonNameWithAffix(switchedInPokemon)),
       });
     }
     // Local fork (2026-11-08): "A wild XYZ appeared!" for a wild encounter reserve
     if (this.isWildReserve()) {
-      return i18next.t("battle:singleWildAppeared", { pokemonName: this.getPokemon().getNameToRender() });
+      return i18next.t("battle:singleWildAppeared", {
+        pokemonName: getTitledName(this.getPokemon(), this.getPokemon().getNameToRender()),
+      });
     }
 
     // "Trainer sent out XYZ!"

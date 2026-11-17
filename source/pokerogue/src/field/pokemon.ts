@@ -32,6 +32,7 @@ import {
   ALPHA_SPRITE_SCALE,
   applyAlphaStatBoost,
   applyWildAlpha,
+  MINI_SPRITE_SCALE,
   normalizeAlphaBoost,
 } from "#data/alpha-pokemon";
 import type { SuppressAbilitiesTag } from "#data/arena-tag";
@@ -574,7 +575,8 @@ export abstract class Pokemon extends Phaser.GameObjects.Container {
 
   /**
    * Local fork (2026-11-17): make this Pokémon an alpha with the given stat boost (alpha-pokemon.ts), or an ordinary
-   * Pokémon again with 0. An alpha gets the Alpha Mark, and with the full boost the Golden Alpha Mark; the marks stay
+   * Pokémon again with 0. An alpha gets the Alpha Mark and the Jumbo Mark, and with the full boost the Golden Alpha
+   * Mark; the marks stay
    * if the boost is taken away. Its stats and sprite follow at once.
    * @param boost - The boost in percent, 0 to 20
    */
@@ -582,6 +584,7 @@ export abstract class Pokemon extends Phaser.GameObjects.Container {
     boost = normalizeAlphaBoost(boost);
     if (boost > 0) {
       this.addMark(PokemonMark.ALPHA_MARK);
+      this.addMark(PokemonMark.JUMBO_MARK);
       if (boost >= ALPHA_MAX_BOOST) {
         this.addMark(PokemonMark.GOLDEN_ALPHA_MARK);
       }
@@ -1293,7 +1296,9 @@ export abstract class Pokemon extends Phaser.GameObjects.Container {
 
   getSpriteScale(): number {
     // Local fork (2026-11-17): an alpha is 10% larger in every form (alpha-pokemon.ts)
-    const alphaScale = this.alphaBoost > 0 ? ALPHA_SPRITE_SCALE : 1;
+    // A Pokémon with the Mini Mark that is not an alpha is 10% smaller
+    const alphaScale =
+      this.alphaBoost > 0 ? ALPHA_SPRITE_SCALE : this.marks.includes(PokemonMark.MINI_MARK) ? MINI_SPRITE_SCALE : 1;
     const formKey = this.getFormKey();
     if (
       // Local fork (2026-11-12), review fix: the head's own form, whose sprite is drawn, not `isMax()`, which also counts

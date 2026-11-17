@@ -844,7 +844,7 @@ export class PokedexPageUiHandler extends MessageUiHandler {
             && o === MenuOptions.RIBBONS
             && !settings.display.showMissingRibbons
             && !globalScene.gameData.starterData[this.species.speciesId]?.classicWinCount)
-          || (o === MenuOptions.MARKS && !this.markPokemon?.marks.length);
+          || (o === MenuOptions.MARKS && !this.markPokemon);
         const color = getTextColor(isDark ? TextStyle.SHADOW_TEXT : TextStyle.SETTINGS_VALUE, false);
         const shadow = getTextColor(isDark ? TextStyle.SHADOW_TEXT : TextStyle.SETTINGS_VALUE, true);
         return `[shadow=${shadow}][color=${color}]${label}[/color][/shadow]`;
@@ -1843,11 +1843,12 @@ export class PokedexPageUiHandler extends MessageUiHandler {
 
           // Local fork (2026-11-17): the party Pokémon's marks and ribbons
           case MenuOptions.MARKS:
-            if (!this.markPokemon || !this.markContainer.open(this.markPokemon)) {
-              ui.showText(i18next.t("pokedexUiHandler:noMarks"));
+            if (!this.markPokemon) {
               error = true;
               break;
             }
+            // The tray lists every mark, the ones not obtained greyed out, so it opens for any Pokémon
+            this.markContainer.open(this.markPokemon);
             this.isMarkTrayOpen = true;
             success = true;
             break;

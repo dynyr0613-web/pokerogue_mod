@@ -81,6 +81,15 @@ const allStarterCandyCosts: readonly StarterCandyCosts[] = [
  * @param starterCost - The default point cost of the starter
  * @returns the candy cost for passive unlock
  */
+/**
+ * Local fork (2026-11-17): the candy price of the Partner Mark for a starter (the user: "파트너의 증표 - 친밀도 사탕으로
+ * 구매"): what its passive costs.
+ * @param starterCost - The default point cost of the starter
+ */
+export function getPartnerMarkCandyCount(starterCost: number): number {
+  return allStarterCandyCosts[starterCost - 1].passive;
+}
+
 export function getPassiveCandyCount(starterCost: number): number {
   return allStarterCandyCosts[starterCost - 1].passive;
 }
