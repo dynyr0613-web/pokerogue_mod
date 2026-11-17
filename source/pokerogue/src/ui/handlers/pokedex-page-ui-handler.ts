@@ -1,4 +1,3 @@
-import { VALUE_REDUCTION_MAX } from "#app/constants";
 import { audioManager } from "#app/global-audio-manager";
 import { globalScene } from "#app/global-scene";
 import { settings } from "#app/global-settings-manager";
@@ -9,6 +8,7 @@ import { speciesEggMoves } from "#balance/egg-moves";
 import { isForkContentUnlocked } from "#balance/fork-unlock";
 import { EvoCondKey, type SpeciesFormEvolution } from "#balance/pokemon-evolutions";
 import {
+  getMaxValueReductions,
   getPassiveCandyCount,
   getSameSpeciesEggCandyCounts,
   getStarterValueFriendshipCap,
@@ -2067,7 +2067,8 @@ export class PokedexPageUiHandler extends MessageUiHandler {
 
             // Reduce cost option
             const valueReduction = starterData.valueReduction;
-            if (valueReduction < VALUE_REDUCTION_MAX) {
+            // Local fork (2026-11-17): down to 1 point for every starter (getMaxValueReductions)
+            if (valueReduction < getMaxValueReductions(speciesDataRegistry.getStarterCost(this.starterId))) {
               const reductionCost = getValueReductionCandyCounts(speciesDataRegistry.getStarterCost(this.starterId))[
                 valueReduction
               ];

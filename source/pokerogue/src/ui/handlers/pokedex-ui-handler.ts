@@ -1582,7 +1582,8 @@ export class PokedexUiHandler extends MessageUiHandler {
 
       // Cost Reduction Filter
       const isCostReducedByOne = starterData.valueReduction === 1;
-      const isCostReducedByTwo = starterData.valueReduction === 2;
+      // Local fork (2026-11-17): "two" is two or more, now that more reductions can be bought
+      const isCostReducedByTwo = starterData.valueReduction >= 2;
       const isCostReductionUnlockable = isValueReductionAvailable(species.speciesId, this.gameData);
       const fitsCostReduction = this.filterBar.getVals(DropDownColumn.UNLOCKS).some(unlocks => {
         if (unlocks.val === "COST_REDUCTION" && unlocks.state === DropDownState.ON) {

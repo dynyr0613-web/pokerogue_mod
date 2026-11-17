@@ -1,9 +1,9 @@
-import { VALUE_REDUCTION_MAX } from "#app/constants";
 import { globalScene } from "#app/global-scene";
 import { settings } from "#app/global-settings-manager";
 import { speciesDataRegistry } from "#app/global-species-data-registry";
 import { speciesEggMoves } from "#balance/egg-moves";
 import {
+  getMaxValueReductions,
   getPassiveCandyCount,
   getSameSpeciesEggCandyCounts,
   getStarterValueFriendshipCap,
@@ -59,7 +59,7 @@ export function isValueReductionAvailable(speciesId: number, gameData = globalSc
   return (
     starterData.candyCount
       >= getValueReductionCandyCounts(speciesDataRegistry.getStarterCost(starterId))[starterData.valueReduction]
-    && starterData.valueReduction < VALUE_REDUCTION_MAX
+    && starterData.valueReduction < getMaxValueReductions(speciesDataRegistry.getStarterCost(starterId))
   );
 }
 

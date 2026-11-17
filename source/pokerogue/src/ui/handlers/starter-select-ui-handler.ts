@@ -1,4 +1,4 @@
-import { PLAYER_PARTY_MAX_SIZE, VALUE_REDUCTION_MAX } from "#app/constants";
+import { PLAYER_PARTY_MAX_SIZE } from "#app/constants";
 import { eventBus } from "#app/event-bus";
 import { audioManager } from "#app/global-audio-manager";
 import { globalScene } from "#app/global-scene";
@@ -10,6 +10,7 @@ import { speciesEggMoves } from "#balance/egg-moves";
 // Local fork (2026-11-12): our passives wait for the first Classic clear
 import { isForkContentUnlocked } from "#balance/fork-unlock";
 import {
+  getMaxValueReductions,
   getPassiveCandyCount,
   getSameSpeciesEggCandyCounts,
   getValueReductionCandyCounts,
@@ -2122,8 +2123,12 @@ export class StarterSelectUiHandler extends MessageUiHandler {
 
       // Reduce cost option
       const valueReduction = starterData.valueReduction;
-      if (valueReduction < VALUE_REDUCTION_MAX && !globalScene.gameMode.hasChallenge(Challenges.FRESH_START)) {
-        const starterCost = speciesDataRegistry.getStarterCost(this.lastStarterId);
+      const starterCost = speciesDataRegistry.getStarterCost(this.lastStarterId);
+      // Local fork (2026-11-17): down to 1 point for every starter (getMaxValueReductions)
+      if (
+        valueReduction < getMaxValueReductions(starterCost)
+        && !globalScene.gameMode.hasChallenge(Challenges.FRESH_START)
+      ) {
         const reductionCost = getValueReductionCandyCounts(starterCost)[valueReduction];
         useCandiesOptions.push({
           label: `×${reductionCost} ${i18next.t("starterSelectUiHandler:reduceCost", { newCost: globalScene.gameData.getSpeciesStarterValue(this.lastStarterId, starterData.valueReduction + 1) })}`,
@@ -2619,7 +2624,8 @@ export class StarterSelectUiHandler extends MessageUiHandler {
 
       // Cost Reduction Filter
       const isCostReducedByOne = starterData.valueReduction === 1;
-      const isCostReducedByTwo = starterData.valueReduction === 2;
+      // Local fork (2026-11-17): "two" is two or more, now that more reductions can be bought
+      const isCostReducedByTwo = starterData.valueReduction >= 2;
       const isCostReductionUnlockable = isValueReductionAvailable(starterId);
       const fitsCostReduction = this.filterBar.getVals(DropDownColumn.UNLOCKS).some(unlocks => {
         if (unlocks.val === "COST_REDUCTION" && unlocks.state === DropDownState.ON) {

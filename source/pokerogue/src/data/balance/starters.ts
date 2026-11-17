@@ -1,3 +1,4 @@
+import { VALUE_REDUCTION_MAX } from "#app/constants";
 import type { IntClosedRange } from "type-fest";
 
 export const POKERUS_STARTER_COUNT = 5;
@@ -89,8 +90,26 @@ export function getPassiveCandyCount(starterCost: number): number {
  * @param starterCost - The default point cost of the starter
  * @returns respective candy cost for the two cost reductions as an array 2 numbers
  */
-export function getValueReductionCandyCounts(starterCost: number): readonly [number, number] {
-  return allStarterCandyCosts[starterCost - 1].costReduction;
+export function getValueReductionCandyCounts(starterCost: number): readonly number[] {
+  // Local fork (2026-11-17): every starter can be brought down to 1 point (the user: "사탕으로 코스트를 감소시키는것의
+  // 제한을 풀어보죠, 전부 1코스트까지 감소시킬 수 있도록. 사탕 요구 개수만 조절하고"). The first two reductions cost what
+  // they always did; each one after costs more than the last by a step that itself grows: with the base prices
+  // [a, b], price n = price n-1 + (b - a) + (n - 1) * a. A 10-point starter: 5, 15, 30, 50, 75, 105, 140, 180, 225.
+  const [first, second] = allStarterCandyCosts[starterCost - 1].costReduction;
+  const counts = [first, second];
+  for (let n = 2; n < getMaxValueReductions(starterCost); n++) {
+    counts.push(counts[n - 1] + (second - first) + (n - 1) * first);
+  }
+  return counts;
+}
+
+/**
+ * Local fork (2026-11-17): how many cost reductions a starter can buy with candy: enough to reach 1 point, and never
+ * fewer than the base game's two (which take a 1 or 2 point starter below 1 point, as before).
+ * @param starterCost - The default point cost of the starter
+ */
+export function getMaxValueReductions(starterCost: number): number {
+  return Math.max(VALUE_REDUCTION_MAX, starterCost - 1);
 }
 
 /**

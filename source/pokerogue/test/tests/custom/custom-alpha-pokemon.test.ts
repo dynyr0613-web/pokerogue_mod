@@ -12,6 +12,7 @@ import {
   rollAlphaBoost,
 } from "#data/alpha-pokemon";
 import { Egg } from "#data/egg";
+import { EggSourceType } from "#enums/egg-source-types";
 import { EggTier } from "#enums/egg-type";
 import { MoveId } from "#enums/move-id";
 import { PokeballType } from "#enums/pokeball";
@@ -247,6 +248,28 @@ describe("Local fork - alpha Pokémon", () => {
       if (hatched.isAlpha()) {
         alphas++;
         expect(hatched.hasMark(PokemonMark.ALPHA_MARK)).toBe(true);
+      }
+      hatched.destroy();
+    }
+    expect(alphas).toBeGreaterThan(2);
+    expect(alphas).toBeLessThan(30);
+  });
+
+  it("can hatch an alpha from an egg bought with candy", async () => {
+    await game.classicMode.startBattle(SpeciesId.FEEBAS);
+    let alphas = 0;
+    const total = 600;
+    for (let i = 0; i < total; i++) {
+      const hatched = new Egg({
+        species: SpeciesId.MAGIKARP,
+        sourceType: EggSourceType.SAME_SPECIES_EGG,
+        id: 1073741824 + 5000 + i,
+      }).generatePlayerPokemon();
+      expect(hatched.species.speciesId).toBe(SpeciesId.MAGIKARP);
+      if (hatched.isAlpha()) {
+        alphas++;
+        expect(hatched.hasMark(PokemonMark.ALPHA_MARK)).toBe(true);
+        expect(hatched.hasMark(PokemonMark.GOLDEN_ALPHA_MARK)).toBe(hatched.alphaBoost === ALPHA_MAX_BOOST);
       }
       hatched.destroy();
     }
