@@ -1391,6 +1391,9 @@ export const EXCLUSIVE_Z: readonly ExclusiveZInfo[] = Object.freeze([
 /**
  * Local fork (2026-11-16): moves that pass through Max Guard (Showdown's `maxguard` bypass list; G-Max One Blow and
  * Rapid Flow are in it too, see `ProtectPierceAttr`).
+ * Kept for reference only, NOT used: in this fork Max Guard stops every move of the foes, Feint and Roar included
+ * (`MaxGuardTag`). The user confirmed it on 2026-11-18: "페인트와 울부짖기도 막게 하죠 / 애초에 다이맥스 상태에서는 원래
+ * 변화기(길동무, 도깨비불, 드래곤테일 등등)가 막히니까".
  */
 export const MAX_GUARD_BYPASS_MOVES: ReadonlySet<MoveId> = new Set([
   MoveId.ACUPRESSURE,

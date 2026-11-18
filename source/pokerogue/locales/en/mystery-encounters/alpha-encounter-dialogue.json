@@ -1,5 +1,5 @@
 {
-  "intro": "An alpha {{enemyPokemon}} appeared!",
+  "intro": "An alpha Pokémon appeared!",
   "title": "Alpha!",
   "description": "(Description to be added)",
   "query": "What will you do?",
@@ -7,12 +7,12 @@
     "1": {
       "label": "Fight the alpha",
       "tooltip": "(+) Battle the alpha Pokémon",
-      "selected": "You face the alpha {{enemyPokemon}}!"
+      "selected": "You face the alpha Pokémon!"
     },
     "2": {
       "label": "Run away",
       "tooltip": "(-) Leave without a battle",
-      "selected": "You slip away from the {{enemyPokemon}}."
+      "selected": "You quietly slipped past the alpha Pokémon."
     }
   }
 }
