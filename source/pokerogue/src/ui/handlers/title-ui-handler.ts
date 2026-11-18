@@ -24,7 +24,7 @@ const BATTLES_WON_FALLBACK = -1;
 
 
 /** Local fork (2026-11-14): version text shown under the title logo (the edition's own version). */
-export const EDITION_VERSION_TEXT = "v1.0.0 (베타)";
+export const EDITION_VERSION_TEXT = "v1.1.0 (베타)";
 export class TitleUiHandler extends OptionSelectUiHandler {
   private titleContainer: Phaser.GameObjects.Container;
   private usernameLabel: Phaser.GameObjects.Text;
