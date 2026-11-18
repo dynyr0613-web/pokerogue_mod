@@ -80,6 +80,14 @@ import {
   PokemonWaveData,
 } from "#data/pokemon-data";
 import type { SpeciesFormChange } from "#data/pokemon-forms";
+// Local fork (2026-11-18): the Dynamax state (Max Mushrooms without a G-Max form, or with a Mega form)
+import {
+  DYNAMAX_HP_MULTIPLIER,
+  DYNAMAX_SPRITE_SCALE,
+  holdsMaxMushrooms,
+  isInDynamaxState,
+  MAX_FORM_KEYS,
+} from "#data/pokemon-forms-dynamax";
 import { applyRaidHpMultiplier, isEndlessRaidWave } from "#data/endless-raid";
 import { applyWildMark, normalizeMarks } from "#data/pokemon-marks";
 import type { PokemonSpeciesForm } from "#data/pokemon-species";
@@ -103,7 +111,7 @@ import { Challenges } from "#enums/challenges";
 import { DexAttr } from "#enums/dex-attr";
 import { ExpGainsSpeed } from "#enums/exp-gains-speed";
 import { FieldPosition } from "#enums/field-position";
-import type { FormChangeItem } from "#enums/form-change-item";
+import { FormChangeItem } from "#enums/form-change-item";
 import { HitResult } from "#enums/hit-result";
 import { LearnMoveSituation } from "#enums/learn-move-situation";
 import { LearnableMoveSource } from "#enums/learnable-move-source";
@@ -236,16 +244,10 @@ import { getBaseLearnableMoveSource, getLevelMoves } from "./learnsets";
 
 type LearnableLevelMoves = [level: number | null, move: MoveId, source: LearnableMoveSource][];
 
-/**
- * Local fork (2026-11-12), review fix: the Dynamax / Gigantamax form keys, the list {@linkcode Pokemon.isMax} had inline
- * (same keys), shared with {@linkcode Pokemon.getSpriteScale}, which checks the head's own form against them
- */
-const MAX_FORM_KEYS: readonly string[] = Object.freeze([
-  SpeciesFormKey.GIGANTAMAX,
-  SpeciesFormKey.GIGANTAMAX_RAPID,
-  SpeciesFormKey.GIGANTAMAX_SINGLE,
-  SpeciesFormKey.ETERNAMAX,
-]);
+// Local fork (2026-11-12), review fix: the Dynamax / Gigantamax form keys, the list {@linkcode Pokemon.isMax} had inline
+// (same keys), shared with {@linkcode Pokemon.getSpriteScale}, which checks the head's own form against them.
+// Local fork (2026-11-18), review fix: MAX_FORM_KEYS now lives in pokemon-forms-dynamax.ts (imported above), the one
+// list the Mega + Dynamax resolver uses too
 
 export abstract class Pokemon extends Phaser.GameObjects.Container {
   /**
@@ -306,6 +308,13 @@ export abstract class Pokemon extends Phaser.GameObjects.Container {
    * {@linkcode setAlphaBoost}. Saved with the Pokémon (`PokemonData.alphaBoost`).
    */
   public alphaBoost = 0;
+  /**
+   * Local fork (2026-11-18): whether the stats {@linkcode calculateStats} last made had the Dynamax state's max HP
+   * (pokemon-forms-dynamax.ts), so the current HP follows in proportion when the state starts or ends. `undefined`
+   * until the first calculation of a Pokémon made from saved or copied data, whose stats already are what its items
+   * make. Never saved: the state itself comes from the held Max Mushrooms.
+   */
+  private dynamaxStateApplied: boolean | undefined = undefined;
   public nature: Nature;
   public moveset: PokemonMove[];
   /**
@@ -1329,6 +1338,12 @@ export abstract class Pokemon extends Phaser.GameObjects.Container {
       // G-Max and starmobiles have flat 1.5x scale
       return 1.5 * alphaScale;
     }
+    // Local fork (2026-11-18): the Dynamax state (Max Mushrooms without a G-Max form, a Mega form's included) is drawn
+    // as large as a G-Max form, times the alpha / Mini Mark scale; updateFieldScale zooms the field out for it the same
+    // way (pokemon-forms-dynamax.ts)
+    if (isInDynamaxState(this)) {
+      return DYNAMAX_SPRITE_SCALE * alphaScale;
+    }
 
     // TODO: Rather than using -1 as a default... why don't we just change it to 1????????
     if (this.customPokemonData.spriteScale <= 0) {
@@ -1786,17 +1801,16 @@ export abstract class Pokemon extends Phaser.GameObjects.Container {
         statHolder.value = applyAlphaStatBoost(this, statHolder.value);
         // Local fork (2026-11-17): the raid boss' HP multiplier (endless-raid.ts)
         statHolder.value = applyRaidHpMultiplier(this, statHolder.value);
+        // Local fork (2026-11-18): the Dynamax state's max HP x1.5, after every other multiplier and before Wonder
+        // Guard's 1 (pokemon-forms-dynamax.ts; the user: "거다이맥스 아니어도 다이맥스 가능하게(특성과 패시브는 유지)해보죠")
+        const dynamaxState = isInDynamaxState(this);
+        if (dynamaxState) {
+          statHolder.value = Math.floor(statHolder.value * DYNAMAX_HP_MULTIPLIER);
+        }
         if (this.hasAbility(AbilityId.WONDER_GUARD, false, true)) {
           statHolder.value = 1;
         }
-        if (this.hp > statHolder.value || this.hp === undefined) {
-          this.hp = statHolder.value;
-        } else if (this.hp) {
-          const lastMaxHp = this.getMaxHp();
-          if (lastMaxHp && statHolder.value > lastMaxHp) {
-            this.hp += statHolder.value - lastMaxHp;
-          }
-        }
+        this.updateHpForMaxHp(statHolder.value, dynamaxState);
       } else {
         statHolder.value += 5;
         const natureStatMultiplier = new NumberHolder(getNatureStatMultiplier(this.getNature(), s));
@@ -1815,6 +1829,35 @@ export abstract class Pokemon extends Phaser.GameObjects.Container {
       statHolder.value = Phaser.Math.Clamp(statHolder.value, 1, Number.MAX_SAFE_INTEGER);
 
       this.setStat(s, statHolder.value);
+    }
+  }
+
+  /**
+   * The current HP's part of {@linkcode calculateStats}, before the new max HP is stored: a full Pokémon or one past the
+   * new max HP gets the new max HP, and a raised max HP adds its rise to the current HP, as before (the code moved here
+   * unchanged).
+   *
+   * Local fork (2026-11-18): when the Dynamax state starts or ends (pokemon-forms-dynamax.ts), the current HP instead
+   * keeps its ratio to the max HP, as in the main series, so switching the mushrooms on and off on the reward screen
+   * heals nothing; a fainted Pokémon stays at 0 and a living one keeps at least 1. The state is remembered here
+   * ({@linkcode dynamaxStateApplied}); its start validates the Dynamax achievement, as a G-Max form change does
+   * (form-change-phase.ts).
+   * @param maxHp - The new max HP
+   * @param dynamaxState - Whether `maxHp` has the Dynamax state's x1.5
+   */
+  private updateHpForMaxHp(maxHp: number, dynamaxState: boolean): void {
+    const dynamaxStateChanged = this.dynamaxStateApplied !== undefined && this.dynamaxStateApplied !== dynamaxState;
+    this.dynamaxStateApplied = dynamaxState;
+    if (dynamaxStateChanged && dynamaxState && this.isPlayer()) {
+      globalScene.validateAchv(achvs.GIGANTAMAX);
+    }
+    const lastMaxHp = this.getMaxHp();
+    if (dynamaxStateChanged && this.hp !== undefined && lastMaxHp > 0) {
+      this.hp = this.hp > 0 ? Phaser.Math.Clamp(Math.round((this.hp * maxHp) / lastMaxHp), 1, maxHp) : 0;
+    } else if (this.hp > maxHp || this.hp === undefined) {
+      this.hp = maxHp;
+    } else if (this.hp && lastMaxHp && maxHp > lastMaxHp) {
+      this.hp += maxHp - lastMaxHp;
     }
   }
 
@@ -4645,6 +4688,24 @@ export abstract class Pokemon extends Phaser.GameObjects.Container {
   }
 
   /**
+   * Local fork (2026-11-18): whether this Pokémon is in the Dynamax state: one of the player's Pokémon holding active
+   * Max Mushrooms in no G-Max / E-Max form, a Mega form's included (pokemon-forms-dynamax.ts). Its form, ability and
+   * passive stay; its max HP is x1.5 and it is drawn like a G-Max form.
+   */
+  public hasDynamaxState(): boolean {
+    return isInDynamaxState(this);
+  }
+
+  /**
+   * Local fork (2026-11-18): whether this Pokémon is Dynamaxed in any way: a G-Max / E-Max form ({@linkcode isMax})
+   * or the Dynamax state ({@linkcode hasDynamaxState}). The form checks (the Eviolite, the Evolution Crystals) keep
+   * asking {@linkcode isMax}.
+   */
+  public isDynamaxed(): boolean {
+    return this.isMax() || this.hasDynamaxState();
+  }
+
+  /**
    * @param formKey - (Default `this.getFormKey()`) The form key to check
    * @returns Whether this Pokémon is in a Mega or Primal form
    */
@@ -5891,8 +5952,14 @@ export abstract class Pokemon extends Phaser.GameObjects.Container {
    * @remarks
    * When called without a form key, this must run *after* {@linkcode formIndex} has been updated
    * so that {@linkcode isMega} and {@linkcode isMax} reflect the new form.
+   *
+   * Local fork (2026-11-18): the enemy's rule only. The player's Pokémon stays Terastallized through a Mega / Primal /
+   * G-Max form change ("메가 + 다이맥스 + z기술 + 테라스탈 같은 조합도 가능하게"; `canSpeciesTera`, pokemon-utils.ts)
    */
   public resetTeraOnMajorFormChange(formKey?: string): void {
+    if (this.isPlayer()) {
+      return;
+    }
     if (this.isTerastallized && (this.isMega(formKey) || this.isMax(formKey))) {
       this.resetTera();
     }
@@ -6606,6 +6673,15 @@ export class PlayerPokemon extends Pokemon {
    * @returns Whether this form-change item can trigger a form change for this Pokémon
    */
   public isFormChangeItemCompatible(item: FormChangeItem): boolean {
+    // Local fork (2026-11-18): Max Mushrooms suit every Pokémon: a G-Max species in its base form takes its G-Max form
+    // as before, any other one (a Mega form's included) the Dynamax state (pokemon-forms-dynamax.ts; the user: "거다이맥스
+    // 아니어도 다이맥스 가능하게").
+    // Local fork (2026-11-18), review fix: except one already holding them (active or not): it can hold only one, so the
+    // reward would turn into the stack-full fallback item; it is shown "no effect" and refused, as the reward pool
+    // (offered while a party member holds none) expects
+    if (item === FormChangeItem.MAX_MUSHROOMS) {
+      return !holdsMaxMushrooms(this);
+    }
     return speciesDataRegistry
       .getFormChanges(this.species.speciesId)
       .filter(fc => fc.trigger.hasTriggerType(SpeciesFormChangeItemTrigger) && fc.preFormKey === this.getFormKey())
@@ -6846,6 +6922,18 @@ export class PlayerPokemon extends Pokemon {
         updateAndResolve();
       }
     });
+  }
+
+  /**
+   * Local fork (2026-11-18), review fix: after an evolution (`EvolutionPhase`, once its scene has ended), active Max
+   * Mushrooms take a Pokémon that became a G-Max species to its G-Max form at once, as receiving them in its base form
+   * does (pokemon-forms-dynamax.ts; the user: "거다이맥스 아니어도 다이맥스 가능하게(특성과 패시브는 유지)해보죠"). Before,
+   * nothing ran the item form change after an evolution, so the next session load did (its items re-applied) and a
+   * reload changed the form, ability and passive. Anything else holding active mushrooms has no form change to make.
+   * @returns Whether a form change was queued
+   */
+  public triggerMaxMushroomFormChange(): boolean {
+    return holdsMaxMushrooms(this, true) && globalScene.triggerPokemonFormChange(this, SpeciesFormChangeItemTrigger);
   }
 
   private handleSpecialEvolutions(evolution: SpeciesFormEvolution) {

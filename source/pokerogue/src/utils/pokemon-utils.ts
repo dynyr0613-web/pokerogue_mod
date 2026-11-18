@@ -165,6 +165,7 @@ export function willTerastallize(pokemon: Pokemon): boolean {
  * Gigantamax / Eternamax (`isMax()`) or Ultra Necrozma. The player's rule ({@linkcode canSpeciesTera}), shared with the
  * enemy side (`willTerastallize`, `Trainer.shouldTera`, `TrainerConfig.setRandomTeraModifiers`) since enemies can come
  * Mega Evolved or Gigantamaxed (enemy-battle-forms.ts), so no enemy Terastallizes in a form no player could.
+ * Local fork (2026-11-18): now the enemy's rule only; the player's is {@linkcode isPlayerTeraBlockedForm}.
  */
 export function isTeraBlockedForm(pokemon: Pokemon): boolean {
   return pokemon.isMega() || pokemon.isMax() || pokemon.hasSpecies(SpeciesId.NECROZMA, "ultra");
@@ -178,7 +179,19 @@ export function isTeraBlockedForm(pokemon: Pokemon): boolean {
 export function canSpeciesTera(pokemon: Pokemon): boolean {
   const hasTeraMod = globalScene.findModifier(modifier => modifier.is("TerastallizeAccessModifier")) != null;
   // Local fork (2026-11-10): the blocked forms moved, unchanged, to isTeraBlockedForm, which the enemy side asks too
-  return hasTeraMod && !isTeraBlockedForm(pokemon);
+  // Local fork (2026-11-18): the player's Pokémon Terastallizes in a Mega / Primal / G-Max / E-Max form or the Dynamax
+  // state too (the user: "메가 + 다이맥스 + z기술 + 테라스탈 같은 조합도 가능하게 해보고"); only Ultra Necrozma stays
+  // blocked. The enemy side keeps isTeraBlockedForm
+  return hasTeraMod && !isPlayerTeraBlockedForm(pokemon);
+}
+
+/**
+ * Local fork (2026-11-18): whether the player's `pokemon` is in a form that cannot Terastallize: Ultra Necrozma only.
+ * A Mega / Primal / G-Max / E-Max form or the Dynamax state (pokemon-forms-dynamax.ts) can, and a form change into
+ * one no longer ends the player's Terastallization (`Pokemon.resetTeraOnMajorFormChange`).
+ */
+export function isPlayerTeraBlockedForm(pokemon: Pokemon): boolean {
+  return pokemon.hasSpecies(SpeciesId.NECROZMA, "ultra");
 }
 
 /**

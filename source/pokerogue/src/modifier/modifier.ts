@@ -16,7 +16,7 @@ import { getStatusEffectHealText } from "#data/status-effect";
 import { BattlerTagType } from "#enums/battler-tag-type";
 import { BerryType } from "#enums/berry-type";
 import { Color, ShadowColor } from "#enums/color";
-import type { FormChangeItem } from "#enums/form-change-item";
+import { FormChangeItem } from "#enums/form-change-item";
 import { LearnMoveType } from "#enums/learn-move-type";
 import type { MoveId } from "#enums/move-id";
 import type { Nature } from "#enums/nature";
@@ -2963,6 +2963,17 @@ export class PokemonFormChangeItemModifier extends PokemonHeldItemModifier {
 
     if (switchActive) {
       this.active = true;
+    }
+
+    // Local fork (2026-11-18): Max Mushrooms with no form change to make (a species without a G-Max form, or one in a
+    // Mega form) start or end the Dynamax state instead (pokemon-forms-dynamax.ts): the sprite and the field follow
+    // here, the max HP in the stats the caller's `updateModifiers` recalculates (a session load's included, which
+    // recalculates once every item is back)
+    if (!ret && this.formChangeItem === FormChangeItem.MAX_MUSHROOMS) {
+      pokemon.updateScale();
+      if (pokemon.isOnField()) {
+        globalScene.updateFieldScale();
+      }
     }
 
     return ret;

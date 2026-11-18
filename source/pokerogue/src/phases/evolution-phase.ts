@@ -424,6 +424,10 @@ export class EvolutionPhase extends Phase {
       globalScene.phaseManager.unshiftNew("LearnMovePhase", globalScene.getPlayerParty().indexOf(this.pokemon), lm[1]);
     }
     globalScene.phaseManager.unshiftNew("EndEvolutionPhase");
+    // Local fork (2026-11-18), review fix: a Pokémon that evolved into a G-Max species while holding active Max
+    // Mushrooms takes its G-Max form now, after the evolution scene, not at the next session load
+    // (`PlayerPokemon.triggerMaxMushroomFormChange`, pokemon-forms-dynamax.ts)
+    this.pokemon.triggerMaxMushroomFormChange();
 
     audioManager.playSound("se/shine");
     globalScene.animations.doSpray(this.evolutionBaseBg, this.evolutionContainer);

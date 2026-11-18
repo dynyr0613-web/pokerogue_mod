@@ -257,6 +257,15 @@ export class AttemptCapturePhase extends PokemonPhase {
     // Rayquazite (enemy-battle-forms.ts; the user: "포획 후에는 메가스톤을 보상으로 먹어야 메가진화/다이맥스 시킬 수
     // 있도록"). First, so the Pokédex, the challenge check and the party copy all see the form the player gets
     prepareBattleFormCapture(pokemon);
+    // Local fork (2026-11-18): a slot the enemy had as a Z-Move / Max Move (enemy-move-conversions.ts; the user: "적의
+    // 기술은 그냥 낮은 확률로 적 포켓몬 기술 중 하나가 z기술/다이맥스기술 중 하나로 대체되게") is its plain move again,
+    // so the player gets no converted slot for free (no caught Pokémon has a conversion from the player: Training
+    // Session copies cannot be caught)
+    for (const slot of pokemon.moveset) {
+      if (slot) {
+        slot.transform = undefined;
+      }
+    }
 
     const speciesForm = pokemon.fusionSpecies ? pokemon.getFusionSpeciesForm() : pokemon.getSpeciesForm();
 

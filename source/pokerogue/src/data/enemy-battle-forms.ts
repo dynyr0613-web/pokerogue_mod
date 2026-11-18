@@ -30,10 +30,11 @@
  *   Local fork (2026-11-10), review fix: as the partner of a named double battle, their members are left out of the
  *   main trainer's roll ({@linkcode isSignaturePartner}); a member they transform keeps its trainer config's
  *   hand-picked moves on its new moveset ({@linkcode transformToBattleForm}).
- * - Mega / Max and Tera never meet, as for the player (`canSpeciesTera`): the trainer roll skips the trainer's instant-Tera
- *   Pokémon (`willTerastallize`: a rival's starter, Red's Pikachu...), the random Tera that `Trainer.genAI` picks later
- *   (gym leaders, Elite Four: `setRandomTeraModifiers`) skips a Pokémon in a battle form, and `Trainer.shouldTera` /
- *   `willTerastallize` refuse one (`isTeraBlockedForm`, pokemon-utils.ts).
+ * - Mega / Max and Tera never meet (Local fork (2026-11-18), review fix: no longer "as for the player", whose Mega /
+ *   G-Max can now Terastallize, `canSpeciesTera`; the enemy rule is unchanged): the trainer roll skips the trainer's
+ *   instant-Tera Pokémon (`willTerastallize`: a rival's starter, Red's Pikachu...), the random Tera that
+ *   `Trainer.genAI` picks later (gym leaders, Elite Four: `setRandomTeraModifiers`) skips a Pokémon in a battle form,
+ *   and `Trainer.shouldTera` / `willTerastallize` refuse one (`isTeraBlockedForm`, pokemon-utils.ts).
  * - Wild: each eligible wild Pokémon rolls `wild.chance` percent, `wildBoss.chance` when it is a boss.
  * - Both only from difficulty wave `minWave`. Nothing is rolled before that, for an ineligible Pokémon, in a
  *   mystery-encounter battle (encounter-phase.ts returns before its hooks for them), for the Classic final boss or for
@@ -682,8 +683,10 @@ export const enemyBattleFormDice = {
  * Local fork (2026-11-10): the current battle's difficulty wave, or `null` when no battle form may be rolled in it: a
  * mystery encounter, the Classic final boss, and the Daily final boss (its config may set its moveset, which a new
  * form would replace)
+ * Local fork (2026-11-18): exported for the enemy Z / Max move conversions (enemy-move-conversions.ts), which skip the
+ * same battles (the user: "적의 기술은 그냥 낮은 확률로 적 포켓몬 기술 중 하나가 z기술/다이맥스기술 중 하나로 대체되게")
  */
-function getBattleFormRollWave(): number | null {
+export function getBattleFormRollWave(): number | null {
   const battle = globalScene.currentBattle;
   if (!battle || battle.isClassicFinalBoss || battle.isBattleMysteryEncounter() || isDailyFinalBoss(battle.waveIndex)) {
     return null;

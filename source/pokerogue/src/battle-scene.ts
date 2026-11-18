@@ -37,10 +37,15 @@ import { allMoves, biomeDepths, modifierTypes } from "#data/data-lists";
 import { classicFinalBossDialogue } from "#data/dialogue";
 import { getTrainerBattleFormTier, newEnemyBattleFormItem } from "#data/enemy-battle-forms"; // Local fork (2026-11-10)
 import type { SpeciesFormChangeTrigger } from "#data/form-change-triggers";
-import { SpeciesFormChangeManualTrigger, SpeciesFormChangeTimeOfDayTrigger } from "#data/form-change-triggers";
+import {
+  SpeciesFormChangeItemTrigger,
+  SpeciesFormChangeManualTrigger,
+  SpeciesFormChangeTimeOfDayTrigger,
+} from "#data/form-change-triggers";
 import { Gender } from "#data/gender";
 import { getPokeballName, MAX_PER_TYPE_POKEBALLS } from "#data/pokeball";
 import type { SpeciesFormChange } from "#data/pokemon-forms";
+import { getStackedItemFormChange } from "#data/pokemon-forms-dynamax"; // Local fork (2026-11-18): Mega + Dynamax
 import { awardProgressRibbons } from "#data/pokemon-marks";
 import type { PokemonSpecies, PokemonSpeciesFilter } from "#data/pokemon-species";
 import { getTypeRgb } from "#data/type";
@@ -3238,6 +3243,13 @@ export class BattleScene extends SceneBase {
             : null;
       } else {
         matchingFormChange = matchingFormChangeOpts[0];
+      }
+      // Local fork (2026-11-18): a player's Pokémon holding Max Mushrooms beside a Mega Stone / orb goes to the form the
+      // two lead to in one form change, a Mega / Primal form first (+ the Dynamax state), else the G-Max form
+      // (pokemon-forms-dynamax.ts; the user: "메가몬도 다이맥스 가능하게 해서 메가 + 다이맥스 + z기술 + 테라스탈 같은 조합도
+      // 가능하게 해보고"). Without mushrooms, or for an enemy, the match above stays
+      if (formChangeTriggerType === SpeciesFormChangeItemTrigger) {
+        matchingFormChange = getStackedItemFormChange(pokemon, matchingFormChange);
       }
       if (matchingFormChange) {
         let phase: Phase;

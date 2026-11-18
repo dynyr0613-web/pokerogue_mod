@@ -641,6 +641,13 @@ export async function catchPokemon(
   const { gameData, phaseManager, pokemonInfoContainer, ui } = globalScene;
   // Local fork (2026-11-10): the same battle-form rule as AttemptCapturePhase.catch (enemy-battle-forms.ts)
   prepareBattleFormCapture(pokemon);
+  // Local fork (2026-11-18): and the same Z / Max slot rule (enemy-move-conversions.ts; the user: "적의 기술은 그냥 낮은
+  // 확률로 적 포켓몬 기술 중 하나가 z기술/다이맥스기술 중 하나로 대체되게"): the caught Pokémon's slots are plain again
+  for (const slot of pokemon.moveset) {
+    if (slot) {
+      slot.transform = undefined;
+    }
+  }
 
   const speciesForm = pokemon.fusionSpecies ? pokemon.getFusionSpeciesForm() : pokemon.getSpeciesForm();
 

@@ -58,7 +58,10 @@ describe("Form Change Phase", () => {
     expect(zacian.calculateBaseStats()).toStrictEqual([92, 150, 115, 80, 115, 148]);
   });
 
-  it("should end Terastallization when the Pokemon undergoes a Primal Reversion", async () => {
+  // Local fork (2026-11-18): the player's Pokémon stays Terastallized through a Mega / Primal / G-Max form change (the
+  // user: "메가 + 다이맥스 + z기술 + 테라스탈 같은 조합도 가능하게 해보고"); the enemy keeps the old rule
+  // (custom-dynamax-state.test.ts)
+  it("should keep the player's Terastallization when the Pokemon undergoes a Primal Reversion", async () => {
     await game.classicMode.startBattle(SpeciesId.KYOGRE);
 
     const kyogre = game.field.getPlayerPokemon();
@@ -74,12 +77,12 @@ describe("Form Change Phase", () => {
     game.move.select(MoveId.SPLASH);
     await game.toNextTurn();
 
-    // The form change should have occurred and ended Terastallization
+    // The form change should have occurred and kept Terastallization
     expect(kyogre.getFormKey()).toBe(SpeciesFormKey.PRIMAL);
-    expect(kyogre.isTerastallized).toBe(false);
+    expect(kyogre.isTerastallized).toBe(true);
   });
 
-  it("should end Terastallization when the Pokemon Mega Evolves", async () => {
+  it("should keep the player's Terastallization when the Pokemon Mega Evolves", async () => {
     await game.classicMode.startBattle(SpeciesId.GENGAR);
 
     const gengar = game.field.getPlayerPokemon();
@@ -95,12 +98,12 @@ describe("Form Change Phase", () => {
     game.move.select(MoveId.SPLASH);
     await game.toNextTurn();
 
-    // The form change should have occurred and ended Terastallization
+    // The form change should have occurred and kept Terastallization
     expect(gengar.getFormKey()).toBe(SpeciesFormKey.MEGA);
-    expect(gengar.isTerastallized).toBe(false);
+    expect(gengar.isTerastallized).toBe(true);
   });
 
-  it("should end Terastallization before the form change animation is shown", async () => {
+  it("should keep the player's Terastallization from the first sprite of the form change animation", async () => {
     await game.classicMode.startBattle(SpeciesId.GENGAR);
 
     const gengar = game.field.getPlayerPokemon();
@@ -109,8 +112,8 @@ describe("Form Change Phase", () => {
     gengar.isTerastallized = true;
     gengar.teraType = PokemonType.GHOST;
 
-    // The animation's sprites bake in the Pokemon's tera state when they are configured,
-    // so Terastallization has to have ended by the time the first one is set up.
+    // The animation's sprites bake in the Pokemon's tera state when they are configured;
+    // the player's Pokémon stays Terastallized, so the first one already shows it so.
     let terastallizedAtSpriteSetup: boolean | null = null;
     const configureSprite = EvolutionPhase.prototype["configureSprite"];
     vi.spyOn(EvolutionPhase.prototype as any, "configureSprite").mockImplementation(function (
@@ -129,7 +132,8 @@ describe("Form Change Phase", () => {
     await game.toNextTurn();
 
     expect(gengar.getFormKey()).toBe(SpeciesFormKey.MEGA);
-    expect(terastallizedAtSpriteSetup).toBe(false);
+    expect(terastallizedAtSpriteSetup).toBe(true);
+    expect(gengar.isTerastallized).toBe(true);
   });
 
   it("should not end Terastallization on a routine (non-Mega/Max) form change", async () => {

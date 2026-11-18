@@ -361,6 +361,41 @@ export class PartyUiHandler extends MessageUiHandler {
     return true;
   }
 
+  /**
+   * Local fork (2026-11-18): after Max Mushrooms were switched on or off on the reward screen with no form change to
+   * make (pokemon-forms-dynamax.ts): the max HP (x1.5 in or out, the current HP in proportion), the sprite and field
+   * scale and the party slot follow, and a message says the Dynamax state started or ended
+   * @param pokemon - The Pokémon whose mushrooms were switched
+   * @param wasDynamaxed - Whether it was in the Dynamax state before
+   */
+  private processDynamaxStateToggle(pokemon: PlayerPokemon, wasDynamaxed: boolean): boolean {
+    const ui = this.getUi();
+    this.clearOptions();
+    ui.playSelect();
+    const dynamaxed = pokemon.hasDynamaxState();
+    pokemon.calculateStats();
+    pokemon.updateScale();
+    if (pokemon.isOnField()) {
+      globalScene.updateFieldScale();
+    }
+    pokemon.updateInfo();
+    this.clearPartySlots();
+    this.populatePartySlots();
+    if (dynamaxed === wasDynamaxed) {
+      return true;
+    }
+    this.showText(
+      i18next.t(dynamaxed ? "battlePokemonForm:dynamaxChange" : "battlePokemonForm:dynamaxEnd", {
+        pokemonName: getPokemonNameWithAffix(pokemon, false),
+      }),
+      undefined,
+      () => this.showPartyText(),
+      null,
+      true,
+    );
+    return true;
+  }
+
   private processUnspliceOption(pokemon: PlayerPokemon): boolean {
     const ui = this.getUi();
     this.clearOptions();
@@ -813,8 +848,14 @@ export class PartyUiHandler extends MessageUiHandler {
     ) {
       const formChangeItemModifiers = this.getFormChangeItemsModifiers(pokemon);
       const modifier = formChangeItemModifiers[option - PartyOption.FORM_CHANGE_ITEM];
+      const wasDynamaxed = pokemon.hasDynamaxState(); // Local fork (2026-11-18)
       modifier.active = !modifier.active;
-      globalScene.triggerPokemonFormChange(pokemon, SpeciesFormChangeItemTrigger, false, true);
+      const formChanged = globalScene.triggerPokemonFormChange(pokemon, SpeciesFormChangeItemTrigger, false, true);
+      // Local fork (2026-11-18): Max Mushrooms switched with no form change to make start or end the Dynamax state
+      // (pokemon-forms-dynamax.ts): stats, sprite, field and party slot follow at once, with a message
+      if (!formChanged && modifier.formChangeItem === FormChangeItem.MAX_MUSHROOMS) {
+        return this.processDynamaxStateToggle(pokemon, wasDynamaxed);
+      }
     }
 
     // This is processed before the filter result since releasing does not depend on status.
@@ -1924,15 +1965,21 @@ export class PartyUiHandler extends MessageUiHandler {
   }
 
   getFormChangeItemsModifiers(pokemon: Pokemon) {
-    let formChangeItemModifiers = globalScene.findModifiers(
+    const heldFormChangeItems = globalScene.findModifiers(
       m => m.is("PokemonFormChangeItemModifier") && m.pokemonId === pokemon.id,
     ) as PokemonFormChangeItemModifier[];
+    // Local fork (2026-11-18): Max Mushrooms are switched on and off on their own, listed last whatever else is active,
+    // so a Mega Stone / orb and the mushrooms can be active together: Mega + the Dynamax state, or the G-Max form
+    // without the stone (pokemon-forms-dynamax.ts; the user: "메가몬도 다이맥스 가능하게"). The rules below are the
+    // other items', as before
+    const maxMushrooms = heldFormChangeItems.filter(m => m.formChangeItem === FormChangeItem.MAX_MUSHROOMS);
+    let formChangeItemModifiers = heldFormChangeItems.filter(m => m.formChangeItem !== FormChangeItem.MAX_MUSHROOMS);
     const ultraNecrozmaModifiers = formChangeItemModifiers.filter(
       m => m.active && m.formChangeItem === FormChangeItem.ULTRANECROZIUM_Z,
     );
     if (ultraNecrozmaModifiers.length > 0) {
       // ULTRANECROZIUM_Z is active and deactivating it should be the only option
-      return ultraNecrozmaModifiers;
+      return [...ultraNecrozmaModifiers, ...maxMushrooms];
     }
     if (formChangeItemModifiers.find(m => m.active)) {
       // a form is currently active. the user has to disable the form or activate ULTRANECROZIUM_Z
@@ -1945,7 +1992,7 @@ export class PartyUiHandler extends MessageUiHandler {
         m => m.formChangeItem !== FormChangeItem.ULTRANECROZIUM_Z,
       );
     }
-    return formChangeItemModifiers;
+    return [...formChangeItemModifiers, ...maxMushrooms];
   }
 
   getOptionsCursorWithScroll(): number {

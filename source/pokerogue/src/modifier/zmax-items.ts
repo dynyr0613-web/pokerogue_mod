@@ -14,8 +14,8 @@
  *   크리스탈 사용 시 해당 타입 기술을 z기술로 변환 / 전용 z 크리스탈은 해당 타입의 기술을 전용 z기술로 변환"
  *
  * - Z링: a ROGUE key item like the Dynamax Band (never twice). It only opens the Z crystals.
- * - 다이사탕: an ULTRA consumable, offered while a party member is Dynamaxed (`Pokemon.isMax()`) and some party move can
- *   take it. Any party member can use it.
+ * - 다이사탕: an ULTRA consumable, offered while a party member is Dynamaxed (`Pokemon.isDynamaxed()`, 2026-11-18: a
+ *   G-Max form or the Dynamax state) and some party move can take it. Any party member can use it.
  * - Z크리스탈: an ULTRA consumable, one reward id (`Z_CRYSTAL`) whose generator picks a type crystal (노말Z ...) or a
  *   species-exclusive one (피카츄Z ...), weighted by the party's eligible moves ({@linkcode getZCrystalCandidates}).
  * - Using the candy or a crystal converts one move slot for good: `PokemonMove.transform` (move-transform.ts, which also
@@ -296,11 +296,12 @@ export function getConversionBlockReason(
 /**
  * Local fork (2026-11-16): the Dynamax Candy's ULTRA weight: {@linkcode ZMAX_REWARD_RULES}.dynamaxCandy while one of the
  * player's Pokémon is Dynamaxed ("다이맥스한 포켓몬이 있을 경우") and some player Pokémon has a move it can convert,
- * else 0.
+ * else 0. Local fork (2026-11-18): Dynamaxed in any way (`Pokemon.isDynamaxed`): a G-Max / E-Max form or the Dynamax
+ * state of Max Mushrooms without one (pokemon-forms-dynamax.ts).
  */
 export function getDynamaxCandyWeight(party: readonly Pokemon[]): number {
   const players = party.filter(p => p.isPlayer());
-  const offered = players.some(p => p.isMax()) && players.some(p => canUseConversionItem(p, DYNAMAX_CANDY_ITEM));
+  const offered = players.some(p => p.isDynamaxed()) && players.some(p => canUseConversionItem(p, DYNAMAX_CANDY_ITEM));
   return offered ? ZMAX_REWARD_RULES.dynamaxCandy.weight : 0;
 }
 

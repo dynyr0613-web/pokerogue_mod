@@ -321,7 +321,8 @@ describe("Custom enemy battle forms - Mega / G-Max / Primal enemies and their ca
     expect(party.filter(p => p.isMega() || p.isMax())).toEqual([party[1]]);
     const mega = party[1];
 
-    // Even listed as an instant-Tera Pokémon, the Mega never Terastallizes (the player's rule, canSpeciesTera)
+    // Even listed as an instant-Tera Pokémon, the Mega never Terastallizes (isTeraBlockedForm; Local fork
+    // (2026-11-18): the enemy's rule only, the player's Mega / Dynamaxed Pokémon can: custom-dynamax-state.test.ts)
     instantTeras.mockReturnValue([0, 1]);
     const savedMode = trainerAI.teraMode;
     trainerAI.teraMode = TeraAIMode.INSTANT_TERA;

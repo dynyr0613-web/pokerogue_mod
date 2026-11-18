@@ -1969,6 +1969,28 @@ export class FormChangeItemModifierTypeGenerator extends ModifierTypeGenerator {
         .filter(i => !isForkFormChangeItemLocked(i));
       // convert it into a set to remove duplicate values, which can appear when the same species with a potential form change is in the party.
 
+      // Local fork (2026-11-18): with the Dynamax Band, Max Mushrooms for any of the player's Pokémon holding none, not
+      // only a G-Max species in its base form: any other one (a Mega form's included) gets the Dynamax state
+      // (pokemon-forms-dynamax.ts; the user: "거다이맥스 아니어도 다이맥스 가능하게"). One entry at most, a G-Max species'
+      // own entry counting as it, so a full party does not crowd the other rare form-change items out
+      if (
+        isRareFormChangeItem
+        && !formChangeItemPool.includes(FormChangeItem.MAX_MUSHROOMS)
+        && globalScene.getModifiers(GigantamaxAccessModifier).length > 0
+        && !isForkFormChangeItemLocked(FormChangeItem.MAX_MUSHROOMS)
+        && party.some(
+          p =>
+            p.isPlayer()
+            && !p
+              .getHeldItems()
+              .some(
+                m => m instanceof PokemonFormChangeItemModifier && m.formChangeItem === FormChangeItem.MAX_MUSHROOMS,
+              ),
+        )
+      ) {
+        formChangeItemPool.push(FormChangeItem.MAX_MUSHROOMS);
+      }
+
       if (formChangeItemPool.length === 0) {
         return null;
       }

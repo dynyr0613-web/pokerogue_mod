@@ -36,6 +36,10 @@ export class FormChangePhase extends EvolutionPhase {
    * @remarks
    * The Pokemon's {@linkcode Pokemon.formIndex | formIndex} has not been updated yet at this point,
    * so the check is made against the form being changed *into*.
+   *
+   * Local fork (2026-11-18): this phase only runs for the player's Pokémon, which now stays Terastallized through a
+   * Mega / Primal / G-Max form change (`Pokemon.resetTeraOnMajorFormChange` keeps the rule for the enemy only), so the
+   * call does nothing here; it stays for the enemy rule's sake should an enemy ever use this phase.
    */
   protected override onBeforeSpriteSetup(): void {
     this.pokemon.resetTeraOnMajorFormChange(this.formChange.formKey);
