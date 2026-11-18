@@ -12895,11 +12895,15 @@ export function initMoves() {
     new AttackMove(MoveId.DYNAMAX_CANNON, PokemonType.DRAGON, MoveCategory.SPECIAL, 100, 100, 5, -1, 0, 8) //
       .attr(MovePowerMultiplierAttr, (_user, target, _move) => {
         // Move is only stronger against overleveled foes.
-        if (target.level > globalScene.getMaxExpLevel()) {
+        // Local fork (2026-11-18): measured against the wave's cap formula (`getWaveLevelCap`), which stays the expected
+        // level where Endless lifts the cap from wave 1000 ("1000웨이브 이후는 레벨캡은 그냥 풉시다"); the same number as
+        // `getMaxExpLevel` everywhere else
+        const waveLevelCap = globalScene.getWaveLevelCap();
+        if (target.level > waveLevelCap) {
           // How much % above MaxExpLevel of wave will the target need to be to take full damage.
           const dynamaxCannonPercentMarginBeforeFullDamage = 0.05;
-          const overLevel = target.level - globalScene.getMaxExpLevel();
-          const damageFactor = globalScene.getMaxExpLevel() * dynamaxCannonPercentMarginBeforeFullDamage;
+          const overLevel = target.level - waveLevelCap;
+          const damageFactor = waveLevelCap * dynamaxCannonPercentMarginBeforeFullDamage;
           // The move's power scales as the margin is approached, reaching double power when it does or goes over it.
           return 1 + Math.min(1, overLevel / damageFactor);
         }

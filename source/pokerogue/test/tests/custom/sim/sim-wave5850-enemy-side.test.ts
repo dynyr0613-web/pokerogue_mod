@@ -10,7 +10,10 @@
 // - Tokens, script port: the same rules (pool weights, the 49 retries, the caps, the stack per draw, a draw lost when
 //   its stack does not fit) in plain JS, many more runs; the test prints both side by side.
 // - Levels / bars: `BattleScene.getMaxExpLevel`, `Battle.getLevelForWave` (new Battle), `Trainer.getPartyLevels` (via
-//   new Battle), `BattleScene.getEncounterBossSegments`.
+//   new Battle), `BattleScene.getEncounterBossSegments`. Local fork (2026-11-18): the cap is read as
+//   `BattleScene.getWaveLevelCap` (the enforced cap is lifted from wave 1000), and the player stands at 1.0636 x that
+//   level so the two-sided level follow (endless-level-scaling.ts, option 다: f = max(0.8, 0.9637 x (P / C) ^ 0.6), 1 at
+//   1.0636 x C) leaves the enemy levels on the normal curve (f = 1).
 // - The wild 5850 boss: a real Endless run started on wave 5850 in the END biome, up to the first command.
 // - One hit: `Pokemon.getAttackDamage` (simulated) with and without the tokens.
 //
@@ -19,6 +22,9 @@
 import { Battle } from "#app/battle";
 import { getGameMode } from "#app/game-mode";
 import { speciesDataRegistry } from "#app/global-species-data-registry";
+// Local fork (2026-11-18): 1.0636 x the wave's expected level C, so the two-sided level follow gives f = 1 in the level
+// table
+import { ENDLESS_PLAYER_LEVEL_FOLLOW_NEUTRAL_RATIO, getNaturalMaxExpLevel } from "#balance/endless-level-scaling";
 import { allMoves, modifierTypes } from "#data/data-lists";
 import { AbilityId } from "#enums/ability-id";
 import { BattleType } from "#enums/battle-type";
@@ -522,11 +528,24 @@ describe.skipIf(!process.env.FORK_SIM)("Sim - the enemy's side at Endless wave 5
 
   it("reads the levels and boss bars at wave 5850", async () => {
     game.override.disableTrainerWaves();
-    await startRun(WAVE, BiomeId.END, SpeciesId.GARCHOMP, 100);
+    // Local fork (2026-11-18): the player stands at 1.0636 x the wave's expected level C (340,577 for C = 320,222), not
+    // at level 100. Enemy levels follow the player both ways from wave 1000 ("초보에게는 조금더 낮고, 고수에게는 좀더
+    // 높은 레벨의 상대가 나오도록"), and a level-100 party now gets the 0.8 floor; option 다 (f = max(0.8, 0.9637 x
+    // (P / C) ^ 0.6)) gives 0.9637 at C and 1 at 1.0636 x C (a whole level there moves no rounded enemy level), so this
+    // table is the normal level curve, as it was under the 3차 rule (f = 1 for any P up to C)
+    await startRun(
+      WAVE,
+      BiomeId.END,
+      SpeciesId.GARCHOMP,
+      Math.round(getNaturalMaxExpLevel(getGameMode(GameModes.ENDLESS), WAVE) * ENDLESS_PLAYER_LEVEL_FOLLOW_NEUTRAL_RATIO),
+    );
     mute();
     const { scene } = game;
 
-    const maxExpLevel = scene.getMaxExpLevel();
+    // Local fork (2026-11-18): the cap formula C; the enforced cap (getMaxExpLevel) is lifted from Endless wave 1000
+    // ("1000웨이브 이후는 레벨캡은 그냥 풉시다") and would print Number.MAX_SAFE_INTEGER
+    const maxExpLevel = scene.getWaveLevelCap();
+    const enforcedCap = scene.getMaxExpLevel();
     // Wild boss level: many fresh Battles on 5850 (getLevelForWave, random offset)
     const wildLevels: number[] = [];
     for (let i = 0; i < 2000; i++) {
@@ -593,7 +612,9 @@ describe.skipIf(!process.env.FORK_SIM)("Sim - the enemy's side at Endless wave 5
 
     print("");
     print(`== Levels and bars at wave ${WAVE} ==`);
-    print(`player level cap getMaxExpLevel: ${maxExpLevel}`);
+    print(
+      `player level cap formula getWaveLevelCap (C): ${maxExpLevel}; enforced getMaxExpLevel: ${enforcedCap >= Number.MAX_SAFE_INTEGER ? "none (lifted from wave 1000)" : enforcedCap}; player level ${scene.getPlayerParty()[0].level}`,
+    );
     print(
       `wild boss level (2000 Battles): min ${wildLevels[0]} p10 ${quantile(wildLevels, 0.1)} median ${quantile(wildLevels, 0.5)} p90 ${quantile(wildLevels, 0.9)} max ${wildLevels.at(-1)}`,
     );

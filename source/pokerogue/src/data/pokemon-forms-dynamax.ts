@@ -15,7 +15,10 @@
  *   Dynamax state), the G-Max form only without one. Switching either item on the reward screen goes straight to the
  *   form the two lead to ({@linkcode getStackedItemFormChange}): Mega X -> G-Max when the stone is switched off, G-Max
  *   -> Mega X when it is switched on.
- * - The enemy side is unchanged: no enemy is in the Dynamax state and no enemy's form change is redirected.
+ * - The enemy side: no enemy's form change is redirected (an enemy's mushrooms never change its form: the item trigger
+ *   only reads the player's items). Local fork (2026-11-18): an enemy holding active Max Mushrooms in no G-Max / E-Max
+ *   form is in the Dynamax state too, with the same HP x1.5 and scale; its mushrooms come from the enemy Dynamax roll
+ *   (enemy-dynamax.ts; the user: "적 다이맥스 상태 넣고").
  */
 
 import { speciesDataRegistry } from "#app/global-species-data-registry";
@@ -113,15 +116,21 @@ function isBoundForMaxForm(pokemon: Pokemon): boolean {
 }
 
 /**
- * Whether `pokemon` is in the Dynamax state: one of the player's Pokémon holding active Max Mushrooms, in no G-Max /
- * E-Max form (its own or its fusion's, `Pokemon.isMax`).
- * Local fork (2026-11-18), review fix: not a Pokémon whose mushrooms take it straight to its G-Max form
+ * Whether `pokemon` is in the Dynamax state: a Pokémon holding active Max Mushrooms, in no G-Max / E-Max form (its own
+ * or its fusion's, `Pokemon.isMax`).
+ * Local fork (2026-11-18), review fix: not a player's Pokémon whose mushrooms take it straight to its G-Max form
  * ({@linkcode isBoundForMaxForm}): between the item being added (whose `updateModifiers` recalculates the stats) and its
  * form change, or after evolving into a G-Max species (`EvolutionPhase` then runs the form change). Its HP follows the
  * G-Max form change as before (the rise added), not the state's ratio, and it is never drawn large in its base form.
+ * Local fork (2026-11-18): an enemy too (enemy-dynamax.ts; the user: "적 다이맥스 상태 넣고"). Before, only the player's
+ * Pokémon. An enemy's mushrooms never change its form, so it is never bound for a G-Max form: a G-Max species' base
+ * form holding them is in the state; an enemy in its G-Max form (enemy-battle-forms.ts, a trainer config's) is not.
  */
 export function isInDynamaxState(pokemon: Pokemon): boolean {
-  return pokemon.isPlayer() && !pokemon.isMax() && holdsMaxMushrooms(pokemon, true) && !isBoundForMaxForm(pokemon);
+  if (pokemon.isMax() || !holdsMaxMushrooms(pokemon, true)) {
+    return false;
+  }
+  return !pokemon.isPlayer() || !isBoundForMaxForm(pokemon);
 }
 
 /**

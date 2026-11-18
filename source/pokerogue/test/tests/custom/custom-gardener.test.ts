@@ -2,6 +2,7 @@
 // tools/drive/custom_moves_1114/design_spec.json "abilities" GARDENER): on every entry it sets the Garden (정원) on its
 // own side for 5 turns (+2 per Mystical Rock stack), and does nothing at all while that side already has one.
 import { getPokemonNameWithAffix } from "#app/messages";
+import { getCustomPassive } from "#balance/custom-passives";
 import { allAbilities, allMoves } from "#data/data-lists";
 import { AbilityId } from "#enums/ability-id";
 import { ArenaTagSide } from "#enums/arena-tag-side";
@@ -307,6 +308,25 @@ describe("Custom ability - Gardener", () => {
       // Set for 5, one turn counted down; the Pokémon stayed in, so Gardener did not fire again
       expect(game).toHaveArenaTag({ tagType: ArenaTagType.GARDEN, side: ArenaTagSide.PLAYER, turnCount: 4 });
       expect(game.field.getPlayerPokemon()).not.toHaveAbilityApplied(AbilityId.GARDENER);
+    });
+  });
+
+  // Local fork (2026-11-18): the user's answer "교체 및 후보에 등록". The Oddish line (ODDISH, GLOOM, VILEPLUME, BELLOSSOM
+  // rows) and the Smoliv line (SMOLIV, ARBOLIVA rows) had Grassy Surge as their passive on the sheet
+  // (Design/패시브_종족별.xlsx) and now have Gardener; custom-passives.ts is generated from it.
+  describe("species passives", () => {
+    it("is the passive of the Oddish and Smoliv lines in our table", () => {
+      const lines = [SpeciesId.ODDISH, SpeciesId.GLOOM, SpeciesId.VILEPLUME, SpeciesId.BELLOSSOM];
+      lines.push(SpeciesId.SMOLIV, SpeciesId.DOLLIV, SpeciesId.ARBOLIVA);
+      for (const speciesId of lines) {
+        expect(getCustomPassive(speciesId, ""), SpeciesId[speciesId]).toBe(AbilityId.GARDENER);
+      }
+    });
+
+    it("(control) leaves the other Grassy Surge rows as they were", () => {
+      for (const speciesId of [SpeciesId.CHIKORITA, SpeciesId.TANGELA, SpeciesId.SKIDDO, SpeciesId.TOEDSCOOL]) {
+        expect(getCustomPassive(speciesId, ""), SpeciesId[speciesId]).toBe(AbilityId.GRASSY_SURGE);
+      }
     });
   });
 });

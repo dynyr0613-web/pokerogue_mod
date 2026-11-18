@@ -182,7 +182,9 @@ describe("Z / Max move conversion (2026-11-16)", () => {
       expect(slot(MoveId.EMBER, t).getMove()).toBe(slot(MoveId.EMBER, t).getMove());
     });
 
-    it("plays the base move's animation (own one for a few exclusive Z moves, Protect for Max Guard)", () => {
+    // Local fork (2026-11-18): Z and exclusive Z moves play their own animations now (Essentials' PRAS ones), Guardian
+    // of Alola included; custom-zmax-anims.test.ts checks the rest
+    it("plays the base move's animation for Max moves (own one for Z moves, Protect for Max Guard)", () => {
       expect(getAnimMoveId(slot(MoveId.EMBER, { kind: "max", moveId: MoveId.MAX_FLARE }).getMove())).toBe(MoveId.EMBER);
       expect(getAnimMoveId(slot(MoveId.TAIL_WHIP, { kind: "max", moveId: MoveId.MAX_GUARD }).getMove())).toBe(
         MoveId.PROTECT,
@@ -195,7 +197,7 @@ describe("Z / Max move conversion (2026-11-16)", () => {
       ).toBe(MoveId.CATASTROPIKA);
       expect(
         getAnimMoveId(slot(MoveId.MOONBLAST, { kind: "zExclusive", moveId: MoveId.GUARDIAN_OF_ALOLA }).getMove()),
-      ).toBe(MoveId.MOONBLAST);
+      ).toBe(MoveId.GUARDIAN_OF_ALOLA);
       expect(getAnimMoveId(allMoves[MoveId.TACKLE])).toBe(MoveId.TACKLE);
     });
   });

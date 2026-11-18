@@ -637,15 +637,24 @@ export class IvCandyModifier extends PokemonHeldItemModifier {
  * ×1.1`, `5개 ×1.5`, `10개 ×2.0`"), the same added-up rule: ten pieces double the three base stats.
  * Local fork (2026-11-13): 10 명세 3번, Tinkaton's Forge forges a Steel type only again and gives two pieces a forge
  * ("1회당 `단조강철 2개` 지급"): 0 -> 2 -> 4 -> 6 -> 8 -> 10, full in five visits.
+ * Local fork (2026-11-18): 10 결과 8장 5번, the user: "단조강철을 받는 이벤트에서 강철은 두개, 강철 아닌놈들은 하나이게
+ * 하자고 했던 것 같네요". The forge takes any type again: a Steel type still gets two pieces a forge, any other type one
+ * (0 -> 1 -> ... -> 10, full in ten visits).
  */
 export const FORGED_STEEL = Object.freeze({
   /** Pieces one Pokémon can hold (1 until 2026-11-12, 5 until the 09 patch) */
   maxHeld: 10,
   /**
-   * Local fork (2026-11-13): pieces one forge at Tinkaton's Forge gives (10 명세 3번: "`FORGED_STEEL.stacksPerForge =
-   * 2`"), cut to what still fits under {@linkcode FORGED_STEEL.maxHeld} (nine held: one more); one until this patch
+   * Local fork (2026-11-13): pieces one forge at Tinkaton's Forge gives a Steel type (10 명세 3번: "`FORGED_STEEL.
+   * stacksPerForge = 2`"), cut to what still fits under {@linkcode FORGED_STEEL.maxHeld} (nine held: one more); one
+   * until this patch
    */
   stacksPerForge: 2,
+  /**
+   * Local fork (2026-11-18): pieces one forge gives a Pokémon that is not a Steel type (the user: "강철 아닌놈들은
+   * 하나"), cut the same way; such a Pokémon couldn't be forged from the 10 명세 until this day
+   */
+  stacksPerForgeNonSteel: 1,
   /** Tenths each piece adds to the multiplier (1 = +10%) */
   tenthsPerPiece: 1,
   /** The base stats it raises */
@@ -667,7 +676,8 @@ export function getForgedSteelTenths(count: number): number {
  * added up (x1.1 to x2.0 with ten since the 09 patch, x1.5 with five before), rounded down once; the old one-piece
  * saves load as one piece, x1.1 as before. Local fork (2026-11-13): the forge gives it to a Steel type only again (10
  * 명세 3번), but the item itself works on any holder, so a non-Steel Pokémon forged between 2026-11-12 and this patch
- * keeps its pieces and their boost.
+ * keeps its pieces and their boost. Local fork (2026-11-18): the forge gives it to any type again, one piece a forge
+ * to a non-Steel Pokémon and two to a Steel type ({@linkcode FORGED_STEEL.stacksPerForgeNonSteel}).
  */
 export class ForgedSteelModifier extends PokemonHeldItemModifier {
   public override isTransferable = false;

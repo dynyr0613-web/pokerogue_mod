@@ -9,6 +9,8 @@
 //   new Battle + genPartyMember + rollTrainerBattleForm + generateEnemyModifiers; Local fork (2026-11-13): then
 //   applyEndlessTrainerBossBars as EncounterPhase does, 08 명세 5번 bars + 보정 B HP), plus the old wild END boss, with every
 //   enemy buff token at its wave-5850 cap and 10 Piercing Tokens + 5 Healing Charms on the player's side.
+//   Local fork (2026-11-18): each party is built with the ace already at the level of the variants that meet it, so the
+//   enemies follow that level as in a real run (endless-level-scaling.ts, the two-sided follow from wave 1000).
 // - One hit each way: `Pokemon.getAttackDamage` (simulated) per move, with the Multi Lens hit split (75% + 3 x 25% since
 //   10 명세 1번 (2026-11-13; 4 x 25% before), PLAYER_HELD_ITEM_CAPS.MULTI_LENS, set through `turnData` as
 //   `MoveEffectPhase` would), always-crit from 3 Scope Lenses, and with / without the Protection
@@ -1330,12 +1332,31 @@ describe.skipIf(!process.env.FORK_SIM)("Sim - analytic ace vs the final Endless 
         aceSim: null as AceSim | null,
         parties: [] as unknown[],
       }));
+      // Local fork (2026-11-18): the enemies' levels follow the player's top level (endless-level-scaling.ts, both ways
+      // from wave 1000: "초보에게는 조금더 낮고, 고수에게는 좀더 높은 레벨의 상대가 나오도록"), read when the battle is
+      // made. One party per spec used to serve every variant, built at whatever level the ace had then (the starter's
+      // level for the first spec, the last variant's 3 x C for the others), so the parties disagreed with each other
+      // and with the variants. Now a party is built for the level of the variants that meet it (the ace is the only
+      // party member), as a real run makes it: the variants are walked by level (L1, L3, L10; the MC seeds are per
+      // variant and party, so the order changes no number) and the party is rebuilt when the level changes (every build
+      // resets its seed, so it is the same draw at another level).
+      const variantsByLevel = [...VARIANTS.entries()].sort(([, a], [, b]) => a.levelMult - b.levelMult);
       for (const ps of partySpecs) {
-        scene.clearEnemyHeldItemModifiers();
-        const party = ps.type == null ? await buildWildBoss(ps.seed) : await buildTrainerParty(ps.type, ps.seed);
-        for (const [variantIndex, variant] of VARIANTS.entries()) {
-          if (party.wild && !WILD_VARIANTS.has(variant.id)) {
+        let party: BuiltParty | null = null;
+        let partyAceLevel = -1;
+        for (const [variantIndex, variant] of variantsByLevel) {
+          if (ps.type == null && !WILD_VARIANTS.has(variant.id)) {
             continue;
+          }
+          const aceLevel = LEVEL_CAP * variant.levelMult;
+          if (party == null || partyAceLevel !== aceLevel) {
+            for (const p of party?.members ?? []) {
+              p.destroy();
+            }
+            scene.clearEnemyHeldItemModifiers();
+            ace.level = aceLevel;
+            party = ps.type == null ? await buildWildBoss(ps.seed) : await buildTrainerParty(ps.type, ps.seed);
+            partyAceLevel = aceLevel;
           }
           caps.length = 0;
           const ivs = configureAce(ace, spec, variant, true);
@@ -1457,7 +1478,7 @@ describe.skipIf(!process.env.FORK_SIM)("Sim - analytic ace vs the final Endless 
             `${spec.key} ${variant.id} ${party.label}: swept ${(mc.swept * 100).toFixed(0)}% fainted ${(mc.fainted * 100).toFixed(0)}% stalled ${(mc.stalled * 100).toFixed(0)}% KOs ${mc.meanKOs.toFixed(2)} turns ${mc.meanTurns.toFixed(1)} hits ${mc.meanHitsTaken.toFixed(2)} switches ${mc.meanSwitches.toFixed(2)}`,
           );
         }
-        for (const p of party.members) {
+        for (const p of party?.members ?? []) {
           p.destroy();
         }
       }

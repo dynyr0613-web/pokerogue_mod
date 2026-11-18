@@ -13,6 +13,8 @@
 // FORK_SIM_TRAINERS=CYNTHIA,LEON to restrict; FORK_SIM_NO_TOKEN=1 to leave the fusion token out.
 import { Battle } from "#app/battle";
 import { getGameMode } from "#app/game-mode";
+// Local fork (2026-11-18): standAtExpectedLevel
+import { ENDLESS_PLAYER_LEVEL_FOLLOW_NEUTRAL_RATIO, getNaturalMaxExpLevel } from "#balance/endless-level-scaling";
 import { NON_LEGEND_PARADOX_POKEMON, NON_LEGEND_ULTRA_BEASTS } from "#balance/special-species-groups";
 import { modifierTypes } from "#data/data-lists";
 import { isBattleFormKey, rollTrainerBattleForm, rollWildBattleForm } from "#data/enemy-battle-forms";
@@ -392,11 +394,26 @@ describe.skipIf(!process.env.FORK_SIM)("Sim - strongest trainers at Endless wave
       false,
     ) as PokemonHeldItemModifier[];
 
+  /**
+   * Local fork (2026-11-18): puts the player's top level where the follow factor is 1, 1.0636 x the expected level C
+   * of WAVE. Enemy levels follow the player both ways from wave 1000 (endless-level-scaling.ts, "초보에게는 조금더
+   * 낮고, 고수에게는 좀더 높은 레벨의 상대가 나오도록"), and the starter Feebas at its starting level would get the 0.8
+   * floor; option 다 (f = max(0.8, 0.9637 x (P / C) ^ 0.6)) gives 0.9637 at C and 1 at 1.0636 x C
+   * (`ENDLESS_PLAYER_LEVEL_FOLLOW_NEUTRAL_RATIO`; a whole level there moves no rounded enemy level), so the parties come
+   * out on the normal level curve, as before (the 3차 rule gave f = 1 for any player up to C)
+   */
+  function standAtExpectedLevel(): void {
+    game.scene.getPlayerParty()[0].level = Math.round(
+      getNaturalMaxExpLevel(game.scene.gameMode, WAVE) * ENDLESS_PLAYER_LEVEL_FOLLOW_NEUTRAL_RATIO,
+    );
+  }
+
   /** Builds `type`'s battle on WAVE as `BattleScene.newBattle` + `EncounterPhase` do, items included */
   async function buildParty(cand: Candidate, seed: string): Promise<PartyRecord> {
     const { scene } = game;
     const config = trainerConfigs[cand.type];
     scene.clearEnemyHeldItemModifiers();
+    standAtExpectedLevel(); // Local fork (2026-11-18)
     scene.setSeed(seed);
     scene.resetSeed(WAVE);
     const t0 = performance.now();
@@ -442,6 +459,7 @@ describe.skipIf(!process.env.FORK_SIM)("Sim - strongest trainers at Endless wave
   async function buildWildBoss(seed: string): Promise<PartyRecord> {
     const { scene } = game;
     scene.clearEnemyHeldItemModifiers();
+    standAtExpectedLevel(); // Local fork (2026-11-18)
     scene.setSeed(seed);
     scene.resetSeed(WAVE);
     const t0 = performance.now();

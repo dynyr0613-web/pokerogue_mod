@@ -3,6 +3,8 @@
 // +1,850 at wave 1000 and +251,000 at wave 5850) is added to the final level of wild enemies, of trainer party members
 // and to the player's EXP level cap. Classic, Challenge and Daily keep their levels exactly. Also the numbers that come
 // with levels near 500,000: EXP totals, level-ups, Candy feeding past the cap and saving.
+// Local fork (2026-11-18): from Endless battle wave 1000 the EXP level cap is lifted ("1000웨이브 이후는 레벨캡은 그냥
+// 풉시다"); its formula with S(w) stays as the wave's expected level C (`BattleScene.getWaveLevelCap`).
 import { Battle } from "#app/battle";
 import { getGameMode } from "#app/game-mode";
 import { speciesDataRegistry } from "#app/global-species-data-registry";
@@ -154,9 +156,17 @@ describe("Local fork: Endless level scaling past wave 500 (08 명세 4번)", () 
     await game.runToTitle();
     const endlessCaps = [500, 1000, 2000, 3000, 4000, 5000, 5841, 5850].map(wave => {
       setBattle(GameModes.ENDLESS, wave);
-      return game.scene.getMaxExpLevel();
+      // Local fork (2026-11-18): from battle wave 1000 the cap is lifted ("1000웨이브 이후는 레벨캡은 그냥 풉시다"); the
+      // formula with S(w) stays as the wave's expected level C (`getWaveLevelCap`)
+      expect(game.scene.getMaxExpLevel(), `${wave}`).toBe(
+        wave >= 1000 ? Number.MAX_SAFE_INTEGER : game.scene.getWaveLevelCap(),
+      );
+      return game.scene.getWaveLevelCap();
     });
     expect(endlessCaps).toEqual([784, 4374, 26_897, 70_985, 137_332, 226_396, 320_222, 320_222]);
+    // The last enforced cap: waves 991 to 999 (rounded up to 1000) have 4,374
+    setBattle(GameModes.ENDLESS, 999);
+    expect(game.scene.getMaxExpLevel()).toBe(4374);
     for (const wave of [1000, 5850]) {
       expect(oldMaxExpLevel(GameModes.ENDLESS, wave) + getEndlessLevelBonus(getGameMode(GameModes.ENDLESS), wave)).toBe(
         endlessCaps[wave === 1000 ? 1 : 7],
@@ -191,29 +201,44 @@ describe("Local fork: Endless level scaling past wave 500 (08 명세 4번)", () 
       }
     }
 
+    // Local fork (2026-11-18): the cap stops EXP up to Endless wave 999 (4,374 there), and the EXP is cut back to the cap
+    // level's total; from wave 1000 there is no cap ("1000웨이브 이후는 레벨캡은 그냥 풉시다")
+    setBattle(GameModes.ENDLESS, 999);
+    expect(game.scene.getMaxExpLevel()).toBe(4374);
+    const capped = game.scene.addPlayerPokemon(speciesDataRegistry.getSpecies(SpeciesId.GARCHOMP), 4373);
+    capped.exp = getLevelTotalExp(4373, capped.species.growthRate);
+    capped.addExp(getLevelRelExp(4374, capped.species.growthRate) * 10);
+    expect(capped.level).toBe(4374);
+    expect(capped.exp).toBe(getLevelTotalExp(4374, capped.species.growthRate));
+    capped.destroy();
+
     setBattle(GameModes.ENDLESS, 5850);
-    expect(game.scene.getMaxExpLevel()).toBe(320_222);
+    expect(game.scene.getMaxExpLevel()).toBe(Number.MAX_SAFE_INTEGER);
+    expect(game.scene.getWaveLevelCap()).toBe(320_222);
     const garchomp = game.scene.addPlayerPokemon(speciesDataRegistry.getSpecies(SpeciesId.GARCHOMP), 300_000);
     const rate = garchomp.species.growthRate;
     garchomp.exp = getLevelTotalExp(300_000, rate);
-    // Under the cap EXP still levels it, one level at a time
+    // EXP levels it, one level at a time
     garchomp.addExp(getLevelRelExp(300_001, rate) + getLevelRelExp(300_002, rate) + 1);
     expect(garchomp.level).toBe(300_002);
-    // At the cap EXP stops, and the EXP is cut back to the cap level's total
+    // Past the old cap (320,222) too: ten levels' worth from 320,221 gives 320,231, the EXP kept whole
     garchomp.level = 320_221;
     garchomp.exp = getLevelTotalExp(320_221, rate);
-    garchomp.addExp(getLevelRelExp(320_222, rate) * 10);
-    expect(garchomp.level).toBe(320_222);
-    expect(garchomp.exp).toBe(getLevelTotalExp(320_222, rate));
+    garchomp.addExp(getLevelTotalExp(320_231, rate) - getLevelTotalExp(320_221, rate));
+    expect(garchomp.level).toBe(320_231);
+    expect(garchomp.exp).toBe(getLevelTotalExp(320_231, rate));
 
-    // Candies go past the cap: the level rises and the EXP follows it (feedCandy, Candy Pile / Rare Candy)
-    feedCandy(garchomp, 179_778);
+    // Candies: the level rises and the EXP follows it (feedCandy, Candy Pile / Rare Candy)
+    feedCandy(garchomp, 179_769);
     expect(garchomp.level).toBe(500_000);
     expect(garchomp.exp).toBe(getLevelTotalExp(500_000, rate));
     expect(garchomp.exp).toBeGreaterThan(Number.MAX_SAFE_INTEGER);
-    // EXP above the cap does nothing to the level
+    // 1e9 EXP is far under one level's worth up there: the level stays, the EXP is added (not cut back any more)
+    const expBefore = garchomp.exp;
     garchomp.addExp(1e9);
     expect(garchomp.level).toBe(500_000);
+    expect(garchomp.exp).toBe(expBefore + 1e9);
+    expect(garchomp.exp).toBeGreaterThan(expBefore);
     garchomp.calculateStats();
     expect(garchomp.getStats().every(stat => Number.isSafeInteger(stat) && stat > 0)).toBe(true);
     expect(garchomp.getMaxHp()).toBeGreaterThan(1_000_000);

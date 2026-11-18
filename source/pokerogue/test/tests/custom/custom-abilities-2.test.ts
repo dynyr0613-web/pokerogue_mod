@@ -1,4 +1,5 @@
-import { allMoves } from "#data/data-lists";
+import { applyAbAttrs } from "#abilities/apply-ab-attrs";
+import { allAbilities, allMoves } from "#data/data-lists";
 import { TerrainType } from "#data/terrain";
 import { AbilityId } from "#enums/ability-id";
 import { ArenaTagSide } from "#enums/arena-tag-side";
@@ -6,12 +7,24 @@ import { ArenaTagType } from "#enums/arena-tag-type";
 import { MoveId } from "#enums/move-id";
 import { SpeciesId } from "#enums/species-id";
 import { Stat } from "#enums/stat";
+import type { Pokemon } from "#field/pokemon";
 import { GameManager } from "#test/framework/game-manager";
+import { BooleanHolder } from "#utils/common";
 import Phaser from "phaser";
-import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 /** The five stats raised by Last Stand and War Machine. */
 const FIVE_STATS = [Stat.ATK, Stat.DEF, Stat.SPATK, Stat.SPDEF, Stat.SPD] as const;
+
+/**
+ * Whether the trapping abilities of `trapper` (Shadow Tag, Last Stand: ability or passive) trap `target`, apart from
+ * the target's own self-trap (Last Stand) that `Pokemon.isTrapped` checks first.
+ */
+function trapsByAbility(trapper: Pokemon, target: Pokemon): boolean {
+  const trapped = new BooleanHolder(false);
+  applyAbAttrs("CheckTrappedAbAttr", { pokemon: trapper, opponent: target, trapped, simulated: true });
+  return trapped.value;
+}
 
 describe("Custom abilities 2", () => {
   let phaserGame: Phaser.Game;
@@ -91,13 +104,71 @@ describe("Custom abilities 2", () => {
       expect(game.field.getEnemyPokemon().isTrapped()).toBe(true);
     });
 
-    it("traps a Shadow Tag opponent too, but not one with Run Away", async () => {
-      game.override.enemyAbility(AbilityId.SHADOW_TAG);
+    it("does not trap an opponent with Run Away", async () => {
       await game.classicMode.startBattle(SpeciesId.FEEBAS, SpeciesId.MAGIKARP);
       const enemy = game.field.getEnemyPokemon();
       expect(enemy.isTrapped()).toBe(true);
       game.field.mockAbility(enemy, AbilityId.RUN_AWAY);
       expect(enemy.isTrapped()).toBe(false);
+    });
+
+    // Local fork (2026-11-18): the user, on the sheet saying Shadow Tag and Last Stand holders are not trapped while the
+    // code trapped them: "코드 수정"
+    it("does not trap a Shadow Tag opponent, as Shadow Tag itself does not", async () => {
+      game.override.enemyAbility(AbilityId.SHADOW_TAG);
+      await game.classicMode.startBattle(SpeciesId.FEEBAS, SpeciesId.MAGIKARP);
+      const feebas = game.field.getPlayerPokemon();
+      const enemy = game.field.getEnemyPokemon();
+
+      expect(trapsByAbility(feebas, enemy)).toBe(false);
+      expect(enemy.isTrapped()).toBe(false);
+      // the bearer still traps itself, whatever the opponent has
+      expect(feebas.isTrapped()).toBe(true);
+    });
+
+    it("does not trap a Shadow Tag opponent that has it as a passive", async () => {
+      game.override.enemyPassiveAbility(AbilityId.SHADOW_TAG).enemyHasPassiveAbility(true);
+      await game.classicMode.startBattle(SpeciesId.FEEBAS, SpeciesId.MAGIKARP);
+      expect(game.field.getEnemyPokemon().isTrapped()).toBe(false);
+    });
+
+    it("does not trap a Last Stand opponent (which still traps itself), as ability or passive", async () => {
+      game.override.enemyAbility(AbilityId.LAST_STAND);
+      await game.classicMode.startBattle(SpeciesId.FEEBAS, SpeciesId.MAGIKARP);
+      const feebas = game.field.getPlayerPokemon();
+      const enemy = game.field.getEnemyPokemon();
+
+      expect(trapsByAbility(feebas, enemy)).toBe(false);
+      expect(trapsByAbility(enemy, feebas)).toBe(false);
+      // both bearers trap themselves
+      expect(enemy.isTrapped()).toBe(true);
+      expect(feebas.isTrapped()).toBe(true);
+
+      game.field.mockAbility(enemy, AbilityId.BALL_FETCH);
+      vi.spyOn(enemy, "getPassiveAbility").mockReturnValue(allAbilities[AbilityId.LAST_STAND]);
+      vi.spyOn(enemy, "hasPassive").mockReturnValue(true);
+      expect(trapsByAbility(feebas, enemy)).toBe(false);
+    });
+
+    it("is not trapped by an opposing Shadow Tag either way (it traps itself first)", async () => {
+      game.override.enemyAbility(AbilityId.SHADOW_TAG);
+      await game.classicMode.startBattle(SpeciesId.FEEBAS, SpeciesId.MAGIKARP);
+      const feebas = game.field.getPlayerPokemon();
+
+      expect(trapsByAbility(game.field.getEnemyPokemon(), feebas)).toBe(false);
+      expect(feebas.isTrapped()).toBe(true);
+    });
+
+    it("leaves mainline Shadow Tag trapping everyone else", async () => {
+      game.override.ability(AbilityId.BALL_FETCH).enemyAbility(AbilityId.SHADOW_TAG);
+      await game.classicMode.startBattle(SpeciesId.FEEBAS, SpeciesId.MAGIKARP);
+      const feebas = game.field.getPlayerPokemon();
+      const enemy = game.field.getEnemyPokemon();
+
+      expect(feebas.isTrapped()).toBe(true);
+      expect(trapsByAbility(enemy, feebas)).toBe(true);
+      game.field.mockAbility(feebas, AbilityId.SHADOW_TAG);
+      expect(feebas.isTrapped()).toBe(false);
     });
 
     it("can't select self-switching moves, but can select others", async () => {

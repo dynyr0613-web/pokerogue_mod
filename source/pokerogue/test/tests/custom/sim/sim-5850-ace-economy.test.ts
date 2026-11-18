@@ -24,6 +24,10 @@
  * neutral picks (after the money while rerolls are still wanted, before it afterwards). `aceLevel` models the ace's
  * level: every wave EXP lifts it to the EXP level cap (`getMaxExpLevel`) if it is below, candies add on top. The reward
  * screen's duplicate check is fixed in the game since 08 명세 3번, so FORK_SIM_GROUP_FIX changes nothing any more.
+ * Local fork (2026-11-18): from Endless wave 1000 the cap is lifted ("1000웨이브 이후는 레벨캡은 그냥 풉시다") and
+ * `getMaxExpLevel` gives Number.MAX_SAFE_INTEGER, so the model reads the wave's cap formula instead
+ * (`getWaveLevelCap`, the expected level C): wave EXP still lifts the ace to C, and past C it adds about nothing
+ * (about 240 kills a level at C on wave 1000, about 17,800 at wave 5850; 11_레벨_따라가기_양방향.md 4-3).
  *
  * Local fork (2026-11-13), 09 명세 4번 (3차): the new GREAT party item 방호 토큰 (`GUARD_TOKEN`, up to 65, weight 4 while
  * the enemy side holds a Damage Token) joins the ace policy (FORK_SIM_GUARD, default "after-vitamins": right after the
@@ -922,7 +926,8 @@ describe.skipIf(!process.env.FORK_SIM)("Sim - 5850 ace economy (real reward gene
       snap["rarerCandies"] = rarerCandies;
       snap["candyLevels"] = candyLevels;
       snap["aceLevel"] = aceLevel;
-      snap["expCap"] = scene.getMaxExpLevel();
+      // Local fork (2026-11-18): the cap formula C, which stays a number where the cap is lifted (Endless wave 1000+)
+      snap["expCap"] = scene.getWaveLevelCap();
       snap["rerollsSoFar"] = res.rerolls;
       snap["log10Money"] = Math.log10(Math.max(1, money));
       snap["rewardSlots"] = rewardCount();
@@ -972,7 +977,9 @@ describe.skipIf(!process.env.FORK_SIM)("Sim - 5850 ace economy (real reward gene
     for (let w = 1; w <= maxWave; w++) {
       scene.currentBattle.waveIndex = w;
       // Local fork (2026-11-13): EXP lifts the ace to the cap of this wave when it is below it
-      aceLevel = Math.max(aceLevel, scene.getMaxExpLevel());
+      // Local fork (2026-11-18): to the cap formula C (`getWaveLevelCap`); from wave 1000 `getMaxExpLevel` is
+      // Number.MAX_SAFE_INTEGER (the lifted cap) and would put the model ace there
+      aceLevel = Math.max(aceLevel, scene.getWaveLevelCap());
       if (SNAP_WAVES.includes(w)) {
         snapshot(w);
       }

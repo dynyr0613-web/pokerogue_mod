@@ -6,6 +6,7 @@ import { speciesDataRegistry } from "#app/global-species-data-registry";
 import { getPokemonNameWithAffix } from "#app/messages";
 import { modifierTypes } from "#data/data-lists";
 import { prepareBattleFormCapture } from "#data/enemy-battle-forms"; // Local fork (2026-11-10)
+import { prepareEnemyDynamaxCapture } from "#data/enemy-dynamax"; // Local fork (2026-11-18)
 import { Gender } from "#data/gender";
 import {
   doPokeballBounceAnim,
@@ -639,6 +640,9 @@ export async function catchPokemon(
   isObtain = false,
 ): Promise<void> {
   const { gameData, phaseManager, pokemonInfoContainer, ui } = globalScene;
+  // Local fork (2026-11-18): the same Dynamax-state rule as AttemptCapturePhase.catch, first (enemy-dynamax.ts; the user:
+  // "적 다이맥스 상태 넣고"): no Max Mushrooms and no x1.5 HP for the caught Pokémon
+  prepareEnemyDynamaxCapture(pokemon);
   // Local fork (2026-11-10): the same battle-form rule as AttemptCapturePhase.catch (enemy-battle-forms.ts)
   prepareBattleFormCapture(pokemon);
   // Local fork (2026-11-18): and the same Z / Max slot rule (enemy-move-conversions.ts; the user: "적의 기술은 그냥 낮은
@@ -698,7 +702,12 @@ export async function catchPokemon(
       };
       const addToParty = (slotIndex?: number) => {
         const newPokemon = pokemon.addToParty(pokeballType, slotIndex);
-        const modifiers = globalScene.findModifiers(m => m instanceof PokemonHeldItemModifier, false);
+        // Local fork (2026-11-18), review fix: only the caught Pokémon's own items, as in AttemptCapturePhase.catch
+        // (enemy-dynamax.ts; the user: "적 다이맥스 상태 넣고")
+        const modifiers = globalScene.findModifiers(
+          m => m instanceof PokemonHeldItemModifier && m.pokemonId === pokemon.id,
+          false,
+        );
         if (globalScene.getPlayerParty().filter(p => p.isShiny()).length === 6) {
           globalScene.validateAchv(achvs.SHINY_PARTY);
         }

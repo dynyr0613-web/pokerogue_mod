@@ -27,7 +27,8 @@ import { SceneBase } from "#app/scene-base";
 import { TurnCommandManager } from "#app/turn-command-manager";
 import { UiInputs } from "#app/ui-inputs";
 import { FULL_RULE_GENERATED_ITEM_IDS, FULL_RULE_HELD_ITEM_IDS } from "#balance/endless-balance";
-import { getNaturalMaxExpLevel } from "#balance/endless-level-scaling"; // Local fork (2026-11-13): 08 명세 4번
+// Local fork (2026-11-13): 08 명세 4번; (2026-11-18) the cap lifted from Endless wave 1000
+import { getNaturalMaxExpLevel, isEndlessExpLevelCapLifted } from "#balance/endless-level-scaling";
 import { getEnemyTrainerItemChance } from "#balance/enemy-trainer-buffs"; // Local fork (2026-11-12)
 import { STARTING_WAVE } from "#balance/misc";
 import { FRIENDSHIP_GAIN_FROM_BATTLE } from "#balance/starters";
@@ -1692,6 +1693,7 @@ export class BattleScene extends SceneBase {
       this.phaseManager.pushNew("NewBiomeEncounterPhase");
 
       const newMaxExpLevel = this.getMaxExpLevel();
+      // Local fork (2026-11-18): also when Endless lifts the cap at wave 1000 (the phase then says the cap is gone)
       if (newMaxExpLevel > maxExpLevel) {
         this.phaseManager.pushNew("LevelCapPhase");
       }
@@ -2372,7 +2374,8 @@ export class BattleScene extends SceneBase {
   addFaintedEnemyScore(enemy: EnemyPokemon): void {
     let scoreIncrease =
       enemy.getSpeciesForm().getBaseExp()
-      * (enemy.level / this.getMaxExpLevel())
+      // Local fork (2026-11-18): the wave's cap formula, which stays a number where Endless lifts the cap (wave 1000+)
+      * (enemy.level / this.getWaveLevelCap())
       * ((enemy.ivs.reduce((iv: number, total: number) => (total += iv), 0) / 93) * 0.2 + 0.8);
     this.findModifiers(m => m instanceof PokemonHeldItemModifier && m.pokemonId === enemy.id, false).map(
       m => (scoreIncrease *= (m as PokemonHeldItemModifier).getScoreMultiplier()),
@@ -2393,10 +2396,33 @@ export class BattleScene extends SceneBase {
       return Number.MAX_SAFE_INTEGER;
     }
 
+    // Local fork (2026-11-18): from Endless / Spliced Endless battle wave 1000 there is no cap, EXP keeps levelling past the
+    // old one (the user: "1000웨이브 이후는 레벨캡은 그냥 풉시다"); before it and in every other mode nothing changes
+    if (isEndlessExpLevelCapLifted(this.gameMode, this.currentBattle?.waveIndex || 1)) {
+      return Number.MAX_SAFE_INTEGER;
+    }
+
     // Local fork (2026-11-13): 08 명세 4번, past Endless wave 500 the cap gets the same Candy Jar term S(w) as the enemies,
     // from the same rounded-up wave; 0 in every other case. The formula (wave rounded up to 10, ceil(base x 1.2 / 2) x 2
     // + 2 + S(w)) moved unchanged to `getNaturalMaxExpLevel` (endless-level-scaling.ts), so the wave-4000 rule that has
     // enemy levels follow the player divides by exactly this cap
+    return getNaturalMaxExpLevel(this.gameMode, this.currentBattle?.waveIndex || 1);
+  }
+
+  /**
+   * Local fork (2026-11-18): the wave's level cap formula, also on the Endless waves where the cap is lifted (from wave
+   * 1000, "1000웨이브 이후는 레벨캡은 그냥 풉시다"): there it is the expected level C of the wave. The battle score and
+   * Dynamax Cannon's "overleveled foe" check read this, so they keep their meaning past wave 1000. Same test overrides
+   * as {@linkcode getMaxExpLevel}.
+   */
+  getWaveLevelCap(): number {
+    const capOverride = activeOverrides.LEVEL_CAP_OVERRIDE ?? 0;
+    if (capOverride > 0) {
+      return capOverride;
+    }
+    if (capOverride < 0) {
+      return Number.MAX_SAFE_INTEGER;
+    }
     return getNaturalMaxExpLevel(this.gameMode, this.currentBattle?.waveIndex || 1);
   }
 

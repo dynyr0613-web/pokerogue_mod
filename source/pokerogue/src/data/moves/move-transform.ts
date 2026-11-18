@@ -92,14 +92,70 @@ export const MOVE_TRANSFORM_RULES = Object.freeze({
   zMaxSwordsDanceStages: ZMAX_RULES.zMaxSwordsDanceStages,
 });
 
-/** Exclusive Z moves with their own animation in `assets/battle-anims`; the others play the base move's */
-const EXCLUSIVE_Z_OWN_ANIMS: ReadonlySet<MoveId> = new Set([
+/**
+ * Local fork (2026-11-18): the Z / exclusive Z / Max / G-Max moves that have their own animation file in
+ * `assets/battle-anims` (the user: "Z-다이 전용 전투 에니메이션은 아마 자료가 에센셜용으로 꽤 많이 있을거라 그걸 얻어오면
+ * 되고"). Upstream had six exclusive Z ones (Catastropika ... Light That Burns the Sky); the others were converted from
+ * the Pokémon Reborn (PRAS) animations in the user's Essentials v21.1 project by
+ * `D:/PokeRogueDev/tools/port/essentials_anims.py`. 10,000,000 Volt Thunderbolt, every Max and G-Max move and Max Guard
+ * have no animation there (Essentials' "Max Moves" section is empty), so they keep the fallbacks of
+ * {@linkcode getAnimMoveId}. A test checks this list against the files.
+ */
+export const ZMAX_OWN_ANIM_MOVES: ReadonlySet<MoveId> = new Set([
+  // Z moves (one Essentials animation for both MoveIds of a type)
+  MoveId.BREAKNECK_BLITZ__PHYSICAL,
+  MoveId.BREAKNECK_BLITZ__SPECIAL,
+  MoveId.ALL_OUT_PUMMELING__PHYSICAL,
+  MoveId.ALL_OUT_PUMMELING__SPECIAL,
+  MoveId.SUPERSONIC_SKYSTRIKE__PHYSICAL,
+  MoveId.SUPERSONIC_SKYSTRIKE__SPECIAL,
+  MoveId.ACID_DOWNPOUR__PHYSICAL,
+  MoveId.ACID_DOWNPOUR__SPECIAL,
+  MoveId.TECTONIC_RAGE__PHYSICAL,
+  MoveId.TECTONIC_RAGE__SPECIAL,
+  MoveId.CONTINENTAL_CRUSH__PHYSICAL,
+  MoveId.CONTINENTAL_CRUSH__SPECIAL,
+  MoveId.SAVAGE_SPIN_OUT__PHYSICAL,
+  MoveId.SAVAGE_SPIN_OUT__SPECIAL,
+  MoveId.NEVER_ENDING_NIGHTMARE__PHYSICAL,
+  MoveId.NEVER_ENDING_NIGHTMARE__SPECIAL,
+  MoveId.CORKSCREW_CRASH__PHYSICAL,
+  MoveId.CORKSCREW_CRASH__SPECIAL,
+  MoveId.INFERNO_OVERDRIVE__PHYSICAL,
+  MoveId.INFERNO_OVERDRIVE__SPECIAL,
+  MoveId.HYDRO_VORTEX__PHYSICAL,
+  MoveId.HYDRO_VORTEX__SPECIAL,
+  MoveId.BLOOM_DOOM__PHYSICAL,
+  MoveId.BLOOM_DOOM__SPECIAL,
+  MoveId.GIGAVOLT_HAVOC__PHYSICAL,
+  MoveId.GIGAVOLT_HAVOC__SPECIAL,
+  MoveId.SHATTERED_PSYCHE__PHYSICAL,
+  MoveId.SHATTERED_PSYCHE__SPECIAL,
+  MoveId.SUBZERO_SLAMMER__PHYSICAL,
+  MoveId.SUBZERO_SLAMMER__SPECIAL,
+  MoveId.DEVASTATING_DRAKE__PHYSICAL,
+  MoveId.DEVASTATING_DRAKE__SPECIAL,
+  MoveId.BLACK_HOLE_ECLIPSE__PHYSICAL,
+  MoveId.BLACK_HOLE_ECLIPSE__SPECIAL,
+  MoveId.TWINKLE_TACKLE__PHYSICAL,
+  MoveId.TWINKLE_TACKLE__SPECIAL,
+  // Exclusive Z moves (upstream's six first)
   MoveId.CATASTROPIKA,
   MoveId.SINISTER_ARROW_RAID,
   MoveId.OCEANIC_OPERETTA,
   MoveId.PULVERIZING_PANCAKE,
   MoveId.EXTREME_EVOBOOST,
   MoveId.LIGHT_THAT_BURNS_THE_SKY,
+  MoveId.MALICIOUS_MOONSAULT,
+  MoveId.GUARDIAN_OF_ALOLA,
+  MoveId.SOUL_STEALING_7_STAR_STRIKE,
+  MoveId.STOKED_SPARKSURFER,
+  MoveId.GENESIS_SUPERNOVA,
+  MoveId.SEARING_SUNRAZE_SMASH,
+  MoveId.MENACING_MOONRAZE_MAELSTROM,
+  MoveId.LETS_SNUGGLE_FOREVER,
+  MoveId.SPLINTERED_STORMSHARDS,
+  MoveId.CLANGOROUS_SOULBLAZE,
 ]);
 
 /** The Gigantamax form keys (Eternamax is not one: Eternatus has no G-Max move) */
@@ -326,25 +382,30 @@ export function getMoveTransform(move: Move): Readonly<MoveTransform> | undefine
 }
 
 /**
- * The move id whose battle animation `move` plays: the base move's for Max / G-Max / Z / Z다이 attacks (there are no
- * Max / Z animations), the exclusive Z move's own where `assets/battle-anims` has one, Protect for Max Guard / Z다이월,
- * Swords Dance for 다이검무 / Z다이검무, the base move for a Z status move; `move.id` for every other move.
+ * The move id whose battle animation `move` plays.
+ * Local fork (2026-11-18): a Z / exclusive Z / Max / G-Max move plays its own animation when `assets/battle-anims`
+ * has one ({@linkcode ZMAX_OWN_ANIM_MOVES}: every Z move and every exclusive Z move but 10,000,000 Volt Thunderbolt);
+ * a Z다이 attack is a copy of its Max move, so it plays that Max move's once there is one. Otherwise: Protect for Max
+ * Guard / Z다이월, Swords Dance for 다이검무 / Z다이검무, the base move's for Max / G-Max / Z다이 attacks (no Max
+ * animations yet), the base move for a Z status move; `move.id` for every other move. A Z / Max / G-Max registry
+ * entry used outside a converted slot (no base move known) and without its own file plays Tackle, the default
+ * `initMoveAnim` would fall back to, without fetching a file that is not there (the offline app counts 404s).
  */
 export function getAnimMoveId(move: Move): MoveId {
+  if (ZMAX_OWN_ANIM_MOVES.has(move.id)) {
+    return move.id;
+  }
   if (move.id === MoveId.MAX_GUARD) {
     return MoveId.PROTECT;
   }
   if (move.id === MoveId.MAX_SWORDS_DANCE) {
     return MoveId.SWORDS_DANCE;
   }
-  const info = derivedInfo.get(move);
-  if (!info) {
-    return move.id;
+  const baseId = derivedInfo.get(move)?.baseId;
+  if (baseId !== undefined) {
+    return baseId;
   }
-  if (info.transform.kind === "zExclusive" && EXCLUSIVE_Z_OWN_ANIMS.has(move.id)) {
-    return move.id;
-  }
-  return info.baseId;
+  return isZMaxOnlyMove(move.id) ? MoveId.TACKLE : move.id;
 }
 
 /**

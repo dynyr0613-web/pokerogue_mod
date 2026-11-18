@@ -104,10 +104,13 @@ export function isFullyForgedPokemon(pokemon: Pokemon): boolean {
 }
 
 /**
- * Local fork (2026-11-13): whether `pokemon` is a Steel type Tinkaton can forge (10 명세 3번: "강철 타입
+ * Local fork (2026-11-13): whether `pokemon` is a Steel type for the forge (10 명세 3번: "강철 타입
  * (`PokemonType.STEEL`)을 가진 포켓몬(합체 포켓몬은 합체 후 현재 타입 기준, 기절 여부 무관)"). Its own types: a fusion's
  * types (the head's first type and the type the tail adds) and types changed for good by other encounters count; a
  * Tera type, Soak, Transform, Forest's Curse and the like don't. Fainted or not doesn't matter.
+ * Local fork (2026-11-18): no longer who can be forged (any type can again) but who gets
+ * {@linkcode FORGED_STEEL.stacksPerForge} (two) pieces a forge instead of {@linkcode FORGED_STEEL.stacksPerForgeNonSteel}
+ * (one), the user: "강철은 두개, 강철 아닌놈들은 하나".
  */
 export function isForgeEligibleSteelPokemon(pokemon: Pokemon): boolean {
   return pokemon
@@ -116,21 +119,41 @@ export function isForgeEligibleSteelPokemon(pokemon: Pokemon): boolean {
 }
 
 /**
- * Whether Tinkaton can forge `pokemon`. Local fork (2026-11-13): a Steel type ({@linkcode isForgeEligibleSteelPokemon})
- * with fewer than {@linkcode FORGED_STEEL.maxHeld} pieces again (10 명세 3번: "강철 타입 포켓몬만 단조할 수 있게
- * 되돌리는 대신 1회당 `2개`씩 지급"). From 2026-11-12 until this patch any type (the user: "저희 단조강철의 개수 제한을
- * 5개로 풀고, 강철타입이 아니어도 쓸 수 있게 하는것도 좋을 것 같네요"); before that a Steel type without a piece. A
- * non-Steel Pokémon forged in between keeps its pieces and their boost but gets no more.
+ * Local fork (2026-11-18): the pieces one forge gives `pokemon` before the cap: two for a Steel type
+ * ({@linkcode isForgeEligibleSteelPokemon}), one for any other type (the user: "강철은 두개, 강철 아닌놈들은 하나")
+ */
+export function getForgeStacksPerVisit(pokemon: Pokemon): number {
+  return isForgeEligibleSteelPokemon(pokemon) ? FORGED_STEEL.stacksPerForge : FORGED_STEEL.stacksPerForgeNonSteel;
+}
+
+/**
+ * Local fork (2026-11-18): the pieces forging `pokemon` now would add: {@linkcode getForgeStacksPerVisit}, cut to what
+ * still fits under {@linkcode FORGED_STEEL.maxHeld} (a Steel type holding nine gets one), 0 when it is full
+ */
+export function getForgeStacksToAdd(pokemon: Pokemon): number {
+  return Math.max(0, Math.min(getForgeStacksPerVisit(pokemon), FORGED_STEEL.maxHeld - getForgedSteelCount(pokemon)));
+}
+
+/**
+ * Whether Tinkaton can forge `pokemon`. Local fork (2026-11-18): any type with fewer than
+ * {@linkcode FORGED_STEEL.maxHeld} pieces (10 결과 8장 5번, the user: "단조강철을 받는 이벤트에서 강철은 두개, 강철
+ * 아닌놈들은 하나이게 하자고 했던 것 같네요"); the type only sets how many it gets ({@linkcode getForgeStacksPerVisit}).
+ * From 2026-11-13 until this day a Steel type only (10 명세 3번: "강철 타입 포켓몬만 단조할 수 있게 되돌리는 대신 1회당
+ * `2개`씩 지급"); from 2026-11-12 any type, one piece a forge (the user: "저희 단조강철의 개수 제한을 5개로 풀고,
+ * 강철타입이 아니어도 쓸 수 있게 하는것도 좋을 것 같네요"); before that a Steel type without a piece. A non-Steel
+ * Pokémon forged in the any-type days kept its pieces through the Steel-only days and can now take more.
  */
 export function canForgePokemon(pokemon: Pokemon): boolean {
-  return isForgeEligibleSteelPokemon(pokemon) && !isFullyForgedPokemon(pokemon);
+  return !isFullyForgedPokemon(pokemon);
 }
 
 /**
  * Option 2's condition: a party member Tinkaton can still forge. It was the user's "파티 내에 강철 타입 하나 이상"
  * (plus not forged yet) until 2026-11-12, then any party member with fewer than {@linkcode FORGED_STEEL.maxHeld}
  * pieces (five until the 09 patch, ten since). Local fork (2026-11-13): a Steel type with fewer than ten again (10 명세
- * 3번: "파티에 조건을 만족하는 강철 타입 포켓몬이 한 마리도 없으면 2번 선택지는 비활성화된다").
+ * 3번: "파티에 조건을 만족하는 강철 타입 포켓몬이 한 마리도 없으면 2번 선택지는 비활성화된다"). Local fork
+ * (2026-11-18): any party member with fewer than ten again, whatever its type ("강철 아닌놈들은 하나"); the option is
+ * off only when every party member holds ten.
  */
 export class ForgeablePokemonRequirement extends EncounterSceneRequirement {
   override meetsRequirement(): boolean {
@@ -147,8 +170,10 @@ export class ForgeablePokemonRequirement extends EncounterSceneRequirement {
  * Forges `pokemon`. Local fork (2026-11-13): 10 명세 3번, gives it {@linkcode FORGED_STEEL.stacksPerForge} (two) more
  * pieces of Forged Steel, or what still fits under {@linkcode FORGED_STEEL.maxHeld} ("`Math.min(FORGED_STEEL.
  * stacksPerForge, FORGED_STEEL.maxHeld - currentStacks)`": nine held get one), and returns how many it added; 0 when it
- * can't be forged ({@linkcode canForgePokemon}: not a Steel type, or full). The pieces go in as one modifier added once,
+ * can't be forged ({@linkcode canForgePokemon}: full). The pieces go in as one modifier added once,
  * so its stats are recalculated once and its HP rises by the max HP it gained, as with one piece before.
+ * Local fork (2026-11-18): any type again; a Steel type gets two, any other type one ({@linkcode getForgeStacksToAdd},
+ * the user: "강철은 두개, 강철 아닌놈들은 하나"). Until this day a non-Steel Pokémon got nothing (0).
  * Local fork (2026-11-08), review fix: a Pokémon that can't take the pieces gets nothing: `addModifier` would hand out
  * its stack-full fallback (5 Poké Balls and a "stack full" message), and its return value is `false` for any added
  * held item, so it can't be passed on as the result. Local fork (2026-11-12): new pieces join the ones held (one
@@ -160,7 +185,7 @@ export function forgePokemon(pokemon: PlayerPokemon): number {
     return 0;
   }
   const before = getForgedSteelCount(pokemon);
-  const toAdd = Math.min(FORGED_STEEL.stacksPerForge, FORGED_STEEL.maxHeld - before);
+  const toAdd = getForgeStacksToAdd(pokemon); // Local fork (2026-11-18): two for a Steel type, one for the others
   if (toAdd <= 0) {
     return 0;
   }
@@ -176,11 +201,14 @@ export function forgePokemon(pokemon: PlayerPokemon): number {
  * Local fork (2026-11-08): Tinkaton's Forge (두드리짱의 대장간, TINKATON_FORGE), the user's design: a Tinkaton
  * pounding away at an anvil.
  * 1. Ask it to forge some gear: a reward screen of one Rogue-tier and three Ultra-tier items, all different, pick one.
- * 2. Forge the steel (needs a Steel-type party member with fewer than ten pieces): the chosen Pokémon gets two more
- *    pieces of Forged Steel (one if it holds nine), +10% HP/Def/SpDef base stats per piece for good (x1.1 to x2.0).
+ * 2. Forge the steel (needs a party member with fewer than ten pieces): the chosen Pokémon gets two more pieces of
+ *    Forged Steel if it is a Steel type (one if it holds nine), one if not, +10% HP/Def/SpDef base stats per piece for
+ *    good (x1.1 to x2.0).
  *    No reward screen. Local fork (2026-11-12): any type, up to five pieces; until then a Steel type only, one piece.
  *    Local fork (2026-11-13): up to ten pieces since the 3rd balance patch (09 명세 3-2: "단조강철 10개 미만인
  *    파티원"); since the 4th (10 명세 3번) a Steel type only again, two pieces a forge (0 -> 2 -> ... -> 10).
+ *    Local fork (2026-11-18): any party member with fewer than ten pieces again; a Steel type gets two a forge, any
+ *    other type one (the user: "강철은 두개, 강철 아닌놈들은 하나"). Only a full Pokémon is turned away.
  * 3. A friendly spar: a wild, uncatchable Tinkaton at this wave's level with +1 Attack; it gives 3x its EXP.
  * ULTRA tier, in the mountain, cave, volcano, factory and construction site.
  */
@@ -277,16 +305,17 @@ export const TinkatonForgeEncounter: MysteryEncounter = MysteryEncounterBuilder.
         const encounter = globalScene.currentBattle.mysteryEncounter!;
         const onPokemonSelected = (pokemon: PlayerPokemon) => {
           encounter.setDialogueToken("forgedPokemon", pokemon.getNameToRender());
+          // Local fork (2026-11-18): the selected text says how many pieces it gets (2 for a Steel type, 1 for the
+          // others, 1 for a Steel type holding nine); set here, as the text is shown before the option phase forges
+          encounter.setDialogueToken("forgedCount", String(getForgeStacksToAdd(pokemon)));
           encounter.misc = { forgedPokemon: pokemon };
         };
         // a Pokémon that can't be forged stays on the party screen with the reason. Local fork (2026-11-12): any
         // type could be picked; only one already holding FORGED_STEEL.maxHeld pieces (ten since the 09 patch) was
         // turned away. Local fork (2026-11-13): 10 명세 3번, a non-Steel one is turned away first (notSteel, even
-        // if it holds pieces from the any-type days), then a full Steel one (fullyForged)
+        // if it holds pieces from the any-type days), then a full Steel one (fullyForged). Local fork (2026-11-18):
+        // any type again ("강철 아닌놈들은 하나"), so only a full one is turned away; the notSteel text is gone
         const selectableFilter = (pokemon: PlayerPokemon): string | null => {
-          if (!isForgeEligibleSteelPokemon(pokemon)) {
-            return getEncounterText(`${namespace}:option.2.notSteel`) ?? null;
-          }
           if (!canForgePokemon(pokemon)) {
             return getEncounterText(`${namespace}:option.2.fullyForged`) ?? null;
           }

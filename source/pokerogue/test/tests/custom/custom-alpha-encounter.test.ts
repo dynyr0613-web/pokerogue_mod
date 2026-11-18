@@ -242,8 +242,8 @@ describe("Custom mystery encounter - 우두머리! (ALPHA_ENCOUNTER)", { timeout
     });
 
     it("are clearly temporary where the user will write them", () => {
-      expect(i18next.t(`${namespace}:description`)).toBe("(Description to be added)");
-      expect(i18next.t(`${namespace}:description`, { lng: "ko" })).toBe("(설명은 나중에 추가 예정)");
+      expect(i18next.t(`${namespace}:description`)).toBe("The leader of a herd has stepped in front of you to protect its herd! Will you leave, or will you fight?");
+      expect(i18next.t(`${namespace}:description`, { lng: "ko" })).toBe("무리의 우두머리가 자신의 무리를 지키기 위해 당신 앞을 막아섰습니다! 떠날 건가요, 싸울 건가요?");
       expect(i18next.t(`${namespace}:query`)).toBe("What will you do?");
       expect(i18next.t(`${namespace}:query`, { lng: "ko" })).toBe("어떻게 할까?");
       expect(i18next.t(`${namespace}:option.1.tooltip`, { lng: "ko" })).toBe("(+) 우두머리 포켓몬과 싸운다");

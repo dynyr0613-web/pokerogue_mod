@@ -709,7 +709,9 @@ export class Trainer extends Phaser.GameObjects.Container {
     // Local fork (2026-11-13): from Endless battle wave 4000 every member's final level is multiplied by the same
     // f = max(1, P / C) ^ 0.5 (09 명세 1번 square-root damping), P the player's highest party level, C the wave's EXP
     // level cap (endless-level-scaling.ts; the user: "적의 에이스 포켓몬이 플레이어의 가장 높은 레벨의 포켓몬의 레벨에
-    // 비례하도록"), so the ace (~1.007-1.009 x C) ends up at ~1.007-1.009 x C x f; exactly 1 (no change) in every other case
+    // 비례하도록"), so the ace (~1.007-1.009 x C) ends up at ~1.007-1.009 x C x f; exactly 1 (no change) in every other case.
+    // Local fork (2026-11-18): from battle wave 1000 and two-sided: max(0.8, 0.9637 x (P / C) ^ 0.6) for every P, under 1
+    // below about 1.064 x C (option 다; the user: "초보에게는 조금더 낮고, 고수에게는 좀더 높은 레벨의 상대가 나오도록")
     const playerFollowFactor = getEndlessEnemyLevelFactor(globalScene.gameMode, waveIndex);
 
     if (this.isDouble() && partyTemplate.size < 2) {

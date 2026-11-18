@@ -70,7 +70,9 @@ describe("Moves - Dynamax Cannon", () => {
     const phase = game.scene.phaseManager.getCurrentPhase() as MoveEffectPhase;
     expect(phase.move.id).toBe(dynamaxCannon.id);
     // Force level cap to be 100
-    vi.spyOn(game.scene, "getMaxExpLevel").mockReturnValue(100);
+    // Local fork (2026-11-18): Dynamax Cannon reads `getWaveLevelCap` (the cap formula, still a number where Endless
+    // lifts the cap from wave 1000), so that is the method to force; a `getMaxExpLevel` spy no longer reaches it
+    vi.spyOn(game.scene, "getWaveLevelCap").mockReturnValue(100);
     await game.phaseInterceptor.to("DamageAnimPhase", false);
     expect(dynamaxCannon.calculateBattlePower).toHaveLastReturnedWith(120);
   });
@@ -85,7 +87,9 @@ describe("Moves - Dynamax Cannon", () => {
     const phase = game.scene.phaseManager.getCurrentPhase() as MoveEffectPhase;
     expect(phase.move.id).toBe(dynamaxCannon.id);
     // Force level cap to be 100
-    vi.spyOn(game.scene, "getMaxExpLevel").mockReturnValue(100);
+    // Local fork (2026-11-18): Dynamax Cannon reads `getWaveLevelCap` (the cap formula, still a number where Endless
+    // lifts the cap from wave 1000), so that is the method to force; a `getMaxExpLevel` spy no longer reaches it
+    vi.spyOn(game.scene, "getWaveLevelCap").mockReturnValue(100);
     await game.phaseInterceptor.to("DamageAnimPhase", false);
     expect(dynamaxCannon.calculateBattlePower).toHaveLastReturnedWith(140);
   });
@@ -100,7 +104,9 @@ describe("Moves - Dynamax Cannon", () => {
     const phase = game.scene.phaseManager.getCurrentPhase() as MoveEffectPhase;
     expect(phase.move.id).toBe(dynamaxCannon.id);
     // Force level cap to be 100
-    vi.spyOn(game.scene, "getMaxExpLevel").mockReturnValue(100);
+    // Local fork (2026-11-18): Dynamax Cannon reads `getWaveLevelCap` (the cap formula, still a number where Endless
+    // lifts the cap from wave 1000), so that is the method to force; a `getMaxExpLevel` spy no longer reaches it
+    vi.spyOn(game.scene, "getWaveLevelCap").mockReturnValue(100);
     await game.phaseInterceptor.to("DamageAnimPhase", false);
     expect(dynamaxCannon.calculateBattlePower).toHaveLastReturnedWith(160);
   });
@@ -115,7 +121,9 @@ describe("Moves - Dynamax Cannon", () => {
     const phase = game.scene.phaseManager.getCurrentPhase() as MoveEffectPhase;
     expect(phase.move.id).toBe(dynamaxCannon.id);
     // Force level cap to be 100
-    vi.spyOn(game.scene, "getMaxExpLevel").mockReturnValue(100);
+    // Local fork (2026-11-18): Dynamax Cannon reads `getWaveLevelCap` (the cap formula, still a number where Endless
+    // lifts the cap from wave 1000), so that is the method to force; a `getMaxExpLevel` spy no longer reaches it
+    vi.spyOn(game.scene, "getWaveLevelCap").mockReturnValue(100);
     await game.phaseInterceptor.to("DamageAnimPhase", false);
     expect(dynamaxCannon.calculateBattlePower).toHaveLastReturnedWith(180);
   });
@@ -130,7 +138,9 @@ describe("Moves - Dynamax Cannon", () => {
     const phase = game.scene.phaseManager.getCurrentPhase() as MoveEffectPhase;
     expect(phase.move.id).toBe(dynamaxCannon.id);
     // Force level cap to be 100
-    vi.spyOn(game.scene, "getMaxExpLevel").mockReturnValue(100);
+    // Local fork (2026-11-18): Dynamax Cannon reads `getWaveLevelCap` (the cap formula, still a number where Endless
+    // lifts the cap from wave 1000), so that is the method to force; a `getMaxExpLevel` spy no longer reaches it
+    vi.spyOn(game.scene, "getWaveLevelCap").mockReturnValue(100);
     await game.phaseInterceptor.to("DamageAnimPhase", false);
     expect(dynamaxCannon.calculateBattlePower).toHaveLastReturnedWith(200);
   });

@@ -347,8 +347,10 @@ export function initAbilities() {
     new AbBuilder(AbilityId.INTIMIDATE, 3) //
       .attr(PostSummonStatStageChangeAbAttr, [{ stat: Stat.ATK, stages: -1 }], false, true)
       .build(),
+    // Local fork (2026-11-18): Last Stand (결사항전) holders count as Shadow Tag holders here too, both ways (see
+    // `isShadowTagExempt`). They trap themselves anyway (`Pokemon.isTrapped`), so this changes nothing in play
     new AbBuilder(AbilityId.SHADOW_TAG, 3) //
-      .attr(ArenaTrapAbAttr, (_user, target) => !target.hasAbility(AbilityId.SHADOW_TAG))
+      .attr(ArenaTrapAbAttr, (_user, target) => !isShadowTagExempt(target))
       .build(),
     new AbBuilder(AbilityId.ROUGH_SKIN, 3) //
       .attr(PostDefendContactDamageAbAttr, 8)
@@ -2295,11 +2297,13 @@ export function initAbilities() {
     new AbBuilder(AbilityId.OVERAWE, 9) //
       .attr(PostSummonStatStageChangeAbAttr, [{ stat: Stat.SPATK, stages: -1 }], false, true)
       .build(),
-    // Fork (2026-11-05, the user's rework, name kept): Shadow Tag that also traps Shadow Tag and Last Stand
-    // holders, +1 Atk/Def/SpDef on entry, and its own bearer can't switch out (`Pokemon.isTrapped`) nor select
-    // self-switching moves (`Pokemon.isMoveSelectable`)
+    // Fork (2026-11-05, the user's rework, name kept): Shadow Tag, +1 Atk/Def/SpDef on entry, and its own bearer
+    // can't switch out (`Pokemon.isTrapped`) nor select self-switching moves (`Pokemon.isMoveSelectable`).
+    // Local fork (2026-11-18): the user, on the sheet saying Shadow Tag and Last Stand holders are not trapped while the
+    // code trapped them: "코드 수정". Like Shadow Tag, it no longer traps Shadow Tag or Last Stand holders (the bearer's
+    // own self-trap stays)
     new AbBuilder(AbilityId.LAST_STAND, 9) //
-      .attr(ArenaTrapAbAttr, () => true)
+      .attr(ArenaTrapAbAttr, (_user, target) => !isShadowTagExempt(target))
       .attr(
         PostSummonStatStageChangeAbAttr,
         [
@@ -2442,6 +2446,17 @@ const sheerForceHitDisableAbCondition: AbAttrCondition = (pokemon: Pokemon): boo
 
 /** Tracks the `battleData` reference at the time the Zero to Hero form change message was shown. */
 const zeroToHeroFormChangeMessage = new WeakMap<Pokemon, object>();
+
+/**
+ * Local fork (2026-11-18): whether Shadow Tag and Last Stand (결사항전) leave this Pokémon free because it has one of
+ * them itself (as a passive too). The user, on the sheet saying Last Stand does not trap Shadow Tag and Last Stand
+ * holders: "코드 수정".
+ * @param target - The Pokémon the trapping ability would trap
+ * @returns Whether it has Shadow Tag or Last Stand
+ */
+function isShadowTagExempt(target: Pokemon): boolean {
+  return target.hasAbility(AbilityId.SHADOW_TAG) || target.hasAbility(AbilityId.LAST_STAND);
+}
 
 /**
  * DRY implementation for the `AIMovegenMoveStatsAbAttr` effect of harsh-sunlight summoning abilities.

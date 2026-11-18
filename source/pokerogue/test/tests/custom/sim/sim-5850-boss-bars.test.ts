@@ -14,6 +14,8 @@
 import { Battle } from "#app/battle";
 import { getGameMode } from "#app/game-mode";
 import { speciesDataRegistry } from "#app/global-species-data-registry";
+// Local fork (2026-11-18): f = 1 below (the player at 1.0636 x C, option 다)
+import { ENDLESS_PLAYER_LEVEL_FOLLOW_NEUTRAL_RATIO, getNaturalMaxExpLevel } from "#balance/endless-level-scaling";
 import { modifierTypes } from "#data/data-lists";
 import { rollTrainerBattleForm } from "#data/enemy-battle-forms";
 import { AbilityId } from "#enums/ability-id";
@@ -104,6 +106,14 @@ describe.skipIf(!process.env.FORK_SIM)("Sim: 5850 final trainers' boss bars and 
   async function buildParty(type: TrainerType, seed: string, wave: number = ENDLESS_FINAL_WAVE): Promise<PartyRecord> {
     const { scene } = game;
     scene.clearEnemyHeldItemModifiers();
+    // Local fork (2026-11-18): enemy levels follow the player both ways from wave 1000 (endless-level-scaling.ts), and
+    // the starter Feebas at its starting level would get the 0.8 floor. Option 다 (f = max(0.8, 0.9637 x (P / C) ^ 0.6))
+    // gives 0.9637 at the wave's expected level C and 1 at 1.0636 x C (`ENDLESS_PLAYER_LEVEL_FOLLOW_NEUTRAL_RATIO`; a
+    // whole level there moves no rounded enemy level), so the members come out on the normal level curve, as before (the
+    // 3차 rule gave f = 1 for any player up to C)
+    scene.getPlayerParty()[0].level = Math.round(
+      getNaturalMaxExpLevel(scene.gameMode, wave) * ENDLESS_PLAYER_LEVEL_FOLLOW_NEUTRAL_RATIO,
+    );
     scene.setSeed(seed);
     scene.resetSeed(wave);
     const trainer = new Trainer(type, TrainerVariant.DEFAULT);

@@ -6,7 +6,8 @@
 import { Battle } from "#app/battle";
 import { getGameMode } from "#app/game-mode";
 import { timedEventManager } from "#app/global-event-manager";
-import { getEndlessLevelBonus } from "#balance/endless-level-scaling";
+// Local fork (2026-11-18): with the two-sided level follow from wave 1000
+import { getEndlessEnemyLevelFactor, getEndlessLevelBonus } from "#balance/endless-level-scaling";
 import { allBiomes } from "#data/data-lists";
 import { LATE_SIGNATURE_BATTLE_FORMS, rollTrainerBattleForm } from "#data/enemy-battle-forms";
 import { AbilityId } from "#enums/ability-id";
@@ -420,10 +421,15 @@ describe("Custom - late boss trainers in Endless biome pools past wave 200", () 
           const base = 1 + wave / 2 + (wave / 25) ** 2;
           // Local fork (2026-11-13): 08 명세 4번, past wave 500 every member also gets the Candy Jar term S(w) on top
           const endlessBonus = getEndlessLevelBonus(game.scene.gameMode, wave);
+          // Local fork (2026-11-18): from battle wave 1000 every level is also x f, the two-sided follow factor
+          // max(0.8, 0.9637 x (P / C) ^ 0.6) (option 다; 0.8 for this low-level party, far under the floor's 0.7332 x C,
+          // "초보에게는 조금더 낮고"), rounded (endless-level-scaling.ts); 1 before wave 1000
+          const follow = getEndlessEnemyLevelFactor(game.scene.gameMode, wave);
+          expect(follow, label).toBe(wave >= 1000 ? 0.8 : 1);
           for (const [i, p] of party.entries()) {
             expect(p.level, label).toBe(battle.enemyLevels?.[i]);
-            expect(p.level, label).toBeGreaterThanOrEqual(Math.floor(base) + endlessBonus);
-            expect(p.level, label).toBeLessThanOrEqual(Math.ceil(base * 1.25) + endlessBonus);
+            expect(p.level, label).toBeGreaterThanOrEqual(Math.round((Math.floor(base) + endlessBonus) * follow));
+            expect(p.level, label).toBeLessThanOrEqual(Math.round((Math.ceil(base * 1.25) + endlessBonus) * follow));
             expect(p.trainerSlot, label).toBe(TrainerSlot.TRAINER);
             expect(p.getMoveset().length, label).toBeGreaterThan(0);
             expect(p.hp, label).toBe(p.getMaxHp());

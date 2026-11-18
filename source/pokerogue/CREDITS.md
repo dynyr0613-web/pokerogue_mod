@@ -836,3 +836,19 @@ and [everyone else](https://github.com/pagefaultgames/pokerogue/graphs/contribut
     sparkles in an accent colour, grown 15% by doubling three rows and three columns:
     `tools/port/make_shiny_mark_icons.py`).
   - The Perfect IV Mark is PokéSprite's Gold Bottle Cap (`items/other-item/gold-bottle-cap.png`, above), doubled.
+- Local fork (2026-11-18), Z-Move battle animations: the 18 Z-Moves (`assets/battle-anims/<z-move>-physical.json` /
+  `-special.json`) and ten exclusive Z-Moves (Malicious Moonsault, Guardian of Alola, Soul-Stealing 7-Star Strike,
+  Stoked Sparksurfer, Genesis Supernova, Searing Sunraze Smash, Menacing Moonraze Maelstrom, Let's Snuggle Forever,
+  Splintered Stormshards, Clangorous Soulblaze) are Pokémon Reborn's "PRAS" move animations by the Pokémon Reborn Team
+  (animations: Smeargletail, Mde2001, Autumn, VulpesDraconis, Amethyst, Crim, andracass, Koyoss, Jan; the same set as
+  the "Move Animations" credit above), converted from the copy that comes with the user's Pokémon Essentials v21.1
+  project (`Data/PkmnAnimations.rxdata`, `Graphics/Animations/PRAS- *.png`) by
+  `D:/PokeRogueDev/tools/port/essentials_anims.py` outside the repository. New sheets and backgrounds in
+  `assets/images/battle_anims/` (halved like PokéRogue's other PRAS sheets): PRAS- Acid Downpour (+ BG1, FG2),
+  Clanging Scales, Clangorous Soulblaze BG, Corkscrew Crash, Electric (Essentials), GOA, Genesis Supernova, Lets
+  Snuggle Forever, Malicious Moonsault BG, Rock (Essentials), Savage Spin Out, Shattered Psyche (Essentials),
+  Soul-Stealing 7-Star Strike (+ BG), Splintered Stormshards, SunMoonZ, Tectonic Rage (+ BG). The sounds are
+  PokéRogue's existing PRSFX files (Pokémon Reborn) and 98 more PRSFX sounds of the Z-moves taken from the same
+  Essentials project (`Audio/SE/Anim/*.ogg`, converted to 16-bit .wav in `assets/audio/battle_anims/` by
+  `D:/PokeRogueDev/tools/port/essentials_anim_sounds.py`). Terms: Pokémon Reborn's "credit what you borrow"
+  (`assets/LICENSES/LicenseRef-POKEMON-REBORN.txt`).

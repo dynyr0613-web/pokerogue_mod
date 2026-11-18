@@ -59,6 +59,12 @@ Additions in this modified build
     kyledove (Pokéngine, https://pokengine.org): Kamado, Professor Sada, Professor Turo, Carmine, Briar.
       Pokéngine Public Use Policy, non-commercial with credit (https://pokengine.org/legal/public-use-policy;
       licenses/code/LicenseRef-Pokengine-Public-Use.txt).
+- Z-Move battle animations (the 18 Z-Moves and the exclusive Z-Moves Malicious Moonsault, Guardian of Alola,
+  Soul-Stealing 7-Star Strike, Stoked Sparksurfer, Genesis Supernova, Searing Sunraze Smash, Menacing Moonraze
+  Maelstrom, Let's Snuggle Forever, Splintered Stormshards and Clangorous Soulblaze): Pokémon Reborn's PRAS move
+  animations by the Pokémon Reborn Team (https://www.rebornevo.com/; animations by Smeargletail, Mde2001, Autumn,
+  VulpesDraconis, Amethyst, Crim, andracass, Koyoss, Jan), the same set as PokeRogue's other move animations,
+  converted from the copy in Pokémon Essentials v21.1, with 98 of its Z-move sound effects. Terms: licenses/assets/LicenseRef-POKEMON-REBORN.txt.
 - The other new item icons and encounter pictures not listed above were made for this build (drawn by its author,
   or edited from PokéRogue's own art).
 - The idea of a second (passive) ability chosen per species comes from YOUNG's "Pokémon: Another Red";

@@ -1,7 +1,7 @@
 {
   "intro": "An alpha Pokémon appeared!",
   "title": "Alpha!",
-  "description": "(Description to be added)",
+  "description": "The leader of a herd has stepped in front of you to protect its herd! Will you leave, or will you fight?",
   "query": "What will you do?",
   "option": {
     "1": {

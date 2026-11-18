@@ -224,10 +224,16 @@ describe.skipIf(!process.env.FORK_SIM)("Sim - ace growth supply in Endless", () 
     }
 
     // 2. Level cap
-    out.push("=== getMaxExpLevel");
+    // Local fork (2026-11-18): from Endless wave 1000 the cap is lifted ("1000웨이브 이후는 레벨캡은 그냥 풉시다"):
+    // getMaxExpLevel is Number.MAX_SAFE_INTEGER there and the cap formula is only the expected level C
+    // (getWaveLevelCap), so both are printed
+    out.push("=== getWaveLevelCap (the cap formula C) / getMaxExpLevel (the enforced cap; none from wave 1000)");
     for (const wave of [200, 500, 1000, 2000, 3000, 4000, 5000, 5800, 5849, 5850]) {
       setWave(wave);
-      out.push(`wave ${wave}: ${game.scene.getMaxExpLevel()}`);
+      const enforced = game.scene.getMaxExpLevel();
+      out.push(
+        `wave ${wave}: ${game.scene.getWaveLevelCap()} / ${enforced >= Number.MAX_SAFE_INTEGER ? "none" : enforced}`,
+      );
     }
 
     // 3. Money

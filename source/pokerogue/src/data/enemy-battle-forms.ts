@@ -1131,8 +1131,10 @@ function setFixedFusionTail(head: EnemyPokemon, tail: SignatureFusionTail): void
  * Local fork (2026-11-10): a new active form-change item `item` for `pokemon`, its type made by the reward generator
  * (`RARE_FORM_CHANGE_ITEM` below 150, as the generators split them, else `FORM_CHANGE_ITEM`) so it carries the type id
  * and tier a save needs to restore it, on the enemy's side and on the player's after a capture.
+ * Local fork (2026-11-18): exported for the enemy Dynamax state's Max Mushrooms (enemy-dynamax.ts; the user: "적
+ * 다이맥스 상태 넣고"), made the same way, so a save restores them with the enemy's other items.
  */
-function newFormChangeItem(item: FormChangeItem, pokemon: Pokemon): PokemonFormChangeItemModifier {
+export function newFormChangeItem(item: FormChangeItem, pokemon: Pokemon): PokemonFormChangeItemModifier {
   const typeFunc = item < 150 ? modifierTypes.RARE_FORM_CHANGE_ITEM : modifierTypes.FORM_CHANGE_ITEM;
   const generator = typeFunc().withIdFromFunc(typeFunc).withTierFromPool(ModifierPoolType.PLAYER);
   const type = (generator as ModifierTypeGenerator).generateType([], [item]) as FormChangeItemModifierType;

@@ -849,6 +849,10 @@ function initUltraModifierPool() {
               AbilityId.MISTY_SURGE,
               // Local fork (2026-11-14): custom moves. The Rock extends the Garden (정원) its holder sets too
               AbilityId.GARDENER,
+              // Local fork (2026-11-18): the user, on the Mystical Rock reward condition: "터보엔진, 금빛고동 추가".
+              // Turbo Engine sets sun and Golden Pulse sets Electric Terrain on entry, both extended by the Rock
+              AbilityId.TURBO_ENGINE,
+              AbilityId.GOLDEN_PULSE,
             ].some(a => p.hasAbility(a, false, true));
 
             const hasMoves = [

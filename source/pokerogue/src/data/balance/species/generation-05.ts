@@ -6642,6 +6642,10 @@ export function initGenerationFive(): SpeciesDataMapConfig {
     eggTier: EggTier.RARE,
     passives: AbilityId.MULTISCALE,
     levelMoves: [
+      // Local fork (2026-11-18): the user, on Headstrong (막무가내) doing nothing for the Archen line: "기술머신 및 기억버섯
+      // 목록에 추가". Memory Mushroom (relearn) moves that it boosts; Brave Bird is also a TM below, Head Smash has no TM
+      [RELEARN_MOVE, MoveId.HEAD_SMASH],
+      [RELEARN_MOVE, MoveId.BRAVE_BIRD],
       [1, MoveId.LEER],
       [1, MoveId.QUICK_ATTACK],
       [1, MoveId.DOUBLE_TEAM],
@@ -6710,6 +6714,7 @@ export function initGenerationFive(): SpeciesDataMapConfig {
       MoveId.ROCK_POLISH,
       MoveId.AQUA_TAIL,
       MoveId.DRAGON_PULSE,
+      MoveId.BRAVE_BIRD, // Local fork (2026-11-18): the user: "기술머신 및 기억버섯 목록에 추가" (Archeops inherits it)
       MoveId.EARTH_POWER,
       MoveId.SHADOW_CLAW,
       MoveId.ZEN_HEADBUTT,
@@ -6759,6 +6764,9 @@ export function initGenerationFive(): SpeciesDataMapConfig {
     evolutions: [],
     passives: AbilityId.MULTISCALE,
     levelMoves: [
+      // Local fork (2026-11-18): the user: "기술머신 및 기억버섯 목록에 추가" (see Archen)
+      [RELEARN_MOVE, MoveId.HEAD_SMASH],
+      [RELEARN_MOVE, MoveId.BRAVE_BIRD],
       [1, MoveId.LEER],
       [1, MoveId.QUICK_ATTACK],
       [1, MoveId.DOUBLE_TEAM],

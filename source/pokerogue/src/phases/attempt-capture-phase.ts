@@ -6,6 +6,7 @@ import { IS_TEST, isBeta, isDev } from "#constants/app-constants";
 import { SubstituteTag } from "#data/battler-tags";
 import { isRaidBoss, RAID_HP_MULTIPLIER } from "#data/endless-raid"; // Local fork (2026-11-17)
 import { prepareBattleFormCapture } from "#data/enemy-battle-forms"; // Local fork (2026-11-10)
+import { prepareEnemyDynamaxCapture } from "#data/enemy-dynamax"; // Local fork (2026-11-18)
 import { Gender } from "#data/gender";
 import {
   doPokeballBounceAnim,
@@ -252,6 +253,10 @@ export class AttemptCapturePhase extends PokemonPhase {
   catch() {
     const { gameData, phaseManager, pokemonInfoContainer, ui } = globalScene;
     const pokemon = this.getPokemon() as EnemyPokemon;
+    // Local fork (2026-11-18): first, the Max Mushrooms of an enemy in the Dynamax state stay behind and its HP loses the
+    // x1.5 in proportion (enemy-dynamax.ts; the user: "적 다이맥스 상태 넣고"); before the battle-form rule below, so a
+    // G-Max enemy turned back to its base form is never in the state while its stats are worked out
+    prepareEnemyDynamaxCapture(pokemon);
     // Local fork (2026-11-10): one caught in a Mega / G-Max form goes back to its own form and leaves its Mega Stone /
     // Max Mushrooms behind; Primal Groudon / Kyogre and Mega Rayquaza keep the form with the Red Orb / Blue Orb /
     // Rayquazite (enemy-battle-forms.ts; the user: "포획 후에는 메가스톤을 보상으로 먹어야 메가진화/다이맥스 시킬 수
@@ -317,7 +322,14 @@ export class AttemptCapturePhase extends PokemonPhase {
         };
         const addToParty = (slotIndex?: number) => {
           const newPokemon = pokemon.addToParty(this.pokeballType, slotIndex);
-          const modifiers = globalScene.findModifiers(m => m instanceof PokemonHeldItemModifier, false);
+          // Local fork (2026-11-18), review fix: only the caught Pokémon's own items (upstream copied every enemy item):
+          // a fainted double-battle partner in the enemy Dynamax state would otherwise have its Max Mushrooms read
+          // from the player's list and a G-Max form change queued for it (enemy-dynamax.ts; the user: "적 다이맥스 상태
+          // 넣고")
+          const modifiers = globalScene.findModifiers(
+            m => m instanceof PokemonHeldItemModifier && m.pokemonId === pokemon.id,
+            false,
+          );
           if (globalScene.getPlayerParty().filter(p => p.isShiny()).length === PLAYER_PARTY_MAX_SIZE) {
             globalScene.validateAchv(achvs.SHINY_PARTY);
           }

@@ -9,6 +9,7 @@ import { handleTutorial, Tutorial } from "#app/tutorial";
 import { initEncounterAnims, loadEncounterAnimAssets } from "#data/battle-anims";
 import { getCharVariantFromDialogue } from "#data/dialogue";
 import { rollTrainerBattleForm, rollWildBattleForm } from "#data/enemy-battle-forms"; // Local fork (2026-11-10)
+import { rollTrainerDynamax, rollWildDynamax } from "#data/enemy-dynamax"; // Local fork (2026-11-18)
 import { rollTrainerMoveConversions, rollWildMoveConversion } from "#data/enemy-move-conversions"; // Local fork (2026-11-18)
 import { getNatureName } from "#data/nature";
 import { getTitledName } from "#data/pokemon-marks";
@@ -131,6 +132,10 @@ export class EncounterPhase extends BattlePhase {
       // (enemy-move-conversions.ts; the user: "적의 기술은 그냥 낮은 확률로 적 포켓몬 기술 중 하나가 z기술/다이맥스기술
       // 중 하나로 대체되게"), on the final party and moveset, before the sprites and move animations load below
       rollTrainerMoveConversions(battle.enemyParty);
+      // Local fork (2026-11-18): last, one member may come in the Dynamax state, holding Max Mushrooms with max HP x1.5
+      // (enemy-dynamax.ts; the user: "적 다이맥스 상태 넣고"), on the final party and HP (boss bars and their HP
+      // correction included), before the sprites load and the HP is shown; a reloaded wave keeps it from its saved items
+      rollTrainerDynamax(battle.enemyParty);
     }
 
     battle.enemyLevels?.every((level, e) => {
@@ -175,6 +180,9 @@ export class EncounterPhase extends BattlePhase {
         // (enemy-move-conversions.ts; the user: "적의 기술은 그냥 낮은 확률로 적 포켓몬 기술 중 하나가 z기술/다이맥스기술
         // 중 하나로 대체되게"), on its final moveset, before its sprite and move animations load
         rollWildMoveConversion(battle.enemyParty[e], e);
+        // Local fork (2026-11-18): last, it may come in the Dynamax state, holding Max Mushrooms with max HP x1.5
+        // (enemy-dynamax.ts; the user: "적 다이맥스 상태 넣고"), before the Pokédex, the boss-bar split and its sprite
+        rollWildDynamax(battle.enemyParty[e], e);
       }
       const enemyPokemon = globalScene.getEnemyParty()[e];
       if (e < (battle.double ? 2 : 1)) {

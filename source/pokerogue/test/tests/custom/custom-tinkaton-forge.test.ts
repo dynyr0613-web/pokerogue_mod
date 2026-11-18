@@ -25,6 +25,8 @@ import {
   canForgePokemon,
   forgePokemon,
   getForgedSteelCount,
+  getForgeStacksPerVisit,
+  getForgeStacksToAdd,
   isForgedPokemon,
   isForgeEligibleSteelPokemon,
   isFullyForgedPokemon,
@@ -77,6 +79,9 @@ const enFiles = import.meta.glob(
  * Local fork (2026-11-13): 10 명세 3번, option 2 forges a Steel type only again (a fusion's types counted, fainted or
  * not) and gives two pieces a forge, cut at ten (0 -> 2 -> 4 -> 6 -> 8 -> 10; nine -> ten). A non-Steel Pokémon
  * forged in the any-type days keeps its pieces and their boost but gets no more.
+ * Local fork (2026-11-18): 10 결과 8장 5번, the user: "단조강철을 받는 이벤트에서 강철은 두개, 강철 아닌놈들은 하나이게
+ * 하자고 했던 것 같네요". Option 2 takes any type again: a Steel type (same rule as above) gets two pieces a forge, any
+ * other type one (0 -> 1 -> ... -> 10), both cut at ten; only a Pokémon holding ten is turned away.
  */
 describe("Custom mystery encounter - Tinkaton's Forge (TINKATON_FORGE)", () => {
   let phaserGame: Phaser.Game;
@@ -158,11 +163,17 @@ describe("Custom mystery encounter - Tinkaton's Forge (TINKATON_FORGE)", () => {
     pokemon.calculateStats();
   }
 
-  /** Local fork (2026-11-13): forges `pokemon` `times` times; each forge adds what is expected (two, one at nine) */
+  /**
+   * Local fork (2026-11-13): forges `pokemon` `times` times; each forge adds what is expected (two, one at nine).
+   * Local fork (2026-11-18): two for a Steel type, one for any other type, cut at ten
+   */
   function forgeTimes(pokemon: PlayerPokemon, times: number): void {
     for (let i = 0; i < times; i++) {
       const before = getForgedSteelCount(pokemon);
-      expect(forgePokemon(pokemon)).toBe(Math.min(FORGED_STEEL.stacksPerForge, FORGED_STEEL.maxHeld - before));
+      const per = isForgeEligibleSteelPokemon(pokemon) ? 2 : 1;
+      expect(getForgeStacksPerVisit(pokemon)).toBe(per);
+      expect(getForgeStacksToAdd(pokemon)).toBe(Math.min(per, FORGED_STEEL.maxHeld - before));
+      expect(forgePokemon(pokemon)).toBe(Math.min(per, FORGED_STEEL.maxHeld - before));
     }
   }
 
@@ -249,19 +260,30 @@ describe("Custom mystery encounter - Tinkaton's Forge (TINKATON_FORGE)", () => {
   describe("option 2 - forge the steel", () => {
     // Local fork (2026-11-12): any type until the 10 명세; until 2026-11-12 a Steel type not forged yet
     // Local fork (2026-11-13): 10 명세 3번, a Steel type with fewer than ten pieces again
-    it("needs a Steel-type party member holding fewer than ten pieces", async () => {
+    // Local fork (2026-11-18): any type with fewer than ten again ("강철 아닌놈들은 하나")
+    it("needs a party member of any type holding fewer than ten pieces: a party without a Steel type can forge", async () => {
       const [lapras, abra] = await startEncounter([SpeciesId.LAPRAS, SpeciesId.ABRA]);
       const option = TinkatonForgeEncounter.options[1];
       expect(lapras.isOfType(PokemonType.STEEL) || abra.isOfType(PokemonType.STEEL)).toBe(false);
       expect(isForgeEligibleSteelPokemon(lapras) || isForgeEligibleSteelPokemon(abra)).toBe(false);
-      expect(canForgePokemon(lapras)).toBe(false);
-      expect(canForgePokemon(abra)).toBe(false);
-      expect(option.meetsRequirements()).toBe(false); // no Steel type at all
+      expect(canForgePokemon(lapras)).toBe(true);
+      expect(canForgePokemon(abra)).toBe(true);
+      expect(option.meetsRequirements()).toBe(true); // no Steel type at all, and still on
       expect(TinkatonForgeEncounter.options[0].meetsRequirements()).toBe(true);
       expect(TinkatonForgeEncounter.options[2].meetsRequirements()).toBe(true);
+
+      setForged(lapras, 10);
+      expect(canForgePokemon(lapras)).toBe(false);
+      expect(option.meetsRequirements()).toBe(true); // Abra can still take one
+      setForged(abra, 9);
+      expect(canForgePokemon(abra)).toBe(true); // nine pieces: the tenth is still offered
+      expect(option.meetsRequirements()).toBe(true);
+      forgeTimes(abra, 1);
+      expect(getForgedSteelCount(abra)).toBe(10);
+      expect(option.meetsRequirements()).toBe(false); // everyone holds ten
     });
 
-    it("is enabled by one Steel type with fewer than ten pieces and disabled once every Steel type holds ten", async () => {
+    it("is enabled while anyone holds fewer than ten pieces and disabled once every party member holds ten", async () => {
       const [skarmory, lapras, magnemite] = await startEncounter();
       const option = TinkatonForgeEncounter.options[1];
       expect(isForgeEligibleSteelPokemon(skarmory)).toBe(true); // Steel/Flying
@@ -275,20 +297,26 @@ describe("Custom mystery encounter - Tinkaton's Forge (TINKATON_FORGE)", () => {
       forgeTimes(skarmory, 1);
       expect(isFullyForgedPokemon(skarmory)).toBe(true);
       expect(canForgePokemon(skarmory)).toBe(false);
-      expect(option.meetsRequirements()).toBe(true); // Magnemite can still be forged
+      expect(option.meetsRequirements()).toBe(true); // Magnemite and Lapras can still be forged
 
       setForged(magnemite, 9);
       expect(canForgePokemon(magnemite)).toBe(true); // nine pieces: a tenth is still offered
-      expect(option.meetsRequirements()).toBe(true);
       forgeTimes(magnemite, 1);
       expect(getForgedSteelCount(magnemite)).toBe(10);
       expect(canForgePokemon(magnemite)).toBe(false);
-      // every Steel type holds ten; Lapras, not a Steel type, doesn't count with none
+      // every Steel type holds ten; Lapras, not a Steel type, still counts (2026-11-18)
       expect(getForgedSteelCount(lapras)).toBe(0);
+      expect(option.meetsRequirements()).toBe(true);
+      forgeTimes(lapras, 9);
+      expect(getForgedSteelCount(lapras)).toBe(9);
+      expect(option.meetsRequirements()).toBe(true);
+      forgeTimes(lapras, 1);
+      expect(getForgedSteelCount(lapras)).toBe(10);
       expect(option.meetsRequirements()).toBe(false);
     });
 
-    // 10 명세 3번: "합체 포켓몬은 합체 후 현재 타입 기준, 기절 여부 무관"
+    // 10 명세 3번: "합체 포켓몬은 합체 후 현재 타입 기준, 기절 여부 무관". Local fork (2026-11-18): the same rule now
+    // decides two pieces (Steel) or one (any other type) instead of whether it can be forged at all
     it("counts a fusion's types and a fainted Steel type, not a Tera type, Soak or Forest's Curse", async () => {
       const [skarmory, lapras, magnemite] = await startEncounter();
       // Lapras (Water/Ice) fused with Klink (Steel): Water/Steel
@@ -315,7 +343,10 @@ describe("Custom mystery encounter - Tinkaton's Forge (TINKATON_FORGE)", () => {
       skarmory.summonData.addedType = PokemonType.GRASS;
       expect(skarmory.isOfType(PokemonType.STEEL)).toBe(false);
       expect(canForgePokemon(skarmory)).toBe(true);
-      // and the other way: unfused, Lapras with a Steel Tera type and Steel added on top is still no Steel type
+      expect(isForgeEligibleSteelPokemon(skarmory)).toBe(true);
+      expect(forgePokemon(skarmory)).toBe(2); // Local fork (2026-11-18): still two
+      // and the other way: unfused, Lapras with a Steel Tera type and Steel added on top is still no Steel type.
+      // Local fork (2026-11-18): it gets one piece, as any other type; it got none from the 10 명세 until then
       lapras.fusionSpecies = null;
       lapras.calculateStats();
       lapras.teraType = PokemonType.STEEL;
@@ -323,8 +354,8 @@ describe("Custom mystery encounter - Tinkaton's Forge (TINKATON_FORGE)", () => {
       lapras.summonData.addedType = PokemonType.STEEL;
       expect(lapras.isOfType(PokemonType.STEEL)).toBe(true);
       expect(isForgeEligibleSteelPokemon(lapras)).toBe(false);
-      expect(forgePokemon(lapras)).toBe(0);
-      expect(getForgedSteelCount(lapras)).toBe(2); // the two from its fused days stay
+      expect(forgePokemon(lapras)).toBe(1);
+      expect(getForgedSteelCount(lapras)).toBe(3); // the two from its fused days stay, one more now
     });
 
     it("forges the chosen Pokémon for good, raises its HP by the max HP gained, and ends with no reward screen", async () => {
@@ -356,37 +387,71 @@ describe("Custom mystery encounter - Tinkaton's Forge (TINKATON_FORGE)", () => {
       expect(scene.phaseManager.hasPhaseOfType("SelectModifierPhase")).toBe(false);
       const logs = game.textInterceptor.logs;
       expect(logs.some(l => l.includes("Tinkaton gave Skarmory a mighty pounding!"))).toBe(true);
-      expect(logs.some(l => l.includes("Skarmory's body became even sturdier!"))).toBe(true);
+      // Local fork (2026-11-18): the text says how many it got
+      expect(logs.some(l => l.includes("Skarmory got 2 Forged Steel, and its body became even sturdier!"))).toBe(true);
     });
 
-    // Local fork (2026-11-13): 10 명세 3번, a Steel type only again (it was any type from 2026-11-12)
-    it("does not forge a Pokémon that is not a Steel type", async () => {
+    // Local fork (2026-11-18): the user: "강철 아닌놈들은 하나"; from the 10 명세 until then a non-Steel Pokémon got none
+    it("forges a non-Steel Pokémon picked on the party screen: one piece, x1.1, and the text says one", async () => {
+      game.override.startingLevel(50);
       const [skarmory, lapras, magnemite] = await startEncounter();
       expect(lapras.isOfType(PokemonType.STEEL)).toBe(false);
+      const maxBefore = lapras.getMaxHp();
       const balls = [...Object.values(scene.pokeballCounts)];
 
-      expect(forgePokemon(lapras)).toBe(0);
+      await runMysteryEncounterToEnd(game, 2, { pokemonNo: 2 });
 
-      expect(forgedSteelOf(lapras)).toHaveLength(0);
+      expect(forgedSteelOf(lapras)).toHaveLength(1);
+      expect(getForgedSteelCount(lapras)).toBe(1);
       expect(isForgedPokemon(skarmory) || isForgedPokemon(magnemite)).toBe(false);
-      expect(lapras.calculateBaseStats()).toEqual(speciesBase(SpeciesId.LAPRAS));
-      // no stack-full fallback either
+      // Lapras 130/85/80/85/95/60, one piece x1.1: 143, 88, 104.5 -> 104
+      expect(lapras.calculateBaseStats()).toEqual([143, 85, 88, 85, 104, 60]);
+      expect(lapras.getMaxHp()).toBeGreaterThan(maxBefore);
+      // no stack-full fallback, no reward screen
       expect(Object.values(scene.pokeballCounts)).toEqual(balls);
-      expect(scene.phaseManager.hasPhaseOfType("MessagePhase")).toBe(false);
+      expect(scene.phaseManager.hasPhaseOfType("SelectModifierPhase")).toBe(false);
+      const logs = game.textInterceptor.logs;
+      expect(logs.some(l => l.includes("Tinkaton gave Lapras a mighty pounding!"))).toBe(true);
+      expect(logs.some(l => l.includes("Lapras got 1 Forged Steel, and its body became even sturdier!"))).toBe(true);
     });
 
-    // Local fork (2026-11-13): save compatibility with the any-type days (2026-11-12 to the 10 명세)
-    it("lets a non-Steel Pokémon forged under the old rule keep its pieces and their boost, but gives it no more", async () => {
+    // Local fork (2026-11-18): 0 -> 1 -> ... -> 10 for any type that is not Steel
+    it("forges a non-Steel Pokémon full in ten visits, one piece each, in one stack", async () => {
+      const [, lapras] = await startEncounter();
+      expect(FORGED_STEEL.stacksPerForgeNonSteel).toBe(1);
+      const counts = [getForgedSteelCount(lapras)];
+      for (let visit = 1; visit <= 10; visit++) {
+        expect(getForgeStacksToAdd(lapras)).toBe(1);
+        expect(forgePokemon(lapras)).toBe(1);
+        counts.push(getForgedSteelCount(lapras));
+      }
+      expect(counts).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+      expect(forgedSteelOf(lapras)).toHaveLength(1);
+      expect(isFullyForgedPokemon(lapras)).toBe(true);
+      expect(canForgePokemon(lapras)).toBe(false);
+      expect(getForgeStacksToAdd(lapras)).toBe(0);
+      const balls = [...Object.values(scene.pokeballCounts)];
+      expect(forgePokemon(lapras)).toBe(0); // an eleventh visit gives nothing, and no stack-full fallback
+      expect(Object.values(scene.pokeballCounts)).toEqual(balls);
+      expect(scene.phaseManager.hasPhaseOfType("MessagePhase")).toBe(false);
+      // ten pieces, x2.0: Lapras 130/85/80/85/95/60 -> 260/85/160/85/190/60
+      expect(lapras.calculateBaseStats()).toEqual([260, 85, 160, 85, 190, 60]);
+    });
+
+    // Local fork (2026-11-13): save compatibility with the any-type days (2026-11-12 to the 10 명세). Local fork
+    // (2026-11-18): such a Pokémon can take more again, one a forge
+    it("lets a non-Steel Pokémon forged under the old rule keep its pieces and take one more a forge", async () => {
       const [, lapras] = await startEncounter();
       setForged(lapras, 3);
       // Lapras 130/85/80/85/95/60, three pieces x1.3: 169, 104, 123.5 -> 123
       expect(lapras.calculateBaseStats()).toEqual([169, 85, 104, 85, 123, 60]);
-      expect(canForgePokemon(lapras)).toBe(false);
+      expect(canForgePokemon(lapras)).toBe(true);
 
-      expect(forgePokemon(lapras)).toBe(0);
+      expect(forgePokemon(lapras)).toBe(1);
 
-      expect(getForgedSteelCount(lapras)).toBe(3);
-      expect(lapras.calculateBaseStats()).toEqual([169, 85, 104, 85, 123, 60]);
+      expect(getForgedSteelCount(lapras)).toBe(4);
+      // four pieces x1.4: 182, 112, 133
+      expect(lapras.calculateBaseStats()).toEqual([182, 85, 112, 85, 133, 60]);
     });
 
     it("adds two pieces to the ones the picked Pokémon holds, and only the tenth to one holding nine", async () => {
@@ -420,7 +485,8 @@ describe("Custom mystery encounter - Tinkaton's Forge (TINKATON_FORGE)", () => {
       expect(getForgedSteelCount(skarmory)).toBe(10);
     });
 
-    it("turns away a non-Steel Pokémon (even one holding pieces) and a full Steel one with their reasons", async () => {
+    // Local fork (2026-11-18): only a full Pokémon is turned away, Steel or not; the "Steel only" refusal is gone
+    it("turns away only a full Pokémon, Steel or not, with its reason", async () => {
       const [skarmory, lapras, magnemite] = await startEncounter();
       setForged(magnemite, 10);
       setForged(lapras, 4); // forged in the any-type days
@@ -429,20 +495,26 @@ describe("Custom mystery encounter - Tinkaton's Forge (TINKATON_FORGE)", () => {
       await runMysteryEncounterToEnd(game, 2, { pokemonNo: 1 });
 
       const filter = select.mock.calls[0][2] as PokemonSelectFilter;
-      expect(filter(lapras)).toBe("Only Steel-type Pokémon can be forged!");
+      expect(filter(lapras)).toBeNull(); // not a Steel type, four pieces: it can take one more
       expect(filter(magnemite)).toBe("That Pokémon already holds the most Forged Steel it can (10)!");
       expect(filter(skarmory)).toBeNull(); // two pieces, from this pick
       expect(getForgedSteelCount(skarmory)).toBe(2);
       expect(getForgedSteelCount(magnemite)).toBe(10);
       expect(getForgedSteelCount(lapras)).toBe(4);
-      // a full non-Steel one is turned away for not being a Steel type
+      // a full non-Steel one is turned away for being full
       setForged(lapras, 10);
-      expect(filter(lapras)).toBe("Only Steel-type Pokémon can be forged!");
+      expect(filter(lapras)).toBe("That Pokémon already holds the most Forged Steel it can (10)!");
+      // and a Steel type at nine is offered (it gets the tenth only)
+      setForged(skarmory, 9);
+      expect(filter(skarmory)).toBeNull();
+      expect(getForgeStacksToAdd(skarmory)).toBe(1);
     });
 
     it("keeps the party screen open with the reason after a wrong pick; cancelling goes back to the options", async () => {
       const [skarmory, lapras] = await startEncounter();
-      // Local fork (2026-11-13): 10 명세 3번, Lapras is not a Steel type
+      // Local fork (2026-11-13): 10 명세 3번, Lapras is not a Steel type. Local fork (2026-11-18): any type can be
+      // forged again, so the wrong pick is a full Lapras
+      setForged(lapras, 10);
       const partyTexts: string[] = [];
       const origShowText = MessageUiHandler.prototype.showText;
       vi.spyOn(MessageUiHandler.prototype, "showText").mockImplementation(function (
@@ -458,9 +530,11 @@ describe("Custom mystery encounter - Tinkaton's Forge (TINKATON_FORGE)", () => {
 
       await runSelectMysteryEncounterOption(game, 2, { pokemonNo: 2 });
 
-      await vi.waitFor(() => expect(partyTexts).toContain("Only Steel-type Pokémon can be forged!"));
+      await vi.waitFor(() =>
+        expect(partyTexts).toContain("That Pokémon already holds the most Forged Steel it can (10)!"),
+      );
       expect(scene.ui.mode).toBe(UiMode.PARTY);
-      expect(getForgedSteelCount(lapras)).toBe(0);
+      expect(getForgedSteelCount(lapras)).toBe(10);
 
       const party = scene.ui.getHandler<PartyUiHandler>();
       await vi.waitFor(() => expect(party.processInput(Button.ACTION)).toBe(true)); // closes the message
@@ -468,7 +542,7 @@ describe("Custom mystery encounter - Tinkaton's Forge (TINKATON_FORGE)", () => {
       await vi.waitFor(() => expect(scene.ui.mode).toBe(UiMode.MYSTERY_ENCOUNTER));
       expect(game).toBeAtPhase("MysteryEncounterPhase");
       expect(isForgedPokemon(skarmory)).toBe(false);
-      expect(getForgedSteelCount(lapras)).toBe(0);
+      expect(getForgedSteelCount(lapras)).toBe(10);
     });
 
     it("multiplies HP, Def and SpDef base stats by 1.1 with one piece, rounded down, and nothing else", async () => {
@@ -597,6 +671,7 @@ describe("Custom mystery encounter - Tinkaton's Forge (TINKATON_FORGE)", () => {
       const balls = [...Object.values(scene.pokeballCounts)];
       expect(FORGED_STEEL.maxHeld).toBe(10);
       expect(FORGED_STEEL.stacksPerForge).toBe(2);
+      expect(FORGED_STEEL.stacksPerForgeNonSteel).toBe(1); // Local fork (2026-11-18)
       expect(Object.isFrozen(FORGED_STEEL)).toBe(true);
       expect(Object.isFrozen(FORGED_STEEL.stats)).toBe(true);
       // Local fork (2026-11-13): 10 명세 3번, nine held: the forge adds only the tenth
@@ -662,31 +737,47 @@ describe("Custom mystery encounter - Tinkaton's Forge (TINKATON_FORGE)", () => {
     const koItem = (koFiles["../../../locales/ko/modifier-type.json"] as any).ModifierType.FORGED_STEEL;
     const enItem = (enFiles["../../../locales/en/modifier-type.json"] as any).ModifierType.FORGED_STEEL;
 
-    // Local fork (2026-11-13): 10 명세 3번, a Steel type only again, two pieces a forge
-    it("ask for a Steel type again and give two pieces a forge", () => {
+    // Local fork (2026-11-13): 10 명세 3번, a Steel type only again, two pieces a forge.
+    // Local fork (2026-11-18): any type again, two for a Steel type and one for the others ("강철은 두개, 강철
+    // 아닌놈들은 하나"): the tooltip, the party-screen prompt and the result say so; the Steel-only refusal is gone
+    it("take any type and say a Steel type gets two pieces a forge and the others one", () => {
       for (const option of [koDialogue.option["2"], enDialogue.option["2"]]) {
-        expect(option.notSteel).toBeTypeOf("string");
+        expect(option.notSteel).toBeUndefined();
         expect(option.alreadyForged).toBeUndefined();
         expect(option.fullyForged).toBeTypeOf("string");
+        expect(option.selected).toContain("{{forgedCount}}");
       }
-      expect(koDialogue.option["2"].notSteel).toBe("강철 타입 포켓몬만 단조할 수 있다!");
-      expect(enDialogue.option["2"].notSteel).toBe("Only Steel-type Pokémon can be forged!");
       const per = FORGED_STEEL.stacksPerForge;
-      expect(koDialogue.option["2"].tooltip).toContain(`강철 타입 포켓몬에게 단조강철 ${per}개`);
-      expect(enDialogue.option["2"].tooltip).toContain(`Steel type gets ${per} Forged Steel`);
-      expect(koDialogue.option["2"].disabledTooltip).toContain("강철 타입");
-      expect(enDialogue.option["2"].disabledTooltip).toContain("Steel type");
+      const other = FORGED_STEEL.stacksPerForgeNonSteel;
+      expect([per, other]).toEqual([2, 1]);
+      expect(koDialogue.option["2"].tooltip).toContain(`(+) 단조강철: 강철 타입은 ${per}개, 다른 타입은 ${other}개`);
+      expect(enDialogue.option["2"].tooltip).toContain(
+        `(+) Forged Steel: ${per} for a Steel type, ${other} for others`,
+      );
+      expect(koDialogue.option["2"].prompt).toBe(
+        `단조할 포켓몬을 선택하세요.\n(강철 타입은 ${per}개, 다른 타입은 ${other}개)`,
+      );
+      expect(enDialogue.option["2"].prompt).toBe(
+        `Choose a Pokémon to forge.\n(Steel types get ${per}, others ${other})`,
+      );
+      expect(koDialogue.option["2"].selected).toContain("[[는]] 단조강철을 {{forgedCount}}개 얻어");
+      expect(enDialogue.option["2"].selected).toContain("{{forgedPokemon}} got {{forgedCount}} Forged Steel");
+      // the option is off only when everyone is full: the disabled tooltip names no type
+      expect(koDialogue.option["2"].disabledTooltip).toBe("(-) 단조강철이 10개 미만인\n포켓몬이 없다");
+      expect(enDialogue.option["2"].disabledTooltip).toBe("(-) No party member holds\nfewer than 10 Forged Steel");
       // the item itself works on any holder (old saves): its text names no type
       expect(JSON.stringify([koItem, enItem])).not.toMatch(/강철 ?타입|Steel[- ]type/i);
-      // nothing left of the any-type or one-piece wording
+      // nothing left of the Steel-only, the older any-type or the one-piece wording
       const ko = JSON.stringify([koDialogue, koItem]);
       const en = JSON.stringify([enDialogue, enItem]);
-      expect(ko).not.toMatch(/모든 포켓몬|단조를 마친/);
-      expect(en).not.toMatch(/Every Pokémon|already been forged|one per|any type/i);
-      // short enough for the tooltip box: at most three lines each
+      expect(ko).not.toMatch(/모든 포켓몬|단조를 마친|강철 타입 포켓몬만|강철 타입 포켓몬에게/);
+      expect(en).not.toMatch(/Every Pokémon|already been forged|one per|any type|Only Steel|Your Steel type/i);
+      // short enough for the tooltip box: at most three lines each; the party-screen box holds two
       for (const option of [koDialogue.option["2"], enDialogue.option["2"]]) {
         expect(option.tooltip.split("\n").length).toBeLessThanOrEqual(3);
         expect(option.disabledTooltip.split("\n").length).toBeLessThanOrEqual(3);
+        expect(option.prompt.split("\n").length).toBeLessThanOrEqual(2);
+        expect(option.fullyForged.split("\n").length).toBe(1);
       }
     });
 
@@ -933,7 +1024,7 @@ describe("Custom mystery encounter - Tinkaton's Forge (TINKATON_FORGE)", () => {
         "장비를 벼려 달라고 한다",
         "(+) 쓸만한 아이템",
         "강철을 단조한다",
-        "(+) 강철 타입 포켓몬에게 단조강철 2개\n(+) 1개당 체력·방어·특수방어 종족치 +10% (최대 10개)",
+        "(+) 단조강철: 강철 타입은 2개, 다른 타입은 1개\n(+) 1개당 체력·방어·특수방어 종족치 +10% (최대 10개)", // Local fork (2026-11-18)
         "두드리짱과의 즐거운 대련!",
         "(-) 두드리짱과의 전투\n(+) 경험치",
       ]) {
@@ -942,12 +1033,28 @@ describe("Custom mystery encounter - Tinkaton's Forge (TINKATON_FORGE)", () => {
     });
 
     // Local fork (2026-11-12): it was "without a Steel type" until then, "every party member holds ten" after.
-    // Local fork (2026-11-13): 10 명세 3번, no Steel type with fewer than ten again
-    it("shows the disabled tooltip when no Steel type can take more", async () => {
+    // Local fork (2026-11-13): 10 명세 3번, no Steel type with fewer than ten again.
+    // Local fork (2026-11-18): every party member holds ten again, whatever its type
+    it("shows the disabled tooltip when no party member can take more", async () => {
       flow = "disabled";
-      await startEncounter([SpeciesId.LAPRAS, SpeciesId.ABRA]);
+      const party = await startEncounter([SpeciesId.SKARMORY, SpeciesId.LAPRAS, SpeciesId.ABRA]);
+      for (const pokemon of party) {
+        setForged(pokemon, 10);
+      }
+      expect(TinkatonForgeEncounter.options[1].meetsRequirements()).toBe(false);
       await hoverOptions();
-      expect(textsOf(flow).join("\n")).toContain("(-) 단조강철이 10개 미만인\n강철 타입 포켓몬이 없다");
+      expect(textsOf(flow).join("\n")).toContain("(-) 단조강철이 10개 미만인\n포켓몬이 없다");
+    });
+
+    // Local fork (2026-11-18): a party without a Steel type sees the option on, with its normal tooltip
+    it("shows option 2 on for a party without a Steel type", async () => {
+      flow = "noSteel";
+      await startEncounter([SpeciesId.LAPRAS, SpeciesId.ABRA]);
+      expect(TinkatonForgeEncounter.options[1].meetsRequirements()).toBe(true);
+      await hoverOptions();
+      const texts = textsOf(flow).join("\n");
+      expect(texts).toContain("(+) 단조강철: 강철 타입은 2개, 다른 타입은 1개");
+      expect(texts).not.toContain("(-) 단조강철이 10개 미만인");
     });
 
     it("option 1: the hammering", async () => {
@@ -965,14 +1072,29 @@ describe("Custom mystery encounter - Tinkaton's Forge (TINKATON_FORGE)", () => {
       const select = vi.spyOn(EncounterPhaseUtils, "selectPokemonForOption");
       await runMysteryEncounterToEnd(game, 2, { pokemonNo: 1 });
       const filter = select.mock.calls[0][2] as PokemonSelectFilter;
-      expect(filter(lapras)).toBe("강철 타입 포켓몬만 단조할 수 있다!"); // Local fork (2026-11-13)
+      // Local fork (2026-11-18): not a Steel type is no reason to turn it away any more; only a full one is
+      expect(filter(lapras)).toBeNull();
       expect(filter(magnemite)).toBe("단조강철을 이미 최대 10개까지 지닌 포켓몬이다!");
+      setForged(lapras, 10);
+      expect(filter(lapras)).toBe("단조강철을 이미 최대 10개까지 지닌 포켓몬이다!");
       const texts = textsOf(flow).join("\n");
-      expect(texts).toContain("[party] 단조할 포켓몬을 선택하세요.");
-      expect(texts).toContain("두드리짱이 무장조를 힘껏 두드렸다!$무장조의 몸이 더욱 단단해졌다!");
+      expect(texts).toContain("[party] 단조할 포켓몬을 선택하세요.\n(강철 타입은 2개, 다른 타입은 1개)");
+      expect(texts).toContain("두드리짱이 무장조를 힘껏 두드렸다!$무장조는 단조강철을 2개 얻어\n몸이 더욱 단단해졌다!");
       expect(i18next.t("modifierType:ModifierType.FORGED_STEEL.name")).toBe("단조강철");
       expect(i18next.t("modifierType:ModifierType.FORGED_STEEL.description")).toBe(
         "체력, 방어, 특수방어 종족치를 1개당 10%씩 올려준다(합연산, 1.1~2.0배, 최대 10개).",
+      );
+    });
+
+    // Local fork (2026-11-18): "강철 아닌놈들은 하나"
+    it("option 2: a non-Steel pick gets one piece and the text says one", async () => {
+      flow = "forgeOther";
+      const [, lapras] = await startEncounter();
+      await runMysteryEncounterToEnd(game, 2, { pokemonNo: 2 });
+      expect(getForgedSteelCount(lapras)).toBe(1);
+      const texts = textsOf(flow).join("\n");
+      expect(texts).toContain(
+        "두드리짱이 라프라스를 힘껏 두드렸다!$라프라스는 단조강철을 1개 얻어\n몸이 더욱 단단해졌다!",
       );
     });
 

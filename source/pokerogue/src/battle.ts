@@ -167,6 +167,8 @@ export class Battle {
     // (endless-level-scaling.ts; the user: "4000웨이브 정도부턴
     // 레벨 스케일링을 플레이어에게 맞춰보죠, 적의 에이스 포켓몬이 플레이어의 가장 높은 레벨의 포켓몬의 레벨에 비례하도록");
     // exactly 1 (no change) in every other case. It draws no random number.
+    // Local fork (2026-11-18): from battle wave 1000 and two-sided: max(0.8, 0.9637 x (P / C) ^ 0.6) for every P, under 1
+    // below about 1.064 x C (option 다; the user: "초보에게는 조금더 낮고, 고수에게는 좀더 높은 레벨의 상대가 나오도록")
     const playerFollowFactor = getEndlessEnemyLevelFactor(this.gameMode, this.waveIndex);
 
     if (this.gameMode.isBoss(this.waveIndex)) {

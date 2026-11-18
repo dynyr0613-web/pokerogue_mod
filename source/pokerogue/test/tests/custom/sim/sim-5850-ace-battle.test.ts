@@ -58,6 +58,11 @@
  *   different rules never share a tag in a merged summary (records written before the 11 run have no `run`). Each
  *   enemy also says what took its last HP (`koBy`: the ace's hit, or "other": recoil, its own Life Orb, weather, a
  *   support's hit), and `koTurn` / `turnsToKo` count either.
+ *   Local fork (2026-11-18), 12 build: Tinkaton's Forge takes any type again ("강철은 두개, 강철 아닌놈들은 하나"), so
+ *   a non-Steel ace holds 2 Forged Steel by default (1 a forge x the median 2 visits; the Steel-type aces keep 4), and
+ *   the game's enemy levels follow the ace both ways from wave 1000 (option 다, f = max(0.8, 0.9637 x (P / C)^0.6),
+ *   chosen 2026-11-18; the `factor` in every record). The build tag is "12" ("11" was the 11-13 forge rule with the 3차 level rule; FORK_SIM_FORGED set
+ *   still gives "10" / "09"; the 4-lens ablation is now "12@L4/2.4").
  *
  * Player AI each turn: the usable move with the highest expected damage on the current target (simulated
  * `getAttackDamage` x accuracy); Choice-locked into a move that does 0 (immunity) -> switch to a support, then back
@@ -93,8 +98,9 @@
  *                                   no Shackles (the default, since the 09 re-run: all four Choice items, no Shackles)
  *   FORK_SIM_NOVICE_NO_SHACKLES=1   with FORK_SIM_BUILD07: the novice ace holds no Training Shackles (sensitivity run)
  *   FORK_SIM_GUARD=65               the party's Guard Tokens (default 65, the cap; 0 = none, the 09 run)
- *   FORK_SIM_FORGED=2               every ace's Forged Steel pieces (default since the 11 run: 4 for a Steel-type ace,
- *                                   0 for the others; the 10 run gave every ace 2; 0 = none, the 09 run; cap 10)
+ *   FORK_SIM_FORGED=2               every ace's Forged Steel pieces (default since the 12 build: 4 for a Steel-type ace,
+ *                                   2 for the others; the 11 run gave the others 0, the 10 run gave every ace 2;
+ *                                   0 = none, the 09 run; cap 10)
  *   FORK_SIM_LENS=3                 the ace's Multi Lenses (default the player cap, PLAYER_HELD_ITEM_CAPS.MULTI_LENS = 3
  *                                   since the 4th balance patch; above it the cap is raised for the run: 4 = the old cap)
  *   FORK_SIM_LOG_BASE=2.4           BOSS_SEGMENT_OVERFLOW.logBase for the run (default the game's, 2.4; 2 = the old rule)
@@ -385,12 +391,20 @@ const GUARD_TOKENS = Number(process.env.FORK_SIM_GUARD ?? (BUILD07 || BUILD08 ? 
  * by default a Steel-type ace holds {@linkcode FORGED_STEEL_PIECES_STEEL} and the others none
  * ({@linkcode forgedSteelPiecesFor}). FORK_SIM_FORGED=n gives every ace n (the ablations; 0 = none, as in the 09 run;
  * the item's own cap is 10); this is that override, `null` when not set.
+ * Local fork (2026-11-18): 12 build, the forge takes any type again, two pieces a visit for a Steel type and one for
+ * the others (the user: "단조강철을 받는 이벤트에서 강철은 두개, 강철 아닌놈들은 하나이게 하자고 했던 것 같네요"), so by
+ * default a non-Steel ace holds {@linkcode FORGED_STEEL_PIECES_OTHER} (2) instead of none.
  */
 const FORGED_STEEL_OVERRIDE = process.env.FORK_SIM_FORGED == null ? null : Number(process.env.FORK_SIM_FORGED);
 /** Local fork (2026-11-13): 11 re-run, the median forge visits by wave 5850 (round-3 economy sim; mean 2.30) */
 const MEDIAN_FORGE_VISITS = 2;
 /** Local fork (2026-11-13): 11 re-run, a Steel-type ace's Forged Steel: 2 pieces a forge x 2 visits = 4 */
 const FORGED_STEEL_PIECES_STEEL = FORGED_STEEL.stacksPerForge * MEDIAN_FORGE_VISITS;
+/**
+ * Local fork (2026-11-18): 12 build, a non-Steel ace's Forged Steel: 1 piece a forge
+ * (`FORGED_STEEL.stacksPerForgeNonSteel`, "강철 아닌놈들은 하나") x 2 visits = 2; none under the 11 build's rule
+ */
+const FORGED_STEEL_PIECES_OTHER = FORGED_STEEL.stacksPerForgeNonSteel * MEDIAN_FORGE_VISITS;
 /** Local fork (2026-11-13): the Forged Steel pieces `def` holds in this run (none in the old builds unless set) */
 function forgedSteelPiecesFor(def: AceDef): number {
   if (FORGED_STEEL_OVERRIDE != null) {
@@ -399,7 +413,8 @@ function forgedSteelPiecesFor(def: AceDef): number {
   if (BUILD07 || BUILD08) {
     return 0;
   }
-  return def.steelType ? FORGED_STEEL_PIECES_STEEL : 0;
+  // Local fork (2026-11-18): 12 build, a non-Steel ace gets its one piece a forge too (it got none in the 11 build)
+  return def.steelType ? FORGED_STEEL_PIECES_STEEL : FORGED_STEEL_PIECES_OTHER;
 }
 /** Local fork (2026-11-13): 11 re-run, the player's Multi Lens cap as the game sets it (3 since 10 명세 1번) */
 const PLAYER_LENS_CAP: number = PLAYER_HELD_ITEM_CAPS.MULTI_LENS;
@@ -428,19 +443,23 @@ const PRE_PATCH4_RULES = { lens: 4, logBase: 2 } as const;
  * The tag names the item build; a run whose lenses or log base are not the ones that build's own round played with
  * (07-10: {@linkcode PRE_PATCH4_RULES}; 11: the game's) gets them appended, e.g. "10@L3/2.4", so a merged summary never
  * puts records of different rules under one tag.
+ * Local fork (2026-11-18): "12" = the 11 build with the 11-18 forge rule (a non-Steel ace holds
+ * {@linkcode FORGED_STEEL_PIECES_OTHER}); the default now. The enemy levels follow the 11-18 two-sided rule from the
+ * game code (the `factor` of every record), so a "12" record never mixes with an "11" one (3차 level rule).
  */
 function buildName(): string {
-  let items: "07" | "08" | "09" | "10" | "11";
+  // Local fork (2026-11-18): "11" is no longer made here (its forge rule is gone from the game)
+  let items: "07" | "08" | "09" | "10" | "12";
   if (BUILD07) {
     items = "07";
   } else if (BUILD08) {
     items = "08";
   } else if (FORGED_STEEL_OVERRIDE == null) {
-    items = "11";
+    items = "12";
   } else {
     items = GUARD_TOKENS > 0 || FORGED_STEEL_OVERRIDE > 0 ? "10" : "09";
   }
-  const own = items === "11" ? { lens: PLAYER_LENS_CAP, logBase: BOSS_SEGMENT_OVERFLOW.logBase } : PRE_PATCH4_RULES;
+  const own = items === "12" ? { lens: PLAYER_LENS_CAP, logBase: BOSS_SEGMENT_OVERFLOW.logBase } : PRE_PATCH4_RULES;
   return LENS_COUNT === own.lens && RUN_LOG_BASE === own.logBase ? items : `${items}@L${LENS_COUNT}/${RUN_LOG_BASE}`;
 }
 const BUILD_NAME = buildName();
@@ -1614,6 +1633,7 @@ describe.skipIf(!process.env.FORK_SIM)("Sim - the 5850 ace battle", () => {
     // Local fork (2026-11-13): 10 re-run, the 3rd balance patch's Forged Steel (HP / Def / SpDef base stats x(10 + n) /
     // 10, applied first in calculateBaseStats). Local fork (2026-11-13): 11 re-run, 4 pieces on a Steel-type ace and
     // none on the others (10 명세 3번), or FORK_SIM_FORGED on every ace; the static flag must match the forge's rule
+    // Local fork (2026-11-18): 12 build, 2 on the others (one piece a forge, forgedSteelPiecesFor)
     if (isForgeEligibleSteelPokemon(ace) !== def.steelType) {
       throw new Error(
         `${def.id}: steelType ${def.steelType}, but the forge's rule says ${isForgeEligibleSteelPokemon(ace)} `
@@ -1915,7 +1935,8 @@ describe.skipIf(!process.env.FORK_SIM)("Sim - the 5850 ace battle", () => {
       statStages: v.batonPass ? "+6 Atk / +6 SpA / +6 Spe" : "none",
       // Local fork (2026-11-13): 09 re-run, the level following ("적의 에이스 포켓몬이 플레이어의 가장 높은 레벨의
       // 포켓몬의 레벨에 비례하도록"): P, C and f = max(1, P / C) ^ 0.5 (α = 1 before the 3rd balance patch) for this party
-      // on this wave (the party is unchanged since the Battle constructor rolled the levels)
+      // on this wave (the party is unchanged since the Battle constructor rolled the levels). Local fork (2026-11-18): f
+      // is read from the game, now max(0.8, 0.9637 x (P / C) ^ 0.6) (option 다)
       enemyLevelFollow: {
         highestPlayerLevel: getHighestPlayerPartyLevel(),
         cap: getNaturalMaxExpLevel(scene.gameMode, WAVE),
