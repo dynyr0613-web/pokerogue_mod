@@ -19,6 +19,7 @@ import { Unlockables } from "#enums/unlockables";
 import { getBiomeKey } from "#field/arena";
 import type { Modifier } from "#modifiers/modifier";
 import { getDailyRunStarterModifiers, regenerateModifierPoolThresholds } from "#modifiers/modifier-type";
+import { dexCollectionAchvs } from "#system/achv"; // Local fork (2026-11-18)
 import { vouchers } from "#system/voucher";
 import type { OptionSelectItem, OptionSelectModeConfig } from "#types/ui-types";
 import { SaveSlotUiMode } from "#ui/save-slot-select-ui-handler";
@@ -394,6 +395,11 @@ export class TitlePhase extends Phase {
       if (Object.hasOwn(vouchers, achv) && achv !== "CLASSIC_VICTORY") {
         globalScene.validateVoucher(vouchers[achv]);
       }
+    }
+    // Local fork (2026-11-18): the Pokédex collection achievements an older save already meets unlock here, as a run
+    // starts, rather than all at once in the middle of a battle with its next catch, hatch or form change (achv.ts)
+    for (const achv of dexCollectionAchvs) {
+      globalScene.validateAchv(achv);
     }
 
     super.end();

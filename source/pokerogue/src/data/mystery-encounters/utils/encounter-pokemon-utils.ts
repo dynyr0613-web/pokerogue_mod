@@ -14,6 +14,7 @@ import {
   getPokeballTintColor,
 } from "#data/pokeball";
 import { CustomPokemonData } from "#data/pokemon-data";
+import { rollDestinyMark } from "#data/pokemon-marks"; // Local fork (2026-11-18)
 import type { PokemonSpecies } from "#data/pokemon-species";
 import { getStatusEffectCatchRateMultiplier } from "#data/status-effect";
 import type { AbilityId } from "#enums/ability-id";
@@ -704,6 +705,10 @@ export async function catchPokemon(
           }
         });
       };
+      // Local fork (2026-11-18): a Pokémon caught here may get the hidden Destiny Mark (1 in 100); one bought does not
+      if (!isObtain) {
+        rollDestinyMark(pokemon);
+      }
       Promise.all([pokemon.hideInfo(), gameData.setPokemonCaught(pokemon)]).then(() => {
         if (!(isObtain || addStatus.value)) {
           removePokemon();

@@ -4,8 +4,8 @@ import { timedEventManager } from "#app/global-event-manager";
 import { globalScene } from "#app/global-scene";
 import { IS_TEST, isBeta, isDev } from "#constants/app-constants";
 import { SubstituteTag } from "#data/battler-tags";
-import { prepareBattleFormCapture } from "#data/enemy-battle-forms"; // Local fork (2026-11-10)
 import { isRaidBoss, RAID_HP_MULTIPLIER } from "#data/endless-raid"; // Local fork (2026-11-17)
+import { prepareBattleFormCapture } from "#data/enemy-battle-forms"; // Local fork (2026-11-10)
 import { Gender } from "#data/gender";
 import {
   doPokeballBounceAnim,
@@ -14,6 +14,7 @@ import {
   getPokeballCatchMultiplier,
   getPokeballTintColor,
 } from "#data/pokeball";
+import { rollDestinyMark } from "#data/pokemon-marks";
 import { getStatusEffectCatchRateMultiplier } from "#data/status-effect";
 import { BattlerIndex } from "#enums/battler-index";
 import { ChallengeType } from "#enums/challenge-type";
@@ -326,6 +327,8 @@ export class AttemptCapturePhase extends PokemonPhase {
         if (this.pokeballType === PokeballType.MASTER_BALL) {
           pokemon.addMark(PokemonMark.MASTER_BALL_MARK);
         }
+        // Local fork (2026-11-18): and, by luck (1 in 100), the hidden Destiny Mark (pokemon-marks.ts)
+        rollDestinyMark(pokemon);
         Promise.all([pokemon.hideInfo(), gameData.setPokemonCaught(pokemon)]).then(() => {
           if (!addStatus.value) {
             removePokemon();

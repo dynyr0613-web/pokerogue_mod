@@ -45,7 +45,9 @@ import { getStarterData } from "#ui/starter-select-ui-utils";
 import Phaser from "phaser";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-describe("Local fork - alpha Pokémon", () => {
+// Local fork (2026-11-18): several tests here build hundreds of Pokémon or eggs; alone they take 1-3 s, but under a
+// full parallel run they went past the 20 s default
+describe("Local fork - alpha Pokémon", { timeout: 60_000 }, () => {
   let phaserGame: Phaser.Game;
   let game: GameManager;
 

@@ -389,7 +389,7 @@
   },
   "destinyMark": {
     "name": "운명의증표",
-    "description": "도감 번호와 같은 웨이브에서 만난 포켓몬이라는 증표.",
+    "description": "운명처럼 만난 포켓몬이라는 증표. 잡거나 부화할 때 1% 확률.",
     "title": "운명을 느끼는"
   },
   "gourmandMark": {

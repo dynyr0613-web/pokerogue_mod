@@ -18,8 +18,8 @@
  * - The Best Friends Ribbon is bought after the Partner Mark; the six stat effort ribbons, the Effort Ribbon and the
  *   two footprint ribbons are earned during a run (`awardProgressRibbons`); the Endless Master Ribbon goes to the
  *   party that clears Endless (`awardPartyRibbon`).
- * - Local fork (2026-11-18), more hidden ones (the user: "새 히든 증표•리본"): the Destiny Mark comes with a wild
- *   Pokémon met on the wave of its National Pokédex number (`isDestinyWave`), the Gourmand Mark with all six IV
+ * - Local fork (2026-11-18), more hidden ones (the user: "새 히든 증표•리본"): the Destiny Mark comes by luck, 1 in
+ *   100, with a Pokémon that is caught or hatched (`rollDestinyMark`), the Gourmand Mark with all six IV
  *   Candies eaten up to the cap (`awardProgressRibbons`), the Itemfinder Mark with the first item Pickup picks up
  *   (`awardItemfinderMark`); the Gen 4 ability ribbons go to the party that clears Endless wave 500, 1000, 2000, 3000,
  *   4000 and 5000 (`awardEndlessMilestoneRibbon`), the Hisui Ribbon to the party that beats a named trainer from
@@ -49,7 +49,6 @@ import { getEvCap } from "#modifiers/ev-items";
 import { FORK_NAMED_TRAINER_TYPES } from "#trainers/named-trainers";
 import type { StarterDataEntry } from "#types/save-data";
 import { NumberHolder, randSeedInt, randSeedItem } from "#utils/common";
-import { getDexNumber } from "#utils/pokemon-utils";
 import { toCamelCase } from "#utils/strings";
 import i18next from "i18next";
 import Phaser from "phaser";
@@ -503,32 +502,44 @@ export function getWildMarkRolls(): number {
 }
 
 /**
- * Local fork (2026-11-18): whether a wild Pokémon of the species met on the wave carries the hidden Destiny Mark: its
- * National Pokédex number is the wave's (Pikachu, 25, on wave 25), and in Endless past the last number (1025, which
- * is Pecharunt's wave) also the wave's last three digits (Pikachu on waves 2025, 3025 ...; Raichu on 1026, 2026 ...).
- * A regional form counts as its species. No roll: the same wave always gives the same answer.
- * @param speciesId - The Pokémon's species
- * @param waveIndex - The wave
- * @param isEndless - Whether the run is Endless or Spliced Endless
+ * Local fork (2026-11-18): the odds of the hidden Destiny Mark, 1 in this many Pokémon caught or hatched (the user:
+ * "운명의 포켓몬은 그냥 운으로 찾게 포획/알까기 시 1% 확률로 나오게 해두죠")
  */
-export function isDestinyWave(speciesId: SpeciesId, waveIndex: number, isEndless: boolean): boolean {
-  const dexNumber = getDexNumber(speciesId);
-  return dexNumber === waveIndex || (isEndless && waveIndex > SpeciesId.PECHARUNT && dexNumber === waveIndex % 1000);
+export const DESTINY_MARK_ONE_IN = 100;
+
+/**
+ * Local fork (2026-11-18): give a Pokémon that is being caught or hatched the hidden Destiny Mark, 1 time in
+ * {@linkcode DESTINY_MARK_ONE_IN}, before its marks join the collection (`GameData.setPokemonCaught`). The roll has its
+ * own seed from the Pokémon ({@linkcode getWildRollSeedOffset}), so it changes nothing else and gives the same answer
+ * for the same Pokémon after a reload. Called where a Pokémon is caught (a thrown ball, an encounter's catch) and
+ * where an egg hatches; not for a Pokémon that is bought or given.
+ * @param pokemon - The Pokémon caught or hatched
+ * @returns Whether it got the mark now
+ */
+export function rollDestinyMark(pokemon: Pokemon): boolean {
+  if (pokemon.hasMark(PokemonMark.DESTINY_MARK)) {
+    return false;
+  }
+  let lucky = false;
+  globalScene.executeWithSeedOffset(
+    () => {
+      lucky = randSeedInt(DESTINY_MARK_ONE_IN) === 0;
+    },
+    getWildRollSeedOffset(pokemon, 6007),
+    globalScene.waveSeed,
+  );
+  return lucky && pokemon.addMark(PokemonMark.DESTINY_MARK);
 }
 
 /**
  * Give a freshly generated wild Pokémon its mark, if the roll says so. The roll has its own seed
  * ({@linkcode getWildRollSeedOffset}), so it changes nothing else the wave generates.
- * Local fork (2026-11-18): and the Destiny Mark on its own wave ({@linkcode isDestinyWave}), which needs no roll.
  * @param pokemon - The wild Pokémon
  */
 export function applyWildMark(pokemon: Pokemon): void {
   const battle = globalScene.currentBattle;
   if (!battle || !globalScene.arena) {
     return;
-  }
-  if (isDestinyWave(pokemon.species.speciesId, battle.waveIndex, globalScene.gameMode.isEndless)) {
-    pokemon.addMark(PokemonMark.DESTINY_MARK);
   }
   globalScene.executeWithSeedOffset(
     () => {

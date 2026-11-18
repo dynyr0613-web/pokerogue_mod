@@ -1,6 +1,7 @@
 import { globalScene } from "#app/global-scene";
 import { settings } from "#app/global-settings-manager";
 import { speciesDataRegistry } from "#app/global-species-data-registry";
+import { NON_LEGEND_PARADOX_POKEMON, NON_LEGEND_ULTRA_BEASTS } from "#balance/special-species-groups";
 import { ALPHA_MAX_BOOST, normalizeAlphaBoost } from "#data/alpha-pokemon";
 import type { Challenge } from "#data/challenge";
 import {
@@ -26,6 +27,7 @@ import { Challenges } from "#enums/challenges";
 import { PlayerGender } from "#enums/player-gender";
 import { PokemonMark } from "#enums/pokemon-mark";
 import { PokemonType, type RegularPokemonType } from "#enums/pokemon-type";
+import { SpeciesId } from "#enums/species-id";
 import { getShortenedStatKey, Stat } from "#enums/stat";
 import type { Modifier } from "#modifiers/modifier";
 import { TurnHeldItemTransferModifier } from "#modifiers/modifier";
@@ -75,6 +77,15 @@ export const ALL_KINDS_MARKS: readonly PokemonMark[] = [
   PokemonMark.SHINY_MARK,
   PokemonMark.RARE_SHINY_MARK,
 ];
+
+/**
+ * Local fork (2026-11-18): the hidden marks the last achievement asks for: all but the Itemfinder Mark, which only a
+ * Pokémon with Pickup can earn (the user: "습득의 증표는 픽업 특성이 있는 포켓몬만 획득 가능하니 그것도 제외해야 할
+ * 것 같고")
+ */
+export const THE_END_MARKS: readonly PokemonMark[] = COMPLETION_EXEMPT_MARKS.filter(
+  m => m !== PokemonMark.ITEMFINDER_MARK,
+);
 
 /** Local fork (2026-11-17): the wild marks collected so far, counting every one */
 function countWildMarks(): number {
@@ -221,6 +232,61 @@ export class MarkCollectionAchv extends Achv {
       amount: this.amount?.toLocaleString("en-US"),
     });
   }
+}
+
+/**
+ * Local fork (2026-11-18): one thing a Pokédex collection achievement asks for: a species caught (or hatched), or a
+ * form of it recorded as caught. A form a player's Pokémon takes in battle (a Mega Evolution, a Primal Reversion,
+ * Necrozma's fusions) is recorded so (`PlayerPokemon.changeForm` → `GameData.setPokemonCaught`).
+ */
+export type DexGoal = SpeciesId | { readonly speciesId: SpeciesId; readonly formKey: string };
+
+/** Local fork (2026-11-18): whether the Pokédex has the goal ({@linkcode DexGoal}) */
+export function isDexGoalMet(goal: DexGoal): boolean {
+  const speciesId = typeof goal === "number" ? goal : goal.speciesId;
+  const caughtAttr = globalScene.gameData.dexData[speciesId]?.caughtAttr ?? 0n;
+  if (typeof goal === "number") {
+    return caughtAttr > 0n;
+  }
+  const formIndex = speciesDataRegistry.getSpecies(speciesId).forms.findIndex(f => f.formKey === goal.formKey);
+  return formIndex >= 0 && (caughtAttr & globalScene.gameData.getFormAttr(formIndex)) > 0n;
+}
+
+/**
+ * Local fork (2026-11-18): an achievement for a group of Pokémon all collected, or forms all taken, read from the
+ * Pokédex (the user: "업적이나 좀 추가해둡시다 / "고대의 거인들"(레지시리즈 전부 모으기) ... 이외에도 환상 전부 수집,
+ * 준전설 전부 수집 등등"). Checked whenever the Pokédex records a catch, a hatch, an evolution or a form
+ * (`GameData.setPokemonCaught`), so an older save gets the ones it already has with the next of those.
+ */
+export class DexCollectionAchv extends Achv {
+  /** The goals, read when checked: the groups by flag need the species data loaded */
+  public readonly getGoals: () => readonly DexGoal[];
+
+  /**
+   * @param localizationKey - The key in `achv.json`; the description may take `{{amount}}`, the number of goals
+   * @param iconImage - The `items` atlas frame of its icon
+   * @param score - The achievement's score
+   * @param goals - The species or forms it asks for, all of them
+   */
+  constructor(localizationKey: string, iconImage: string, score: number, goals: () => readonly DexGoal[]) {
+    super(localizationKey, iconImage, score, () => goals().every(isDexGoalMet));
+    this.getGoals = goals;
+  }
+
+  public override get description(): string {
+    return i18next.t(`achv:${this.localizationKey}.description`, {
+      context: getGenderStr(),
+      amount: this.getGoals().length,
+    });
+  }
+}
+
+/** Local fork (2026-11-18): every species with the flag ({@linkcode DexCollectionAchv}), regional ones included */
+function getSpeciesWith(flag: "legendary" | "subLegendary" | "mythical"): SpeciesId[] {
+  return speciesDataRegistry
+    .getAllSpecies()
+    .filter(s => s[flag])
+    .map(s => s.speciesId);
 }
 
 export class DamageAchv extends Achv {
@@ -845,6 +911,85 @@ export const achvs = {
     () => getMarkCount(PokemonMark.MIGHTIEST_MARK) > 0,
   ),
   ETERNATUS_MARK: new MarkCollectionAchv("eternatusMark", PokemonMark.ETERNATUS_MARK, 150, () => hasEternatusMark()),
+  // Local fork (2026-11-18): Pokédex collections (the user: "업적이나 좀 추가해둡시다"), before the last one
+  ANCIENT_GIANTS: new DexCollectionAchv("ancientGiants", "hard_stone", 50, () => [
+    SpeciesId.REGIROCK,
+    SpeciesId.REGICE,
+    SpeciesId.REGISTEEL,
+    SpeciesId.REGIGIGAS,
+    SpeciesId.REGIELEKI,
+    SpeciesId.REGIDRAGO,
+  ]),
+  DAWN_AND_DUSK: new DexCollectionAchv("dawnAndDusk", "n_solarizer", 50, () => [
+    { speciesId: SpeciesId.NECROZMA, formKey: "dusk-mane" },
+    { speciesId: SpeciesId.NECROZMA, formKey: "dawn-wings" },
+  ]),
+  TIME_SPACE_ANTIMATTER: new DexCollectionAchv("timeSpaceAntimatter", "griseous_core", 50, () => [
+    SpeciesId.DIALGA,
+    SpeciesId.PALKIA,
+    SpeciesId.GIRATINA,
+  ]),
+  SEA_AND_LAND: new DexCollectionAchv("seaAndLand", "blue_orb", 50, () => [
+    { speciesId: SpeciesId.KYOGRE, formKey: "primal" },
+    { speciesId: SpeciesId.GROUDON, formKey: "primal" },
+  ]),
+  SKY_DRAGON: new DexCollectionAchv("skyDragon", "rayquazite", 50, () => [
+    { speciesId: SpeciesId.RAYQUAZA, formKey: "mega" },
+  ]),
+  ULTRA_BEASTS: new DexCollectionAchv("ultraBeasts", "ub", 75, () => NON_LEGEND_ULTRA_BEASTS),
+  PAST_AND_FUTURE: new DexCollectionAchv("pastAndFuture", "booster_energy", 75, () => [
+    ...NON_LEGEND_PARADOX_POKEMON,
+    SpeciesId.KORAIDON,
+    SpeciesId.MIRAIDON,
+  ]),
+  LIFE_AND_DEATH: new DexCollectionAchv("lifeAndDeath", "life_orb", 50, () => [SpeciesId.XERNEAS, SpeciesId.YVELTAL]),
+  RUINOUS_BEASTS: new DexCollectionAchv("ruinousBeasts", "dread_plate", 50, () => [
+    SpeciesId.WO_CHIEN,
+    SpeciesId.CHIEN_PAO,
+    SpeciesId.TING_LU,
+    SpeciesId.CHI_YU,
+  ]),
+  LEGENDARY_BIRDS: new DexCollectionAchv("legendaryBirds", "sharp_beak", 25, () => [
+    SpeciesId.ARTICUNO,
+    SpeciesId.ZAPDOS,
+    SpeciesId.MOLTRES,
+  ]),
+  LEGENDARY_BEASTS: new DexCollectionAchv("legendaryBeasts", "sacred_ash", 25, () => [
+    SpeciesId.RAIKOU,
+    SpeciesId.ENTEI,
+    SpeciesId.SUICUNE,
+  ]),
+  LAKE_GUARDIANS: new DexCollectionAchv("lakeGuardians", "mind_plate", 25, () => [
+    SpeciesId.UXIE,
+    SpeciesId.MESPRIT,
+    SpeciesId.AZELF,
+  ]),
+  SWORDS_OF_JUSTICE: new DexCollectionAchv("swordsOfJustice", "fist_plate", 50, () => [
+    SpeciesId.COBALION,
+    SpeciesId.TERRAKION,
+    SpeciesId.VIRIZION,
+    SpeciesId.KELDEO,
+  ]),
+  GUARDIAN_DEITIES: new DexCollectionAchv("guardianDeities", "tapunium_z", 50, () => [
+    SpeciesId.TAPU_KOKO,
+    SpeciesId.TAPU_LELE,
+    SpeciesId.TAPU_BULU,
+    SpeciesId.TAPU_FINI,
+  ]),
+  TRUTH_AND_IDEALS: new DexCollectionAchv("truthAndIdeals", "light_stone", 25, () => [
+    SpeciesId.RESHIRAM,
+    SpeciesId.ZEKROM,
+  ]),
+  SWORD_AND_SHIELD: new DexCollectionAchv("swordAndShield", "rusted_sword", 25, () => [
+    SpeciesId.ZACIAN,
+    SpeciesId.ZAMAZENTA,
+  ]),
+  ALL_MYTHICAL: new DexCollectionAchv("allMythical", "golden_mystic_ticket", 100, () => getSpeciesWith("mythical")),
+  ALL_SUB_LEGENDARY: new DexCollectionAchv("allSubLegendary", "soul_dew", 100, () => getSpeciesWith("subLegendary")),
+  // Eternatus is left out: it can only be caught once every other Pokémon is (its own achievement, ETERNATUS_MARK)
+  ALL_LEGENDARY: new DexCollectionAchv("allLegendary", "legend_plate", 100, () =>
+    getSpeciesWith("legendary").filter(id => id !== SpeciesId.ETERNATUS),
+  ),
   // Local fork (2026-11-17): the last one, hidden without a hint (the user: "숨겨진 업적(힌트도 안뜸)으로 히든 증표 +
   // 모든 업적 달성 시 완주 라던가 끝"): every hidden mark obtained and every other achievement unlocked. Checked
   // whenever another achievement unlocks (BattleScene.validateAchv). Keep it the last entry.
@@ -854,10 +999,15 @@ export const achvs = {
     200,
     (): boolean =>
       hasEternatusMark()
-      && COMPLETION_EXEMPT_MARKS.every(m => hasEverObtainedMark(m))
+      && THE_END_MARKS.every(m => hasEverObtainedMark(m))
       && Object.keys(achvs).every(id => id === "THE_END" || Object.hasOwn(globalScene.gameData.achvUnlocks, id)),
   ).setSecret(),
 };
+
+/** Local fork (2026-11-18): the Pokédex collection achievements, checked when the Pokédex records something */
+export const dexCollectionAchvs: readonly DexCollectionAchv[] = Object.values(achvs).filter(
+  a => a instanceof DexCollectionAchv,
+);
 
 /** Local fork (2026-11-17): the achievements for collecting marks and ribbons, in the order they are checked */
 export const markCollectionAchvs: readonly MarkCollectionAchv[] = Object.values(achvs).filter(

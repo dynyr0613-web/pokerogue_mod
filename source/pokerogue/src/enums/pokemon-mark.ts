@@ -144,8 +144,7 @@ export enum PokemonMark {
 
   // #region Local fork (2026-11-18): hidden marks of the main series (the user: "새 히든 증표•리본")
   /**
-   * The Destiny Mark (운명의증표): a wild Pokémon whose National Pokédex number is the wave's (in Endless past wave
-   * 1025 also the wave's last three digits) carries it (`isDestinyWave`)
+   * The Destiny Mark (운명의증표): by luck, 1 Pokémon in 100 that is caught or hatched gets it (`rollDestinyMark`)
    */
   DESTINY_MARK = 212,
   /** The Gourmand Mark (미식가의증표): a Pokémon that has eaten all six IV Candies up to its cap */

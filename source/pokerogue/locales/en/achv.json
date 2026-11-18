@@ -389,9 +389,104 @@
     "name_female": "The End of Eternity",
     "description": "Obtain the Eternatus Mark."
   },
+  "ancientGiants": {
+    "name": "Ancient Giants",
+    "name_female": "Ancient Giants",
+    "description": "Collect Regirock, Regice, Registeel, Regigigas, Regieleki and Regidrago."
+  },
+  "dawnAndDusk": {
+    "name": "Dawn and Dusk",
+    "name_female": "Dawn and Dusk",
+    "description": "Fuse Necrozma into Dusk Mane and into Dawn Wings once each."
+  },
+  "timeSpaceAntimatter": {
+    "name": "Time, Space and Antimatter",
+    "name_female": "Time, Space and Antimatter",
+    "description": "Collect Dialga, Palkia and Giratina."
+  },
+  "seaAndLand": {
+    "name": "Sea of Birth, Land of End",
+    "name_female": "Sea of Birth, Land of End",
+    "description": "Register Primal Kyogre and Primal Groudon in the Pokédex."
+  },
+  "skyDragon": {
+    "name": "Dragon of the Heavens",
+    "name_female": "Dragon of the Heavens",
+    "description": "Register Mega Rayquaza in the Pokédex."
+  },
+  "ultraBeasts": {
+    "name": "Ultra Beasts",
+    "name_female": "Ultra Beasts",
+    "description": "Collect all {{amount}} Ultra Beasts."
+  },
+  "pastAndFuture": {
+    "name": "Past and Future",
+    "name_female": "Past and Future",
+    "description": "Collect all {{amount}} Paradox Pokémon, Koraidon and Miraidon included."
+  },
+  "lifeAndDeath": {
+    "name": "Life and Death",
+    "name_female": "Life and Death",
+    "description": "Collect Xerneas and Yveltal."
+  },
+  "ruinousBeasts": {
+    "name": "Four Treasures of Ruin",
+    "name_female": "Four Treasures of Ruin",
+    "description": "Collect Wo-Chien, Chien-Pao, Ting-Lu and Chi-Yu."
+  },
+  "legendaryBirds": {
+    "name": "Legendary Birds",
+    "name_female": "Legendary Birds",
+    "description": "Collect Articuno, Zapdos and Moltres."
+  },
+  "legendaryBeasts": {
+    "name": "Legends of the Burned Tower",
+    "name_female": "Legends of the Burned Tower",
+    "description": "Collect Raikou, Entei and Suicune."
+  },
+  "lakeGuardians": {
+    "name": "Knowledge, Emotion, Willpower",
+    "name_female": "Knowledge, Emotion, Willpower",
+    "description": "Collect Uxie, Mesprit and Azelf."
+  },
+  "swordsOfJustice": {
+    "name": "Swords of Justice",
+    "name_female": "Swords of Justice",
+    "description": "Collect Cobalion, Terrakion, Virizion and Keldeo."
+  },
+  "guardianDeities": {
+    "name": "Guardian Deities of Alola",
+    "name_female": "Guardian Deities of Alola",
+    "description": "Collect Tapu Koko, Tapu Lele, Tapu Bulu and Tapu Fini."
+  },
+  "truthAndIdeals": {
+    "name": "Truth and Ideals",
+    "name_female": "Truth and Ideals",
+    "description": "Collect Reshiram and Zekrom."
+  },
+  "swordAndShield": {
+    "name": "Sword and Shield",
+    "name_female": "Sword and Shield",
+    "description": "Collect Zacian and Zamazenta."
+  },
+  "allMythical": {
+    "name": "Mythical Collector",
+    "name_female": "Mythical Collector",
+    "description": "Collect all {{amount}} Mythical Pokémon."
+  },
+  "allSubLegendary": {
+    "name": "Sub-Legendary Collector",
+    "name_female": "Sub-Legendary Collector",
+    "description": "Collect all {{amount}} Sub-Legendary Pokémon, regional and special forms included."
+  },
+  "allLegendary": {
+    "name": "Legendary Collector",
+    "name_female": "Legendary Collector",
+    "description": "Collect all {{amount}} Legendary Pokémon but Eternatus."
+  },
   "theEnd": {
     "name": "The End",
     "name_female": "The End",
-    "description": "Obtain every hidden mark and unlock every other achievement."
+    "description": "Obtain every hidden mark but the Itemfinder Mark and unlock every other achievement."
   }
 }

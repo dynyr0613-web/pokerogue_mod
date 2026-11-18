@@ -24,6 +24,7 @@ import {
   isPokemonMark,
   isWildLine,
   normalizeMarks,
+  rollDestinyMark,
 } from "#data/pokemon-marks";
 import type { PokemonSpecies } from "#data/pokemon-species";
 import { loadPositionalTag } from "#data/positional-tags/load-positional-tag";
@@ -51,7 +52,7 @@ import * as Modifier from "#modifiers/modifier";
 import { MysteryEncounterSaveData } from "#mystery-encounters/mystery-encounter-save-data";
 import { version } from "#package.json";
 import type { Variant } from "#sprites/variant";
-import { achvs, markCollectionAchvs } from "#system/achv";
+import { achvs, dexCollectionAchvs, markCollectionAchvs } from "#system/achv";
 import { ArenaData, type SerializedArenaData } from "#system/arena-data";
 import { ChallengeData } from "#system/challenge-data";
 import { EggData } from "#system/egg-data";
@@ -1723,6 +1724,11 @@ export class GameData {
       if (!isWildLine(speciesRootForm)) {
         pokemon.addMark(PokemonMark.MASTER_BALL_MARK);
       }
+      // Local fork (2026-11-18): a hatched Pokémon may get the hidden Destiny Mark, 1 in 100, as a caught one does
+      // where it is caught (AttemptCapturePhase, catchPokemon)
+      if (fromEgg) {
+        rollDestinyMark(pokemon);
+      }
       // Local fork (2026-11-17): and its marks join the collection. The mark achievements are checked once the
       // species is caught: the Eternatus Mark (and the hidden-mark achievement) asks for Eternatus caught, which it is
       // only now when the last Pokémon caught is Eternatus
@@ -1733,6 +1739,11 @@ export class GameData {
       for (const achv of markCollectionAchvs) {
         globalScene.validateAchv(achv);
       }
+    }
+    // Local fork (2026-11-18): the Pokédex collection achievements (achv.ts), after a catch or a hatch and after an
+    // evolution or a form change, which record the new species or form too
+    for (const achv of dexCollectionAchvs) {
+      globalScene.validateAchv(achv);
     }
     return caught;
   }

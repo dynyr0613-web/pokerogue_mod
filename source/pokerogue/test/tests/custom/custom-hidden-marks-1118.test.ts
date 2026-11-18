@@ -1,5 +1,5 @@
 // Local fork (2026-11-18): the new hidden marks and ribbons (pokemon-marks.ts). The user: "새 히든 증표•리본".
-// - Destiny Mark (운명의증표): a wild Pokémon met on the wave of its National Pokédex number
+// - Destiny Mark (운명의증표): since the second round, 1 in 100 caught or hatched (custom-dex-achievements-1118)
 // - Gourmand Mark (미식가의증표): all six IV Candies eaten up to the cap
 // - Itemfinder Mark (습득의증표): the first item Pickup picks up
 // - the Gen 4 ability ribbons for clearing Endless wave 500 / 1000 / 2000 / 3000 / 4000 / 5000
@@ -7,7 +7,6 @@
 // and the mark Pokédex's hidden page and the Pokédex page's mark tray that show them.
 
 import { getGameMode } from "#app/game-mode";
-import { speciesDataRegistry } from "#app/global-species-data-registry";
 import { modifierTypes } from "#data/data-lists";
 import {
   awardEndlessMilestoneRibbon,
@@ -19,10 +18,8 @@ import {
   ENDLESS_MILESTONE_RIBBONS,
   getEarnedProgressRibbons,
   getMarkKey,
-  getPokemonTitle,
   hasBeatenAllNamedTrainers,
   hasEatenAllIvCandies,
-  isDestinyWave,
   isPokemonMark,
   isRibbon,
   orderedPokemonMarks,
@@ -53,7 +50,6 @@ import { HIDDEN_PAGE_ROWS } from "#ui/mark-dex-ui-handler";
 import { getMarkTrayHeight } from "#ui/mark-tray-container";
 import fs from "node:fs";
 import path from "node:path";
-import i18next from "i18next";
 import Phaser from "phaser";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -149,51 +145,6 @@ describe("Local fork - the hidden marks and ribbons of 2026-11-18", () => {
     expect(texts.ko.itemfinderMark.title).toBe("트레져헌터");
     expect(texts.ko.hisuiRibbon.title).toBe("먼 옛날의");
     expect(texts.ko.masterRankRibbon.title).toBe("랭크 마스터");
-  });
-
-  it("finds a Pokémon's own wave: its Pokédex number, and in Endless past 1025 the last three digits", () => {
-    expect(SpeciesId.PECHARUNT).toBe(1025);
-    expect(isDestinyWave(SpeciesId.PIKACHU, 25, false)).toBe(true);
-    expect(isDestinyWave(SpeciesId.PIKACHU, 26, false)).toBe(false);
-    expect(isDestinyWave(SpeciesId.ALOLA_RAICHU, 26, false)).toBe(true);
-    // Classic never wraps
-    expect(isDestinyWave(SpeciesId.PIKACHU, 2025, false)).toBe(false);
-    expect(isDestinyWave(SpeciesId.PIKACHU, 2025, true)).toBe(true);
-    expect(isDestinyWave(SpeciesId.PIKACHU, 5025, true)).toBe(true);
-    // Up to 1025 the wave is the number itself
-    expect(isDestinyWave(SpeciesId.PECHARUNT, 1025, true)).toBe(true);
-    expect(isDestinyWave(SpeciesId.PIKACHU, 1025, true)).toBe(false);
-    expect(isDestinyWave(SpeciesId.RAICHU, 1026, true)).toBe(true);
-    expect(isDestinyWave(SpeciesId.WO_CHIEN, 1001, true)).toBe(true);
-    expect(isDestinyWave(SpeciesId.BULBASAUR, 2001, true)).toBe(true);
-    // No Pokémon is number 0
-    expect(isDestinyWave(SpeciesId.PIKACHU, 3000, true)).toBe(false);
-  });
-
-  it("gives a wild Pokémon met on its own wave the Destiny Mark, and its title", async () => {
-    // Every enemy is a Magikarp here (the species override): number 129
-    await game.classicMode.startBattle(SpeciesId.FEEBAS);
-    const magikarp = speciesDataRegistry.getSpecies(SpeciesId.MAGIKARP);
-    game.scene.currentBattle.waveIndex = 130;
-    const other = game.scene.addEnemyPokemon(magikarp, 20, 0, false);
-    expect(other.species.speciesId).toBe(SpeciesId.MAGIKARP);
-    expect(other.hasMark(PokemonMark.DESTINY_MARK)).toBe(false);
-
-    game.scene.currentBattle.waveIndex = 129;
-    const destined = game.scene.addEnemyPokemon(magikarp, 20, 0, false);
-    expect(destined.hasMark(PokemonMark.DESTINY_MARK)).toBe(true);
-    // Announced as the chosen one, before any other mark's title
-    destined.addMark(PokemonMark.ROWDY_MARK);
-    expect(getPokemonTitle(destined)).toBe(i18next.t("pokemonMarks:destinyMark.title"));
-    destined.destroy();
-    other.destroy();
-
-    // In Endless also on the wave's last three digits
-    game.scene.gameMode = getGameMode(GameModes.ENDLESS);
-    game.scene.currentBattle.waveIndex = 3129;
-    const endless = game.scene.addEnemyPokemon(magikarp, 20, 0, false);
-    expect(endless.hasMark(PokemonMark.DESTINY_MARK)).toBe(true);
-    endless.destroy();
   });
 
   /** A generated IV Candy type with its id, as the reward pool gives it */
