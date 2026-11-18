@@ -2327,7 +2327,9 @@ export class RecoilAttr extends MoveEffectAttr {
       return false;
     }
 
-    const recoilDamage = toDmgValue((this.useHp ? user.getMaxHp() : user.turnData.totalDamageDealt) * this.damageRatio);
+    const recoilDamage = toDmgValue(
+      (this.useHp ? user.getMaxHp() : user.turnData.totalDamageDealt) * this.getDamageRatio(user),
+    );
 
     user.damageAndUpdate(recoilDamage, { result: HitResult.INDIRECT, ignoreSegments: true });
     globalScene.phaseManager.queueMessage(
@@ -2338,8 +2340,56 @@ export class RecoilAttr extends MoveEffectAttr {
     return true;
   }
 
+  /** The share of the user's max HP (or of the damage dealt) taken as recoil this time */
+  protected getDamageRatio(_user: Pokemon): number {
+    return this.damageRatio;
+  }
+
   getUserBenefitScore(_user: Pokemon, _target: Pokemon, move: Move): number {
     return Math.floor(move.power / 5 / -4);
+  }
+}
+
+/**
+ * Local fork (2026-11-18): Struggle's recoil grows with every Struggle in a row: 1/4 of max HP the first time, then
+ * 2/4, 3/4 and the whole max HP from the fourth on. A battle where both sides are out of PP and their healing (Leftovers,
+ * Shell Bell, a heal token ...) outweighs a fixed 1/4 could otherwise never end; now it ends within four turns.
+ * "In a row" is read from the move history like Fury Cutter: the entries just before this use (the newest entry is this
+ * use itself) that are Struggle too, whatever their result. A turn the user could not move at all (flinch, sleep,
+ * full paralysis ...: `MovePhase.cancel` records it as `MoveId.NONE`) neither counts nor ends the run, so a foe kept
+ * flinching by King's Rock still reaches the full recoil. A different move ends the run, and so does leaving the
+ * field (the history is cleared) or a new battle (wave): only this wave's entries count, where `resetWaveData`
+ * recorded the history's length (an enemy is new every wave; a replaced history counts from its start).
+ */
+export class StruggleRecoilAttr extends RecoilAttr {
+  /** The recoil share added by each Struggle in a row */
+  public static readonly STEP = 0.25;
+
+  constructor() {
+    super(true, StruggleRecoilAttr.STEP, true);
+  }
+
+  /** How many Struggles in a row `user` has used this battle, counting the current one (at least 1) */
+  public static getStreak(user: Pokemon): number {
+    const history = user.getMoveHistory();
+    const { moveHistoryAtStart, moveHistoryLengthAtStart } = user.waveData;
+    const waveStart = moveHistoryAtStart === history ? Math.min(moveHistoryLengthAtStart, history.length) : 0;
+    let streak = 1;
+    for (let i = history.length - 2; i >= waveStart; i--) {
+      const { move } = history[i];
+      if (move === MoveId.NONE) {
+        continue;
+      }
+      if (move !== MoveId.STRUGGLE) {
+        break;
+      }
+      streak++;
+    }
+    return streak;
+  }
+
+  protected override getDamageRatio(user: Pokemon): number {
+    return Math.min(1, StruggleRecoilAttr.STEP * StruggleRecoilAttr.getStreak(user));
   }
 }
 
@@ -10000,6 +10050,7 @@ const MoveAttrs = Object.freeze({
   ModifiedDamageAttr,
   SurviveDamageAttr,
   RecoilAttr,
+  StruggleRecoilAttr,
   SacrificialAttr,
   SacrificialAttrOnHit,
   HalfSacrificialAttr,
@@ -10694,7 +10745,8 @@ export function initMoves() {
     new SelfStatusMove(MoveId.SUBSTITUTE, PokemonType.NORMAL, -1, 10, -1, 0, 1) //
       .attr(AddSubstituteAttr, 0.25, false),
     new AttackMove(MoveId.STRUGGLE, PokemonType.NORMAL, MoveCategory.PHYSICAL, 50, -1, 1, -1, 0, 1)
-      .attr(RecoilAttr, true, 0.25, true)
+      // Local fork (2026-11-18): recoil 1/4 -> 2/4 -> 3/4 -> all of max HP over Struggles in a row
+      .attr(StruggleRecoilAttr)
       .attr(TypelessAttr)
       .attr(PreMoveMessageAttr, (user: Pokemon) =>
         i18next.t("moveTriggers:struggle", { pokemonName: getPokemonNameWithAffix(user) }),
