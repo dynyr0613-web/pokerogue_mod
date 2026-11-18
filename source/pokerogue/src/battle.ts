@@ -85,6 +85,12 @@ export class Battle {
    * A tracker of the last {@linkcode MoveId} successfully used this battle.
    */
   public lastMove: MoveId = MoveId.NONE;
+  /**
+   * Local fork (2026-11-18): the Max / G-Max / Z move {@linkcode lastMove}'s slot was used as, when it was converted
+   * (move-transform.ts), else `undefined`; read where the move's own effect matters (`SwitchSummonPhase`: a Max move
+   * made from U-turn does not switch out)
+   */
+  public lastMoveUsedAs: MoveId | undefined;
   public battleSeed: string = randomString(16, true);
   private battleSeedState: string | null = null;
   public moneyScattered = 0;

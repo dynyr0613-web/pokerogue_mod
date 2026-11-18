@@ -7,7 +7,8 @@
  *
  * The same tray shows a starter line's collected marks on the Pokédex page opened anywhere else. Either way the
  * action button on a mark that is there wears it (its title goes before the name) or takes it off again, and the
- * header counts the marks: "증표 n/70" (the user: "증표 볼때 장착 가능하게", "포켓몬별 증표 n/50몇개").
+ * header counts the marks: "증표 n/69", and the hidden ones apart, " · 히든 n" (the user: "증표 볼때 장착 가능하게",
+ * "포켓몬별 증표 n/50몇개").
  *
  * A mark that is not there is shown in one of two ways (the user: "아무 포켓몬도 획득한 적 없는 증표는 회색, 다른
  * 포켓몬은 얻은 적 있지만 이 포켓몬에게는 없는 증표는 어두운 색으로 해두고 설명도 다르게"): one the player has never
@@ -17,7 +18,7 @@
 
 import { globalScene } from "#app/global-scene";
 import {
-  COMPLETION_EXEMPT_MARKS,
+  getMarkCountText,
   getMarkDescription,
   getMarkKey,
   getMarkName,
@@ -237,13 +238,9 @@ export class MarkTray extends Phaser.GameObjects.Container {
     this.bringToTop(this.trayCursorObj);
 
     this.trayBg.setSize(8 + COLUMNS * ICON_PITCH, getMarkTrayHeight());
-    this.headerText.setText(
-      i18next.t("pokemonMarks:count", {
-        count: orderedPokemonMarks.filter(m => source.owned.includes(m)).length,
-        // The hidden marks count past the total, as in the mark Pokédex
-        total: orderedPokemonMarks.filter(m => !COMPLETION_EXEMPT_MARKS.includes(m)).length,
-      }),
-    );
+    // Local fork (2026-11-18): the listed marks over their total, and the hidden ones apart ("증표 7/69 · 히든 5");
+    // they used to count past the total ("증표 12/69")
+    this.headerText.setText(getMarkCountText(source.owned));
     this.updateEquippedFrame();
 
     this.setVisible(true);

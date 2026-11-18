@@ -302,6 +302,7 @@
   "ribbonEarned": "{{pokemonName}}[[는]]\n{{ribbonName}}[[를]] 받았다!",
   "equipped": "(장착 중)",
   "count": "증표 {{count}}/{{total}}",
+  "hiddenCount": "히든 {{count}}",
   "bestFriendsRibbon": {
     "name": "절친리본",
     "description": "트레이너와 더없이 친해진 포켓몬에게 주어지는 리본.",
@@ -360,9 +361,10 @@
   "dex": {
     "title": "증표도감",
     "kinds": "종류 {{count}}/{{total}}",
+    "hidden": "히든 {{count}}/{{total}}",
     "species": "포켓몬 {{count}}/{{total}}",
     "markSpecies": "{{name}} - 가진 포켓몬 {{count}}/{{total}}",
-    "speciesMarks": "{{name}} - 증표 {{count}}/{{total}}",
+    "speciesMarks": "{{name}} - {{marks}}",
     "unknownSpecies": "???"
   },
   "unknownName": "???",

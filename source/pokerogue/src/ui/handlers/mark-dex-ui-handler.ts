@@ -14,8 +14,10 @@
  *   Eternatus Mark (`hasEternatusMark`). Once every listed mark has been obtained the list can be scrolled down past
  *   its last row, and there they stand apart in the middle (the user: "무한다이노의 증표 위치는 스크롤을 해서 아래로
  *   내리면 중앙정도 되는 위치에 조금 떨어져있게 하죠, 다른 증표들을 전부 모으면 스크롤이 가능해지게" and "히든 증표
- *   ... 최강의 증표나 천재일우의 증표 정도"): grey and nameless until obtained, and each one counts past the total,
- *   "종류 71/68" ("도감 다 채우면 예를들어 52/51 이런 식으로 하나 더 있는듯하게"). They do not count for anything's
+ *   ... 최강의 증표나 천재일우의 증표 정도"): grey and nameless until obtained. They used to count past the total,
+ *   "종류 71/68" ("도감 다 채우면 예를들어 52/51 이런 식으로 하나 더 있는듯하게"), but then the count ran past it long
+ *   before the list was complete ("종류 77/69"); since 2026-11-18 they are counted apart once one has been obtained:
+ *   "종류 61/69 · 히든 8/16", the Eternatus Mark among them as on their page. They do not count for anything's
  *   golden outline. The Eternatus Mark gets its own outline when Eternatus' line has every listed mark ("무한다이노로
  *   다른 증표를 모두 모으면 무한다이노의 증표에도 황금색이 붙게").
  * - "Every Pokémon" for the marks' shares and outlines leaves Eternatus out ("모든 포켓몬의 기준은 무한다이노는
@@ -33,14 +35,15 @@ import { speciesDataRegistry } from "#app/global-species-data-registry";
 import {
   COMPLETION_EXEMPT_MARKS,
   getCollectedMarks,
+  getMarkCountText,
   getMarkDescription,
   getMarkKey,
   getMarkName,
   hasEternatusMark,
   hasEverObtainedMark,
   isMarkCollectionComplete,
+  LISTED_POKEMON_MARKS,
   MARKS_ATLAS_KEY,
-  orderedPokemonMarks,
 } from "#data/pokemon-marks";
 import { Button } from "#enums/buttons";
 import { PokemonMark } from "#enums/pokemon-mark";
@@ -71,7 +74,7 @@ const ETERNATUS_MARK_SCALE = 0.7;
 const ETERNATUS_MARK_GAP = 8;
 
 /** The listed marks: all but the hidden ones */
-const LISTED_MARKS: readonly PokemonMark[] = orderedPokemonMarks.filter(m => !COMPLETION_EXEMPT_MARKS.includes(m));
+const LISTED_MARKS: readonly PokemonMark[] = LISTED_POKEMON_MARKS;
 /**
  * Local fork (2026-11-18): the rows of the page below the list: the hidden marks in their order, eight to a row, and
  * the Eternatus Mark on its own
@@ -83,11 +86,108 @@ export const HIDDEN_PAGE_ROWS: readonly (readonly PokemonMark[])[] = [
   [PokemonMark.ETERNATUS_MARK],
 ];
 
+/**
+ * Local fork (2026-11-18): the mark Pokédex's header: the listed marks obtained over their number, the hidden ones
+ * apart once one has been obtained (the Eternatus Mark among them, as on their page), then the starter lines with any
+ * mark. The hidden ones used to count past the listed total ("종류 77/69").
+ * @returns "종류 61/69 · 히든 8/16   포켓몬 3/570"
+ */
+export function getMarkDexTotalText(
+  listed: number,
+  listedTotal: number,
+  hidden: number,
+  hiddenTotal: number,
+  species: number,
+  speciesTotal: number,
+): string {
+  const kinds = i18next.t("pokemonMarks:dex.kinds", { count: listed, total: listedTotal });
+  const hiddenKinds =
+    hidden > 0 ? ` · ${i18next.t("pokemonMarks:dex.hidden", { count: hidden, total: hiddenTotal })}` : "";
+  return `${kinds}${hiddenKinds}   ${i18next.t("pokemonMarks:dex.species", { count: species, total: speciesTotal })}`;
+}
+
+/**
+ * Local fork (2026-11-18): the rows of the bright part of a collected mark's icon, from the bottom of its drawing up.
+ * It fills the drawing's own rows (its opaque rows in the 40 px frame), not the whole frame: with a fixed minimum of 3
+ * of the frame's rows, an icon drawn down to the frame's bottom showed a stray bright line under it while one drawn
+ * higher up showed nothing for the same share. There is no minimum any more: a share too small for half a row of the
+ * drawing lights nothing, so every icon reads the same way (dark until enough lines have it); the description says the
+ * count.
+ * @param top - The drawing's first opaque row in the frame
+ * @param bottom - The row after its last opaque one
+ * @param count - How many starter lines have the mark
+ * @param total - How many there are
+ * @returns Where the crop starts in the frame and how many rows it takes (`0` for none)
+ */
+export function getMarkFillRows(
+  top: number,
+  bottom: number,
+  count: number,
+  total: number,
+): { y: number; rows: number } {
+  const height = bottom - top;
+  const rows = Phaser.Math.Clamp(Math.round((height * count) / Math.max(total, 1)), 0, height);
+  return { y: bottom - rows, rows };
+}
+
+/** Local fork (2026-11-18): each mark icon's opaque rows in its 40 px frame, read once from the atlas */
+const drawnRows = new Map<string, readonly [top: number, bottom: number]>();
+let drawnRowsRead = false;
+
+/**
+ * Local fork (2026-11-18): read every mark icon's opaque rows from the atlas' image into {@linkcode drawnRows}
+ * @returns Whether there was an image to read (not in the tests' textures)
+ */
+function readDrawnRows(): boolean {
+  const texture = globalScene.textures.get(MARKS_ATLAS_KEY);
+  const image = texture.getSourceImage() as HTMLImageElement | HTMLCanvasElement | null;
+  const context = image && image.width > 0 ? document.createElement("canvas").getContext("2d") : null;
+  if (!image || !context) {
+    return false;
+  }
+  context.canvas.width = image.width;
+  context.canvas.height = image.height;
+  context.drawImage(image, 0, 0);
+  const { data } = context.getImageData(0, 0, image.width, image.height);
+  const isOpaque = (px: number, py: number) => data[(py * image.width + px) * 4 + 3] > 0;
+  for (const name of texture.getFrameNames()) {
+    const { cutX, cutY, cutWidth, cutHeight } = texture.get(name);
+    const rows = Array.from({ length: cutHeight }, (_row, y) =>
+      Array.from({ length: cutWidth }, (_column, x) => isOpaque(cutX + x, cutY + y)).some(Boolean),
+    );
+    const top = rows.indexOf(true);
+    if (top >= 0) {
+      drawnRows.set(name, [top, rows.lastIndexOf(true) + 1]);
+    }
+  }
+  return true;
+}
+
+/**
+ * Local fork (2026-11-18): the opaque rows of a mark's icon, read from the atlas' image the first time they are needed
+ * (all of them at once). Without an image to read (the tests' textures), the whole frame.
+ * @param frameName - The icon's frame in the marks atlas (`getMarkKey`)
+ * @returns Its first opaque row and the row after its last one
+ */
+function getDrawnRows(frameName: string): readonly [top: number, bottom: number] {
+  if (!drawnRowsRead) {
+    drawnRowsRead = true;
+    try {
+      readDrawnRows();
+    } catch {
+      // Nothing to read: every icon fills its whole frame
+    }
+  }
+  return drawnRows.get(frameName) ?? [0, MARK_SIZE];
+}
+
 /** One mark of the first view: its dark base, the bright part that fills up over it, and its golden outline */
 interface MarkCell {
   mark: PokemonMark;
   base: Phaser.GameObjects.Image;
   fill: Phaser.GameObjects.Image;
+  /** Local fork (2026-11-18): whether any of it is bright (a small share lights none of it) */
+  filled: boolean;
   /** Made the first time it is needed */
   outline: Phaser.GameObjects.Image[];
   obtained: boolean;
@@ -177,7 +277,7 @@ export class MarkDexUiHandler extends MessageUiHandler {
       const base = globalScene.add.image(x, y, MARKS_ATLAS_KEY, getMarkKey(mark)).setScale(scale);
       const fill = globalScene.add.image(x, y, MARKS_ATLAS_KEY, getMarkKey(mark)).setScale(scale);
       this.markContainer.add([base, fill]);
-      return { mark, base, fill, outline: [], obtained: false, golden: false, row, scale };
+      return { mark, base, fill, filled: false, outline: [], obtained: false, golden: false, row, scale };
     };
     this.listedCells = LISTED_MARKS.map((mark, index) =>
       addCell(
@@ -308,12 +408,15 @@ export class MarkDexUiHandler extends MessageUiHandler {
       }
       if (!cell.obtained) {
         cell.base.setTint(MISSING_TINT).setTintMode(Phaser.TintModes.FILL).setAlpha(MISSING_ALPHA);
+        cell.filled = false;
         continue;
       }
       cell.base.setTint(DARK_TINT).setTintMode(Phaser.TintModes.MULTIPLY).setAlpha(1);
-      // At least one screen pixel of it shows, however few have the mark
-      const filled = Phaser.Math.Clamp(Math.ceil((MARK_SIZE * count) / total), 3, MARK_SIZE);
-      cell.fill.setCrop(0, MARK_SIZE - filled, MARK_SIZE, filled);
+      // Local fork (2026-11-18): over the icon's own drawing, with no minimum (getMarkFillRows)
+      const [top, bottom] = getDrawnRows(getMarkKey(cell.mark));
+      const { y, rows } = getMarkFillRows(top, bottom, count, total);
+      cell.filled = rows > 0;
+      cell.fill.setCrop(0, y, MARK_SIZE, rows);
     }
     this.canScrollToHidden = this.listedCells.every(cell => cell.obtained);
   }
@@ -329,14 +432,17 @@ export class MarkDexUiHandler extends MessageUiHandler {
     this.speciesContainer.setVisible(false);
     this.scrollBar.setVisible(false);
     this.headerText.setText(i18next.t("pokemonMarks:dex.title"));
-    // The hidden marks count past the total
-    const kinds = [...this.listedCells, ...this.hiddenCells].filter(cell => cell.obtained).length;
+    // Local fork (2026-11-18): the hidden marks apart (getMarkDexTotalText)
     const species = this.countedIds.filter(id => (this.collected.get(id)?.length ?? 0) > 0).length;
     this.totalText.setText(
-      `${i18next.t("pokemonMarks:dex.kinds", { count: kinds, total: LISTED_MARKS.length })}   ${i18next.t(
-        "pokemonMarks:dex.species",
-        { count: species, total: this.countedIds.length },
-      )}`,
+      getMarkDexTotalText(
+        this.listedCells.filter(cell => cell.obtained).length,
+        this.listedCells.length,
+        this.hiddenCells.filter(cell => cell.obtained).length,
+        this.hiddenCells.length,
+        species,
+        this.countedIds.length,
+      ),
     );
     this.setHiddenPage(this.onHiddenPage && this.canScrollToHidden);
   }
@@ -350,7 +456,7 @@ export class MarkDexUiHandler extends MessageUiHandler {
     const showCells = (cells: MarkCell[], visible: boolean): void => {
       for (const cell of cells) {
         cell.base.setVisible(visible);
-        cell.fill.setVisible(visible && cell.obtained);
+        cell.fill.setVisible(visible && cell.obtained && cell.filled);
         for (const outline of cell.outline) {
           outline.setVisible(visible && cell.golden);
         }
@@ -511,9 +617,8 @@ export class MarkDexUiHandler extends MessageUiHandler {
       this.showText(
         i18next.t("pokemonMarks:dex.speciesMarks", {
           name: caught ? species.name : i18next.t("pokemonMarks:dex.unknownSpecies"),
-          // The hidden marks count past the total here too
-          count: this.collected.get(id)?.length ?? 0,
-          total: LISTED_MARKS.length,
+          // Local fork (2026-11-18): counted as on the Pokédex page's tray, the hidden marks apart
+          marks: getMarkCountText(this.collected.get(id) ?? []),
         }),
       );
     }

@@ -240,6 +240,140 @@ const SELFTEST_TUTORIALS = [
   "EGG_GACHA",
 ];
 
+/*
+ * Local fork (2026-11-18): the self-test's second part, the "seeded save" (the user: "작은 정리부터"; so nobody has to
+ * look at the new mark and achievement screens by hand). The fresh save of the first part has no marks, so those
+ * screens only show greyed-out icons; the second part writes the marks and achievements below into the save the run
+ * has just made, reloads the page and goes on with 계속하기 (the title's continue).
+ *
+ * The offline build has VITE_BYPASS_LOGIN=1 (pokerogue/.env.app), so the player is "Guest" (account.ts) and the save is
+ * not AES: encrypt()/decrypt() of src/utils/data.ts are btoa(encodeURIComponent(json)) and back. The system data is
+ * `data_Guest` (GameData.saveSystem, long key names), the run in slot 0 is `sessionData_Guest`
+ * (getSessionDataLocalStorageKey). The numbers are PokemonMark (src/enums/pokemon-mark.ts), the ids the keys of
+ * `achvs` (src/system/achv.ts).
+ */
+/** The marks a complete line collection needs: orderedPokemonMarks but COMPLETION_EXEMPT_MARKS (pokemon-marks.ts) */
+const SELFTEST_LISTED_MARKS = [
+  // ribbons 1-8 and 10-19 (9 and 20-28 are hidden)
+  ...[1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19],
+  // the 41 wild marks, LUNCHTIME_MARK 100 to SLUMP_MARK 140
+  ...Array.from({ length: 41 }, (_, i) => 100 + i),
+  // alpha 200, golden alpha 201, jumbo 202, mini 203, partner 204, the shiny 206 / rare shiny 207, egg moves 209,
+  // perfect IV 210, Master Ball 211 (205 Mightiest, 208 epic shiny and 212-214 are hidden)
+  ...[200, 201, 202, 203, 204, 206, 207, 209, 210, 211],
+];
+/**
+ * The hidden ones the seed gives (8 of the 15): Once-in-a-Lifetime 9, Endless Master 20, Ability 21, Great Ability 22,
+ * Hisui 27, Destiny 212, Gourmand 213, Itemfinder 214. Left out, so the hidden page shows both kinds: Mightiest 205,
+ * epic shiny 208, Master Rank 28, Double / Multi / Pair / World Ability 23-26 and the Eternatus Mark.
+ */
+const SELFTEST_HIDDEN_MARKS = [9, 20, 21, 22, 27, 212, 213, 214];
+const SELFTEST_SEED = {
+  systemKey: "data_Guest",
+  sessionKey: "sessionData_Guest",
+  // the session's party[0] (PokemonData.marks / equippedMark / alphaBoost): champion and Ability ribbons, the alpha
+  // marks, the Partner Mark, the three new hidden marks and a wild mark, wearing the Great Ability Ribbon, whose title
+  // "1000웨이브를 돌파한" is the longest there is (so the battle info's room for title + name + alpha badge is tested)
+  leadMarks: [22, 21, 3, 10, 200, 201, 202, 204, 212, 213, 214, 128],
+  leadEquippedMark: 22,
+  leadAlphaBoost: 20,
+  // the wild enemy's (enemyParty[0]): the Charismatic Mark and the Mini Mark, both shown as icons in its info box
+  enemyMarks: [117, 203],
+  // starterData[<the lead's species>]: every listed mark (the golden outline, isMarkCollectionComplete) and the
+  // hidden ones above, and an alpha boost of 20 (the alpha option of starter select)
+  lineMarks: [...SELFTEST_LISTED_MARKS, ...SELFTEST_HIDDEN_MARKS],
+  lineAlphaBoost: 20,
+  // two more lines with a few marks, so the mark Pokédex counts more than one line
+  otherLineMarks: { 4: [1, 104, 113, 200, 206], 7: [2, 105, 117, 203, 212] },
+  // GameData.markCounts: every listed mark (so the mark Pokédex scrolls down to its hidden page) and the hidden ones
+  markCounts: Object.fromEntries([
+    ...SELFTEST_LISTED_MARKS.map(m => [m, m === 200 || m === 202 ? 12 : m === 201 ? 3 : 1 + (m % 5)]),
+    ...SELFTEST_HIDDEN_MARKS.map(m => [m, m === 212 ? 2 : 1]),
+  ]),
+  // GameData.achvUnlocks (id -> time): mark achievements and 8 of the 19 Pokédex collection achievements of 11-18;
+  // DAWN_AND_DUSK, TIME_SPACE_ANTIMATTER, SEA_AND_LAND, PAST_AND_FUTURE, LIFE_AND_DEATH, RUINOUS_BEASTS,
+  // SWORDS_OF_JUSTICE, GUARDIAN_DEITIES, SWORD_AND_SHIELD, ALL_SUB_LEGENDARY and ALL_LEGENDARY stay locked
+  achvUnlocks: [
+    "MARKS_10",
+    "ALPHA_MARKS_10",
+    "GOLDEN_ALPHA_MARK",
+    "MEMORIAL_RIBBON",
+    "MARK_DEX_ONE",
+    "EFFORT_RIBBON",
+    "HIDDEN_MARK",
+    "ANCIENT_GIANTS",
+    "SKY_DRAGON",
+    "ULTRA_BEASTS",
+    "LEGENDARY_BIRDS",
+    "LEGENDARY_BEASTS",
+    "LAKE_GUARDIANS",
+    "TRUTH_AND_IDEALS",
+    "ALL_MYTHICAL",
+  ],
+};
+
+/**
+ * Local fork (2026-11-18): runs in the page (executeJavaScript, passed as its source): decode the save the way the
+ * offline build does, write {@linkcode SELFTEST_SEED} into it, encode it back and read it again to check.
+ * @returns What it wrote, or `{ error }`
+ */
+function selfTestSeedSave(seed) {
+  const decode = s => JSON.parse(decodeURIComponent(atob(s)));
+  const encode = o => btoa(encodeURIComponent(JSON.stringify(o)));
+  const systemRaw = localStorage.getItem(seed.systemKey);
+  const sessionRaw = localStorage.getItem(seed.sessionKey);
+  if (!systemRaw || !sessionRaw) {
+    return { error: `no ${systemRaw ? seed.sessionKey : seed.systemKey}`, keys: Object.keys(localStorage) };
+  }
+  const system = decode(systemRaw);
+  const session = decode(sessionRaw);
+  const lead = session.party && session.party[0];
+  const enemy = session.enemyParty && session.enemyParty[0];
+  if (!lead || !enemy) {
+    return { error: "no party or enemy in the session" };
+  }
+  // the lead is the starter itself (Lv. 5, not evolved), so its species is its line's root
+  const root = String(lead.species);
+  const entry = system.starterData && system.starterData[root];
+  if (!entry) {
+    return { error: `no starterData for ${root}` };
+  }
+  lead.marks = seed.leadMarks;
+  lead.equippedMark = seed.leadEquippedMark;
+  lead.alphaBoost = seed.leadAlphaBoost;
+  enemy.marks = seed.enemyMarks;
+  entry.marks = seed.lineMarks;
+  entry.alphaBoost = seed.lineAlphaBoost;
+  for (const [id, marks] of Object.entries(seed.otherLineMarks)) {
+    if (system.starterData[id]) {
+      system.starterData[id].marks = marks;
+    }
+  }
+  system.markCounts = Object.assign(system.markCounts || {}, seed.markCounts);
+  system.achvUnlocks = system.achvUnlocks || {};
+  const now = Date.now();
+  seed.achvUnlocks.forEach((id, i) => {
+    system.achvUnlocks[id] = now - i * 3600000;
+  });
+  localStorage.setItem(seed.systemKey, encode(system));
+  localStorage.setItem(seed.sessionKey, encode(session));
+  const systemBack = decode(localStorage.getItem(seed.systemKey));
+  const sessionBack = decode(localStorage.getItem(seed.sessionKey));
+  return {
+    root,
+    wave: sessionBack.waveIndex,
+    enemySpecies: sessionBack.enemyParty[0].species,
+    leadMarks: sessionBack.party[0].marks,
+    leadEquippedMark: sessionBack.party[0].equippedMark,
+    leadAlphaBoost: sessionBack.party[0].alphaBoost,
+    enemyMarks: sessionBack.enemyParty[0].marks,
+    lineMarks: systemBack.starterData[root].marks.length,
+    lineAlphaBoost: systemBack.starterData[root].alphaBoost,
+    markCounts: Object.keys(systemBack.markCounts).length,
+    achvUnlocks: Object.keys(systemBack.achvUnlocks),
+  };
+}
+
 /**
  * Local fork (2026-11-18): the self-test run. On the fresh save it presses the keyboard like a player: through the
  * gender question to the title, 새로운 게임 -> 클래식, adds the first starter and starts, presses A through the
@@ -249,6 +383,12 @@ const SELFTEST_TUTORIALS = [
  * timeout, and logs "STEP ok <name>" or "STEP FAILED <name>: <why> <state>"; the last lines are
  * "RESULT PASS|FAILED steps=<ok>/<all> battle=0|1 shots=<n> ..." and the list of shots. Screenshots are numbered
  * PNGs in the test folder (01-loaded.png ... 15-mark-dex-lines.png). selftest.sh reads the log.
+ * Local fork (2026-11-18): then the second part, the seeded save (SELFTEST_SEED): it writes marks, a worn mark, an
+ * alpha boost and achievements into the run's save, reloads, 계속하기 back to the battle (its alpha boost must raise
+ * the lead's stats), and shoots the battle, the party, the Pokédex page's marks, the 증표도감 and its hidden page, the
+ * achievements (scrolled to the new ones) and, after 저장하고 나가기, starter select (gold outline, alpha option):
+ * 16-seeded-title.png ... 30-seeded-starter-menu.png (the two message shots only if caught), 25 steps in all; it
+ * runs whenever the first part reached the battle.
  */
 async function runSelfTest(win) {
   const wc = win.webContents;
@@ -294,6 +434,7 @@ async function runSelfTest(win) {
       "game info",
     ).catch(e => ({ error: errText(e) }));
   // 2026-11-08: a failed capture is logged and the run goes on; the offscreen window should never fail it now
+  // Local fork (2026-11-18): returns the PNG (null if skipped), so a step can tell whether a key changed the screen
   const snap = async name => {
     shotNumber++;
     const file = `${String(shotNumber).padStart(2, "0")}-${name}.png`;
@@ -302,13 +443,28 @@ async function runSelfTest(win) {
       if (image.isEmpty()) {
         throw new Error("empty image");
       }
-      fs.writeFileSync(path.join(selfTestDir, file), image.toPNG());
+      const png = image.toPNG();
+      fs.writeFileSync(path.join(selfTestDir, file), png);
       shots.push(file);
       testLog(`shot ${file} ${JSON.stringify(await state())}`);
+      return png;
     } catch (e) {
       testLog(`shot skipped ${name}: ${errText(e)}`);
+      return null;
     }
   };
+  const sameShot = (a, b) => !!a && !!b && a.equals(b);
+  // Local fork (2026-11-18): the lead's stats from window.gameInfo (refreshed at every command phase), to see that the
+  // seeded alpha boost (+20 %) was loaded with the run
+  const leadStats = () =>
+    withTimeout(
+      wc.executeJavaScript(
+        `(() => { const p = window.gameInfo?.party?.[0]; return p ? { name: p.name, level: p.level, stats: p.baseStats } : null; })()`,
+      ),
+      5000,
+      "lead stats",
+    ).catch(() => null);
+  const statSum = info => (info && info.stats ? Object.values(info.stats).reduce((n, v) => n + Number(v || 0), 0) : 0);
   // Electron key names: Space = A (action), Enter = start, Backspace = B (cancel), Escape = menu, Up/Down/Left/Right
   const press = async (key, settleMs = 500) => {
     wc.sendInputEvent({ type: "keyDown", keyCode: key });
@@ -364,8 +520,9 @@ async function runSelfTest(win) {
     testLog(`shots ${shots.join(", ")}`);
     app.exit(ok ? 0 : 1);
   };
-  // the whole run stays under selftest.sh's 300 s limit, so it always ends with its RESULT line
-  const watchdog = setTimeout(() => finish("watchdog"), Number(process.env.POKEROGUE_SELFTEST_TIMEOUT || 270000));
+  // the whole run stays under selftest.sh's limit, so it always ends with its RESULT line
+  // Local fork (2026-11-18): 480 s (was 270 s) for the second part, the seeded save; selftest.sh stops at 540 s
+  const watchdog = setTimeout(() => finish("watchdog"), Number(process.env.POKEROGUE_SELFTEST_TIMEOUT || 480000));
   wc.on("render-process-gone", () => finish("renderer gone"));
 
   // one named step: it returns true, or a reason why it failed
@@ -602,7 +759,310 @@ async function runSelfTest(win) {
   ];
   const backFromMarks = [["back-to-battle", backToCommand]];
   const backFromMarkDex = [["back-to-battle-2", backToCommand]];
-  totalSteps = [toBattle, partyMarks, backFromMarks, markDex, backFromMarkDex].reduce((n, s) => n + s.length, 0);
+
+  // ---- Local fork (2026-11-18): the second part, the seeded save (SELFTEST_SEED, see there) ----
+  let statsBefore = null;
+  let markDexShot = null;
+  // the menu from the command menu, opened fresh so its cursor is on its first entry (MenuOptions in
+  // menu-ui-handler.ts: 0 게임 설정, 1 업적, ... 6 증표도감, ... 9 저장하고 나가기; 로그아웃 is left out offline)
+  const openMenuEntry = async (index, mode) => {
+    const back = await backToCommand();
+    if (back !== true) {
+      return back;
+    }
+    await press("Escape", 300);
+    if (!(await waitFor(isMode("MENU"), 8000))) {
+      return "no menu";
+    }
+    await wait(800);
+    for (let i = 0; i < index; i++) {
+      await press("Down", 250);
+    }
+    await press("Space", 300);
+    return mode === null || (await waitFor(isMode(mode), 10000)) || `no ${mode}`;
+  };
+  // write the seed, reload, 계속하기 back to the battle
+  const seededSave = [
+    [
+      "seed-save",
+      async () => {
+        statsBefore = await leadStats();
+        if (!statsBefore) {
+          return "no lead stats to compare with (window.gameInfo)";
+        }
+        const result = await withTimeout(
+          wc.executeJavaScript(`(${selfTestSeedSave.toString()})(${JSON.stringify(SELFTEST_SEED)})`),
+          10000,
+          "seed",
+        );
+        testLog(`seed ${JSON.stringify(result)}`);
+        testLog(`seed lead before ${JSON.stringify(statsBefore)}`);
+        if (!result || result.error) {
+          return `the save could not be seeded: ${result ? result.error : "no answer"}`;
+        }
+        // the page starts again from the seeded save; the phases are waited on afresh
+        selfTestPhase = "";
+        wc.reload();
+        return true;
+      },
+    ],
+    [
+      "seeded-title",
+      async () => {
+        // a save with a gender and a run: no question before the title, and its first entry is 계속하기
+        if (!(await waitFor(s => s.mode === "TITLE" && s.phase === "TitlePhase", 90000))) {
+          return "no title menu after the reload";
+        }
+        // 2026-11-18: about 3 s after the title appears, as in "title" (its key presses come 1.5 s apart, then 1.5 s):
+        // at 1.6 s the screen transition's black bars were still in the shot
+        await wait(3000);
+        await snap("seeded-title");
+        return true;
+      },
+    ],
+    [
+      "seeded-battle",
+      async () => {
+        await press("Space", 800); // 계속하기
+        if ((await state()).mode === "OPTION_SELECT") {
+          return "the title had no 계속하기 (the seeded session did not load)";
+        }
+        // A through the reloaded wave's messages to the command menu, as in "battle", with a shot of the messages
+        // that name the enemy and the lead by their titles (encounter-phase.ts, summon-phase.ts: getTitledName); not
+        // steps of their own, since a message can be gone before it is caught
+        const backOut = ["FIGHT", "BALL", "PARTY", "SUMMARY", "TARGET_SELECT"];
+        const atCommand = s => s.mode === "COMMAND" && s.phase === "CommandPhase";
+        const end = Date.now() + 120000;
+        let lastSeen = "";
+        let encounterShot = false;
+        let summonShot = false;
+        for (;;) {
+          lastState = await state();
+          const seen = `${lastState.mode}/${lastState.phase}`;
+          if (seen !== lastSeen) {
+            testLog(`seeded battle ${seen}`);
+            lastSeen = seen;
+          }
+          if (atCommand(lastState)) {
+            break;
+          }
+          if (Date.now() >= end) {
+            return "no command menu after 계속하기";
+          }
+          if (!encounterShot && lastState.mode === "MESSAGE" && lastState.phase === "EncounterPhase") {
+            // the encounter's message waits for A; time for it to be typed out
+            encounterShot = true;
+            await wait(1200);
+            await snap("seeded-encounter-message");
+          } else if (!summonShot && lastState.mode === "MESSAGE" && lastState.phase === "SummonPhase") {
+            // the sending out's goes on by itself within a second or so: at once, and no A
+            summonShot = true;
+            await wait(400);
+            await snap("seeded-summon-message");
+            continue;
+          }
+          await press(backOut.includes(lastState.mode) ? "Backspace" : "Space", 100);
+          // the 1.3 s between presses, watched closely so the short sending-out message is not missed
+          const next = Date.now() + 1200;
+          while (Date.now() < next) {
+            const s = await state();
+            if (atCommand(s) || (!summonShot && s.mode === "MESSAGE" && s.phase === "SummonPhase")) {
+              break;
+            }
+            await wait(120);
+          }
+        }
+        await wait(2500); // the info boxes slide in
+        if (!(await waitFor(atCommand, 3000))) {
+          return "the command menu did not stay";
+        }
+        await snap("seeded-battle");
+        const statsAfter = await leadStats();
+        testLog(`seeded battle ${JSON.stringify(await gameInfo())} lead ${JSON.stringify(statsAfter)}`);
+        // the alpha boost (+20 %) of the seeded lead raises its stats: the seeded session is the one that was loaded
+        if (statSum(statsAfter) <= statSum(statsBefore)) {
+          return `the lead's stats did not rise with the seeded alpha boost (${statSum(statsBefore)} -> ${statSum(statsAfter)})`;
+        }
+        return true;
+      },
+    ],
+  ];
+  // the party, and the lead's Pokédex page with its marks (the worn one framed, gold outlines, the hidden ones)
+  const seededPartyMarks = [
+    [
+      "seeded-party",
+      async () => {
+        await press("Down", 400); // 포켓몬
+        await press("Space", 300);
+        if (!(await waitFor(isMode("PARTY"), 8000))) {
+          return "no party screen";
+        }
+        await wait(1200);
+        await snap("seeded-party");
+        return true;
+      },
+    ],
+    [
+      "seeded-dex-marks",
+      async () => {
+        await press("Space", 900);
+        await press("Down", 400); // 도감
+        await press("Space", 300);
+        if (!(await waitFor(isMode("POKEDEX_PAGE"), 10000))) {
+          return "no Pokédex page";
+        }
+        await wait(2000);
+        await press("Up", 600); // the marks, the page menu's last option
+        await press("Space", 1500);
+        if ((await state()).mode !== "POKEDEX_PAGE") {
+          return "the Pokédex page closed";
+        }
+        const tray = await snap("seeded-dex-marks");
+        // the tray's cursor (ten to a row) starts on the worn mark, the Great Ability Ribbon (13th in
+        // orderedPokemonMarks); three rows down and two left is the Destiny Mark (41st), for its description
+        for (const key of ["Down", "Down", "Down", "Left", "Left"]) {
+          await press(key, 300);
+        }
+        await wait(500);
+        const destiny = await snap("seeded-dex-marks-destiny");
+        if (sameShot(tray, destiny)) {
+          return "the mark tray's cursor did not move";
+        }
+        return true;
+      },
+    ],
+  ];
+  const seededBackFromMarks = [["seeded-back-to-battle", backToCommand]];
+  // the 증표도감 with every listed mark obtained, its hidden page, and the achievements
+  const seededMenu = [
+    [
+      "seeded-mark-dex",
+      async () => {
+        const opened = await openMenuEntry(6, "MARK_DEX");
+        if (opened !== true) {
+          return opened;
+        }
+        await wait(1500);
+        markDexShot = await snap("seeded-mark-dex");
+        return true;
+      },
+    ],
+    [
+      "seeded-mark-dex-hidden",
+      async () => {
+        // 69 listed marks, 14 to a row: four rows down to the last, one more onto the hidden page (it scrolls there
+        // once every listed mark has been obtained, mark-dex-ui-handler.ts)
+        for (let i = 0; i < 5; i++) {
+          await press("Down", 400);
+        }
+        await wait(800);
+        if ((await state()).mode !== "MARK_DEX") {
+          return "the 증표도감 closed";
+        }
+        const hidden = await snap("seeded-mark-dex-hidden");
+        if (sameShot(markDexShot, hidden)) {
+          return "the 증표도감 did not scroll to its hidden page";
+        }
+        // the cursor from the Once-in-a-Lifetime Ribbon to the Destiny Mark, the fourth of the first row
+        for (let i = 0; i < 3; i++) {
+          await press("Right", 300);
+        }
+        await wait(500);
+        await snap("seeded-mark-dex-hidden-destiny");
+        return true;
+      },
+    ],
+    [
+      "seeded-achievements",
+      async () => {
+        const opened = await openMenuEntry(1, "ACHIEVEMENTS");
+        if (opened !== true) {
+          return opened;
+        }
+        await wait(1200);
+        const first = await snap("seeded-achievements-top");
+        // 112 achievements, 18 to a row, 4 rows shown: Up from the first wraps to the last four rows (54-111), the
+        // cursor on ALL_MYTHICAL (108); Up and Right twice is ANCIENT_GIANTS (92, unlocked by the seed), one more
+        // Right DAWN_AND_DUSK (93, left locked)
+        await press("Up", 400);
+        await press("Up", 400);
+        await press("Right", 400);
+        await press("Right", 400);
+        await wait(600);
+        if ((await state()).mode !== "ACHIEVEMENTS") {
+          return "the achievements closed";
+        }
+        const unlocked = await snap("seeded-achievements-new");
+        await press("Right", 400);
+        await wait(600);
+        const locked = await snap("seeded-achievements-locked");
+        if (sameShot(first, unlocked) || sameShot(unlocked, locked)) {
+          return "the achievements did not scroll or the cursor did not move";
+        }
+        return true;
+      },
+    ],
+  ];
+  // 저장하고 나가기 to the title, then 새로운 게임 -> 클래식 -> starter select: the lead's line with its gold outline and
+  // the alpha option in its menu
+  const seededStarter = [
+    [
+      "seeded-save-quit",
+      async () => {
+        const opened = await openMenuEntry(9, null);
+        if (opened !== true) {
+          return opened;
+        }
+        // straight out on the first turn; later a warning and a 예 / 아니오 (menu-ui-handler.ts)
+        const end = Date.now() + 40000;
+        for (;;) {
+          lastState = await state();
+          if (lastState.mode === "TITLE" && lastState.phase === "TitlePhase") {
+            break;
+          }
+          if (Date.now() >= end) {
+            return "no title after 저장하고 나가기";
+          }
+          if (lastState.mode === "CONFIRM") {
+            await press("Space", 800);
+          } else {
+            await wait(500);
+          }
+        }
+        await wait(1500);
+        return true;
+      },
+    ],
+    [
+      "seeded-starter-select",
+      async () => {
+        await press("Down", 400); // 새 게임, below 계속하기
+        await press("Space", 300);
+        if (!(await waitFor(isMode("OPTION_SELECT"), 10000))) {
+          return "no game mode list";
+        }
+        await wait(800);
+        await press("Space", 300); // 클래식
+        if (!(await waitFor(s => s.phase === "SelectStarterPhase" && s.mode === "STARTER_SELECT", 30000))) {
+          return "no starter select";
+        }
+        await wait(2000);
+        await snap("seeded-starter-select");
+        await press("Space", 300); // the first starter's menu, with 우두머리로 데려가기 for the seeded alpha boost
+        if (!(await waitFor(isMode("OPTION_SELECT"), 5000))) {
+          return "no starter menu";
+        }
+        await wait(900);
+        await snap("seeded-starter-menu");
+        return true;
+      },
+    ],
+  ];
+  const seededParts = [seededSave, seededPartyMarks, seededBackFromMarks, seededMenu, seededStarter];
+  totalSteps = [toBattle, partyMarks, backFromMarks, markDex, backFromMarkDex, ...seededParts].reduce(
+    (n, s) => n + s.length,
+    0,
+  );
 
   try {
     wc.once("did-finish-load", () => testLog("did-finish-load"));
@@ -619,8 +1079,20 @@ async function runSelfTest(win) {
       await chain(backFromMarks);
       await chain(markDex);
       await chain(backFromMarkDex);
+      // Local fork (2026-11-18): the seeded save needs only the run's save, so it runs even if a mark screen failed
+      testLog("second part: the seeded save");
+      if (await chain(seededSave)) {
+        await chain(seededPartyMarks);
+        await chain(seededBackFromMarks);
+        await chain(seededMenu);
+        await chain(seededStarter);
+      } else {
+        for (const [name] of seededParts.slice(1).flat()) {
+          testLog(`STEP skipped ${name}`);
+        }
+      }
     } else {
-      for (const [name] of [...partyMarks, ...backFromMarks, ...markDex, ...backFromMarkDex]) {
+      for (const [name] of [...partyMarks, ...backFromMarks, ...markDex, ...backFromMarkDex, ...seededParts.flat()]) {
         testLog(`STEP skipped ${name}`);
       }
     }

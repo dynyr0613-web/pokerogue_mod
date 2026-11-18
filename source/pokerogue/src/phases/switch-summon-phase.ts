@@ -233,7 +233,9 @@ export class SwitchSummonPhase extends SummonPhase {
 
     const pokemon = this.getPokemon();
 
-    const moveId = globalScene.currentBattle.lastMove;
+    // Local fork (2026-11-18): a converted slot counts as the move it was used as (a Max move made from U-turn or
+    // Parting Shot does not switch out, so it does not make up for a turn here)
+    const moveId = globalScene.currentBattle.lastMoveUsedAs ?? globalScene.currentBattle.lastMove;
     const lastUsedMove = moveId ? allMoves[moveId] : undefined;
 
     const currentCommand = globalScene.currentBattle.turnCommands[this.fieldIndex]?.command;

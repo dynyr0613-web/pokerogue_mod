@@ -253,6 +253,8 @@ export class MovePhase extends PokemonPhase {
     // Local fork (2026-11-16): Z / Max moves. The slot's original move (Copycat copies the base move)
     if (!move.hasAttr("CopyMoveAttr") && !isReflected(useMode)) {
       globalScene.currentBattle.lastMove = getBaseMoveId(move);
+      // Local fork (2026-11-18): and the move it was used as, for the checks that need its own effect
+      globalScene.currentBattle.lastMoveUsedAs = move.id === globalScene.currentBattle.lastMove ? undefined : move.id;
     }
 
     if (!this.resolveFinalPreMoveCancellationChecks()) {

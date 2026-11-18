@@ -103,6 +103,24 @@ export function clearWildAlpha(pokemon: Pokemon): void {
 }
 
 /**
+ * Local fork (2026-11-18): make a freshly generated wild Pokémon an alpha for certain, for the "우두머리!" encounter
+ * (alpha-encounter.ts; the user: "우두머리와 싸운다"). One that {@linkcode applyWildAlpha} already made an alpha keeps
+ * its boost; any other gets the usual boost roll, 1 to {@linkcode ALPHA_MAX_BOOST}% with each value equally likely, and
+ * with it the Alpha and Jumbo Marks (and the Golden Alpha Mark at 20%). A Pokémon is never an alpha and a mini one at
+ * once, so a Mini Mark it was met with goes. Other marks it was met with (a wild mark) stay. Uses the seeded RNG.
+ * @param pokemon - The wild Pokémon
+ */
+export function forceWildAlpha(pokemon: Pokemon): void {
+  if (pokemon.hasMark(PokemonMark.MINI_MARK)) {
+    pokemon.marks = pokemon.marks.filter(m => m !== PokemonMark.MINI_MARK);
+  }
+  if (!pokemon.isAlpha()) {
+    pokemon.setAlphaBoost(randSeedInt(ALPHA_MAX_BOOST, 1));
+  }
+  pokemon.updateScale();
+}
+
+/**
  * Apply an alpha's boost to one of its stats, rounded down.
  * @param pokemon - The Pokémon
  * @param stat - The stat's value before the boost

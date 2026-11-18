@@ -149,7 +149,9 @@ export class TitleUiHandler extends OptionSelectUiHandler {
   private getSplashMessageI18nParams(): TOptions & Record<string, unknown> {
     switch (this.splashMessage) {
       case "splashMessages:battlesWon":
-        return { count: BATTLES_WON_FALLBACK };
+        // Local fork (2026-11-18): offline there is no server count (it stayed -1, "-1 판 승리했어요!"); the player's
+        // own battles are shown instead
+        return { count: bypassLogin ? globalScene.gameData.gameStats.battles : BATTLES_WON_FALLBACK };
       case "splashMessages:itsBeenTotalRuns":
         return { cycleCountNoOrdinal: 5643853 + globalScene.gameData.gameStats.classicSessionsPlayed };
       case "splashMessages:aprilFools.helloKyleAmber": {
@@ -200,7 +202,8 @@ export class TitleUiHandler extends OptionSelectUiHandler {
 
     // Local fork (2026-11-14): the title shows the edition version of "포켓로그 - 도주런 없는 엔드리스 에디션", not the
     // PokeRogue version in package.json (that one still goes into saves and the update check, so it stays as it is).
-    // Bump EDITION_VERSION_TEXT with each release.
+    // Bump EDITION_VERSION_TEXT with each release, together with offline-app/package.json and line 3 of the
+    // distribution's 읽어주세요.txt (2026-11-18: custom-edition-version.test.ts checks that the three agree).
     const betaText = isBeta || isDev ? " (Beta)" : "";
     this.appVersionText.setText(EDITION_VERSION_TEXT + betaText);
 

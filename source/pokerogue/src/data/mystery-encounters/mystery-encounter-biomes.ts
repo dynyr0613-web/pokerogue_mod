@@ -2,6 +2,7 @@ import { BiomeId } from "#enums/biome-id";
 import { MysteryEncounterType } from "#enums/mystery-encounter-type";
 import { ATrainersTestEncounter } from "#mystery-encounters/a-trainers-test-encounter";
 import { AbsoluteAvariceEncounter } from "#mystery-encounters/absolute-avarice-encounter";
+import { AlphaEncounter } from "#mystery-encounters/alpha-encounter"; // Local fork (2026-11-18)
 import { AnOfferYouCantRefuseEncounter } from "#mystery-encounters/an-offer-you-cant-refuse-encounter";
 import { BerriesAboundEncounter } from "#mystery-encounters/berries-abound-encounter";
 import { BugTypeSuperfanEncounter } from "#mystery-encounters/bug-type-superfan-encounter";
@@ -189,6 +190,7 @@ const anyBiomeEncounters: MysteryEncounterType[] = [
   MysteryEncounterType.WEIRD_DREAM,
   MysteryEncounterType.TELEPORTING_HIJINKS,
   MysteryEncounterType.UNCOMMON_BREED,
+  MysteryEncounterType.ALPHA_ENCOUNTER, // Local fork (2026-11-18): "우두머리!"; wild Pokémon live in every biome
 ];
 
 /**
@@ -308,6 +310,7 @@ export function initMysteryEncounters() {
   allMysteryEncounters[MysteryEncounterType.TINKATON_FORGE] = TinkatonForgeEncounter; // Local fork (2026-11-08)
   allMysteryEncounters[MysteryEncounterType.VENDING_MACHINE] = VendingMachineEncounter; // Local fork (2026-11-08)
   allMysteryEncounters[MysteryEncounterType.DARK_STRONG_STUFF] = DarkStrongStuffEncounter; // Local fork (2026-11-08)
+  allMysteryEncounters[MysteryEncounterType.ALPHA_ENCOUNTER] = AlphaEncounter; // Local fork (2026-11-18)
 
   // Add extreme encounters to biome map
   extremeBiomeEncounters.forEach(encounter => {

@@ -311,7 +311,9 @@ export abstract class MoveRestrictionBattlerTag extends SerializableBattlerTag {
     const phase = globalScene.phaseManager.getCurrentPhase() as MovePhase;
     const move = phase.move;
 
-    if (this.isMoveRestricted(move.moveId, pokemon)) {
+    // Local fork (2026-11-18): with the move actually being used: a called or copied move (Sleep Talk, Metronome,
+    // Dancer ...) is the plain move even when the user has a converted slot of the same id
+    if (this.isMoveRestricted(move.moveId, pokemon, move.getMove())) {
       if (this.interruptedText(pokemon, move.moveId)) {
         globalScene.phaseManager.queueMessage(this.interruptedText(pokemon, move.moveId));
       }
@@ -326,9 +328,11 @@ export abstract class MoveRestrictionBattlerTag extends SerializableBattlerTag {
    *
    * @param move - The {@linkcode MoveId} being checked
    * @param user - The {@linkcode Pokemon} involved
+   * @param usedMove - Local fork (2026-11-18): the move about to be used, when known (the pre-move check); else the
+   *   user's slot of `move` is judged (selection)
    * @returns `true` if the move is restricted by this tag, otherwise `false`.
    */
-  public abstract isMoveRestricted(move: MoveId, user?: Pokemon): boolean;
+  public abstract isMoveRestricted(move: MoveId, user?: Pokemon, usedMove?: Move): boolean;
 
   /**
    * Check if this tag is restricting a move based on a user's decisions during the target selection phase
@@ -367,6 +371,19 @@ export abstract class MoveRestrictionBattlerTag extends SerializableBattlerTag {
 }
 
 /**
+ * Local fork (2026-11-18): the move a restriction judges by its own properties: the user's slot as it is now, so a
+ * converted slot (Max / G-Max / Z move, move-transform.ts) counts as the move it became (a Max move made from a sound
+ * move is not a sound move, Max Guard made from Recover does not heal), as `Pokemon.isMoveSelectable` already does
+ * for the move's own checks; restrictions that name a move (Disable, Encore, Torment, Choice locks) stay slot-based.
+ * Same lookup as `getSlotMove` (move-transform.ts), kept here so this module does not import that one.
+ * @param move - The slot's move id
+ * @param user - The Pokémon whose slot it is, if known
+ */
+function getRestrictionMove(move: MoveId, user?: Pokemon): Move {
+  return user?.getMoveset().find(m => m.moveId === move)?.getMove() ?? allMoves[move];
+}
+
+/**
  * Tag representing the "Throat Chop" effect. Pokemon with this tag cannot use sound-based moves.
  * @see {@link https://bulbapedia.bulbagarden.net/wiki/Throat_Chop_(move) | Throat Chop}
  * @sealed
@@ -382,8 +399,10 @@ export class ThroatChoppedTag extends MoveRestrictionBattlerTag {
    * @param move - The {@linkcode MoveId | ID } of the move to check for sound-based restriction
    * @returns Whether the move is sound based
    */
-  override isMoveRestricted(move: MoveId): boolean {
-    return allMoves[move].hasFlag(MoveFlags.SOUND_BASED);
+  override isMoveRestricted(move: MoveId, user?: Pokemon, usedMove?: Move): boolean {
+    // Local fork (2026-11-18): by the move as used (a slot's converted move), so a Max move made from a sound move can
+    // be used
+    return (usedMove ?? getRestrictionMove(move, user)).hasFlag(MoveFlags.SOUND_BASED);
   }
 
   /**
@@ -3303,8 +3322,10 @@ export class HealBlockTag extends MoveRestrictionBattlerTag {
     });
   }
 
-  override isMoveRestricted(move: MoveId): boolean {
-    return healBlockedMoves.has(move);
+  override isMoveRestricted(move: MoveId, user?: Pokemon, usedMove?: Move): boolean {
+    // Local fork (2026-11-18): by the move as used (a slot's converted move), so Max Guard made from a healing move
+    // can be used
+    return healBlockedMoves.has((usedMove ?? getRestrictionMove(move, user)).id);
   }
 
   /**

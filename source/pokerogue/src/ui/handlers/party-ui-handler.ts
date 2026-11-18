@@ -1381,7 +1381,8 @@ export class PartyUiHandler extends MessageUiHandler {
     return (
       this.partyUiMode === PartyUiMode.FAINT_SWITCH
       && lastMove?.result === MoveResult.SUCCESS
-      && allMoves[lastMove.move].getAttrs("ForceSwitchOutAttr")[0]?.isBatonPass()
+      // Local fork (2026-11-18): the move the slot was used as (Max Guard made from Baton Pass passes nothing)
+      && allMoves[lastMove.derivedMoveId ?? lastMove.move].getAttrs("ForceSwitchOutAttr")[0]?.isBatonPass()
     );
   }
 

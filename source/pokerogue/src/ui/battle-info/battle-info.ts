@@ -51,9 +51,68 @@ const MARK_ICON_PITCH = 9;
 /** Local fork (2026-11-17): a `lastTitle` no Pokémon has, to have the name and the title worked out again */
 export const TITLE_STALE = "\u0000";
 
-/** Local fork (2026-11-17): the room the name keeps next to a title, and the gap between the two, in px */
-const TITLE_NAME_MIN = 30;
-const TITLE_GAP = 1.5;
+/** Local fork (2026-11-17): the gap between the title and the name, in px */
+export const TITLE_GAP = 1.5;
+
+/**
+ * Local fork (2026-11-18): "Lv" (8 px wide) is drawn up to 5.5 px right of the level container, so it starts 2.5 px
+ * left of it; the name, the gender symbol and the icons after it keep {@linkcode LV_GAP} px clear of it
+ */
+const LV_LABEL_LEFT = 2.5;
+const LV_GAP = 1.5;
+/**
+ * Local fork (2026-11-18): the room the name's trailing parts are given in {@linkcode BattleInfo.getNameWidthLimit},
+ * in px, each with the 1 px before it: the gender symbol (4.5 px), the fusion and shiny icons, and the alpha badge
+ * (its number, at most two digits of 3.75 px, then the crown, whose drawing ends 7.25 px after the number)
+ */
+const GENDER_ROOM = 6;
+const ICON_ROOM = 8;
+export const ALPHA_BADGE_ROOM = 16;
+/**
+ * Local fork (2026-11-18): the alpha badge's number in 10 px digits on the name's baseline (the name's 12 px letters
+ * stand on it 9 px down, these 7.5 px down), and the crown after it: its drawing starts 5 of its 40 px in (1.125 px
+ * at 0.225), and stands half a pixel after the number
+ */
+const ALPHA_NUMBER_DY = 1.5;
+const ALPHA_ICON_SCALE = 0.225;
+const ALPHA_ICON_INSET = 5 * ALPHA_ICON_SCALE;
+const ALPHA_ICON_GAP = 0.5;
+
+/**
+ * Local fork (2026-11-18): how the worn mark's title and the name share the room before the gender symbol and "Lv".
+ * The title is never cut into a fragment (it used to become "1000." or push the name down to "지그제구."): it is shown
+ * whole with the whole name, or not at all, and then the name is shortened as the game always did. Messages still say
+ * the title in full (getTitledName).
+ * @param title - The worn mark's title, `""` for none
+ * @param name - The name as the game shows it
+ * @param allowance - The width the title, the gap after it and the name may take ({@linkcode BattleInfo.getNameWidthLimit})
+ * @param measureTitle - The drawn width of a title
+ * @param measureName - The drawn width of a name
+ * @returns The title to show (`""` for none) and the name, with their widths; the title's includes the gap after it
+ */
+export function fitTitleAndName(
+  title: string,
+  name: string,
+  allowance: number,
+  measureTitle: (text: string) => number,
+  measureName: (text: string) => number,
+): { title: string; name: string; titleWidth: number; nameWidth: number } {
+  let nameWidth = measureName(name);
+  if (title) {
+    const titleWidth = measureTitle(title) + TITLE_GAP;
+    if (titleWidth + nameWidth <= allowance) {
+      return { title, name, titleWidth, nameWidth };
+    }
+  }
+  // No title: the name as the game shortens it. The length guard stops the loop at "." if a huge level ever leaves no
+  // room at all (it would never end otherwise)
+  let displayName = name;
+  while (displayName.length > 1 && nameWidth > allowance) {
+    displayName = `${displayName.slice(0, displayName.endsWith(".") ? -2 : -1).trimEnd()}.`;
+    nameWidth = measureName(displayName);
+  }
+  return { title: "", name: displayName, titleWidth: 0, nameWidth };
+}
 
 export abstract class BattleInfo extends Phaser.GameObjects.Container {
   public static readonly EXP_GAINS_DURATION_BASE = 1650;
@@ -96,6 +155,8 @@ export abstract class BattleInfo extends Phaser.GameObjects.Container {
    */
   protected titleText: Phaser.GameObjects.Text;
   protected lastTitle = "";
+  /** Local fork (2026-11-18): the name's room it was last fitted to (a level digit more or less changes it) */
+  protected lastNameLimit = -1;
   /** Where the name starts without a title: the left end of the row under it too */
   protected nameTextBaseX = 0;
   /**
@@ -167,19 +228,18 @@ export abstract class BattleInfo extends Phaser.GameObjects.Container {
 
     this.add([this.teraIcon, this.shinyIcon, this.fusionShinyIcon, this.splicedIcon]);
 
-    // Local fork (2026-11-17): the alpha badge, see the fields. The mark icons are 40 px; 0.225 makes them 9 px
+    // Local fork (2026-11-17): the alpha badge, see the fields. The mark icons are 40 px; 0.225 makes them 9 px.
+    // 2026-11-18: the number no longer overlaps the icon, so it has no dark outline any more
     this.alphaIcon = globalScene.add
       .image(0, 0, MARKS_ATLAS_KEY, getMarkKey(PokemonMark.ALPHA_MARK))
       .setName("icon_alpha")
       .setVisible(false)
       .setOrigin(0)
-      .setScale(0.225);
+      .setScale(ALPHA_ICON_SCALE);
     this.alphaBoostText = addTextObject(0, 0, "", TextStyle.BATTLE_INFO, { fontSize: "60px" })
       .setName("text_alpha_boost")
       .setVisible(false)
-      .setOrigin(0)
-      // A dark outline keeps the small digits readable over the icon
-      .setStroke("#282030", 14);
+      .setOrigin(0);
     this.add([this.alphaIcon, this.alphaBoostText]);
 
     // Local fork (2026-11-17): the mark icons, see the field; below the stats container like the enemy's other icons
@@ -217,11 +277,16 @@ export abstract class BattleInfo extends Phaser.GameObjects.Container {
       + (this.splicedIcon.visible ? this.splicedIcon.displayWidth + 1 : 0)
       + (this.shinyIcon.visible ? this.shinyIcon.displayWidth + 1 : 0);
     const golden = pokemon.alphaBoost >= ALPHA_MAX_BOOST;
-    // The icon stands a little to the right, and the number overlaps its lower left, as in the user's sketch
+    // Local fork (2026-11-18): the number on the name's line, then the crown after it. It used to sit lower than the
+    // name and cover the crown's lower left (the user's first sketch)
+    this.alphaBoostText.setText(`${pokemon.alphaBoost}`).setPositionRelative(this.nameText, x, ALPHA_NUMBER_DY);
     this.alphaIcon
       .setFrame(getMarkKey(golden ? PokemonMark.GOLDEN_ALPHA_MARK : PokemonMark.ALPHA_MARK))
-      .setPositionRelative(this.nameText, x + 4, 0.5);
-    this.alphaBoostText.setText(`${pokemon.alphaBoost}`).setPositionRelative(this.nameText, x, 2);
+      .setPositionRelative(
+        this.nameText,
+        x + this.alphaBoostText.displayWidth + ALPHA_ICON_GAP - ALPHA_ICON_INSET,
+        0.5,
+      );
   }
 
   /**
@@ -585,7 +650,12 @@ export abstract class BattleInfo extends Phaser.GameObjects.Container {
   /** Update the pokemon name inside the container */
   protected updateName(pokemon: Pokemon): boolean {
     const name = pokemon.getNameToRender({ prependFormName: false });
-    if (this.lastName === name && this.lastTitle === getPokemonTitle(pokemon)) {
+    // Local fork (2026-11-18): and fitted again when its room changes (a level digit, a shiny or alpha icon)
+    if (
+      this.lastName === name
+      && this.lastTitle === getPokemonTitle(pokemon)
+      && this.lastNameLimit === this.getNameWidthLimit(pokemon)
+    ) {
       return false;
     }
 
@@ -759,65 +829,58 @@ export abstract class BattleInfo extends Phaser.GameObjects.Container {
   }
 
   /**
-   * Local fork (2026-11-17): the widest the name may be drawn before {@linkcode updateNameText} shortens it, so that
-   * it and the icons after it stay clear of "Lv". Taken out of updateNameText unchanged, with the alpha badge's room
-   * added (so it can be tested).
+   * Local fork (2026-11-17): the widest the name (with the worn mark's title before it) may be drawn before
+   * {@linkcode updateNameText} shortens it, so that it and the gender symbol and icons after it stay clear of "Lv".
+   * Taken out of updateNameText (so it can be tested).
    * @param pokemon - The Pokémon this info is for
    * @returns The width in pixels
    */
   protected getNameWidthLimit(pokemon: Pokemon): number {
     const gender = pokemon.summonData.illusion?.gender ?? pokemon.gender;
     const levelDigits = pokemon.level.toString().length;
+    const trailing =
+      (gender === Gender.GENDERLESS ? 0 : GENDER_ROOM)
+      + (pokemon.fusionSpecies ? ICON_ROOM : 0)
+      + (pokemon.isShiny() ? ICON_ROOM : 0);
     // Local fork (2026-11-13): 08 명세 4번 (Endless levels up to ~320,000), the level container moves 8px left per digit
     // past the third (setLevelDisplay), so the name gets 8px less per such digit too: before, a 5-digit level's "Lv"
     // already covered the end of a long name and a 6-digit one covered about 12px of it. Levels under 1000 are unchanged.
-    return (
-      (this.player || !this.boss ? 60 : 98)
-      - ((gender === Gender.GENDERLESS ? 0 : 6)
-        + (pokemon.fusionSpecies ? 8 : 0)
-        + (pokemon.isShiny() ? 8 : 0)
-        + (Math.min(levelDigits, 3) - 3) * 8
-        + Math.max(levelDigits - 3, 0) * 8
-        // Local fork (2026-11-17): room for the alpha badge (updateAlphaBadge), which comes after the name and its
-        // icons; without it a long name pushed the badge over "Lv". Levels under 100 give the name the 8px per missing
-        // digit above, which the badge needs, so it takes that back: the name ends where a 3-digit level's would, 2px
-        // earlier
-        + (pokemon.isAlpha() ? 2 + 8 * (3 - Math.min(levelDigits, 3)) : 0))
-    );
+    const extraLevelDigits = Math.max(levelDigits - 3, 0);
+    const gameLimit =
+      (this.player || !this.boss ? 60 : 98) - (trailing + (Math.min(levelDigits, 3) - 3) * 8 + extraLevelDigits * 8);
+    // Local fork (2026-11-18): never more than the room really left before "Lv". The game gives a name 8 px more per
+    // level digit under three, but "Lv" does not move for them (its digits are drawn after it), so with a level under
+    // 10 a long name's gender symbol touched "Lv" ("지그제구.♂Lv. 2"). The alpha badge (updateAlphaBadge) comes after
+    // the name and its icons, and takes its room here too.
+    const lvLeft = this.baseLvContainerX - 8 * extraLevelDigits - LV_LABEL_LEFT;
+    const room = lvLeft - LV_GAP - this.nameTextBaseX;
+    return Math.min(gameLimit, room - trailing - (pokemon.isAlpha() ? ALPHA_BADGE_ROOM : 0));
   }
 
   updateNameText(pokemon: Pokemon): void {
-    let displayName = pokemon.getNameToRender({ prependFormName: false }).replace(/[♂♀]/g, "");
-    let nameTextWidth: number;
-
-    const nameSizeTest = addTextObject(0, 0, displayName, TextStyle.BATTLE_INFO);
-    nameTextWidth = nameSizeTest.displayWidth;
+    const nameSizeTest = addTextObject(0, 0, "", TextStyle.BATTLE_INFO);
+    const measure = (text: Phaser.GameObjects.Text) => (value: string) => text.setText(value).displayWidth;
 
     // Local fork (2026-11-17): the limit is worked out in getNameWidthLimit, which also leaves room for the alpha badge.
     const allowance = this.getNameWidthLimit(pokemon);
+    this.lastNameLimit = allowance;
 
-    // Local fork (2026-11-17): the title takes its room from the same allowance. The name keeps up to TITLE_NAME_MIN
-    // px of it; the title is cut to what the name leaves and dropped if not even two letters fit
-    let title = getPokemonTitle(pokemon);
-    this.lastTitle = title;
+    // Local fork (2026-11-18): the title is shown whole or not at all (fitTitleAndName)
+    const fullTitle = getPokemonTitle(pokemon);
+    this.lastTitle = fullTitle;
+    const { title, name, titleWidth } = fitTitleAndName(
+      fullTitle,
+      pokemon.getNameToRender({ prependFormName: false }).replace(/[♂♀]/g, ""),
+      allowance,
+      measure(this.titleText),
+      measure(nameSizeTest),
+    );
     this.titleText.setText(title);
-    const titleRoom = allowance - Math.min(nameTextWidth, TITLE_NAME_MIN) - TITLE_GAP;
-    while (title.length > 0 && this.titleText.displayWidth > titleRoom) {
-      title = title.length > 2 ? `${title.slice(0, title.endsWith(".") ? -2 : -1).trimEnd()}.` : "";
-      this.titleText.setText(title);
-    }
-    const titleWidth = title ? this.titleText.displayWidth + TITLE_GAP : 0;
     this.nameText.setX(this.nameTextBaseX + titleWidth);
-    // The length guard stops the loop at "." if a huge level ever leaves no room at all (it would never end otherwise).
-    while (displayName.length > 1 && nameTextWidth > allowance - titleWidth) {
-      displayName = `${displayName.slice(0, displayName.endsWith(".") ? -2 : -1).trimEnd()}.`;
-      nameSizeTest.setText(displayName);
-      nameTextWidth = nameSizeTest.displayWidth;
-    }
 
     nameSizeTest.destroy();
 
-    this.nameText.setText(displayName);
+    this.nameText.setText(name);
     this.lastName = pokemon.getNameToRender({ prependFormName: false });
 
     if (this.nameText.visible) {

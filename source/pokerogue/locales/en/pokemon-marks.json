@@ -302,6 +302,7 @@
   "ribbonEarned": "{{pokemonName}} received\nthe {{ribbonName}}!",
   "equipped": "(worn)",
   "count": "Marks {{count}}/{{total}}",
+  "hiddenCount": "Hidden {{count}}",
   "bestFriendsRibbon": {
     "name": "Best Friends Ribbon",
     "description": "A Ribbon for a Pokémon who is best friends with its Trainer.",
@@ -360,9 +361,10 @@
   "dex": {
     "title": "Mark Dex",
     "kinds": "Kinds {{count}}/{{total}}",
+    "hidden": "Hidden {{count}}/{{total}}",
     "species": "Pokémon {{count}}/{{total}}",
     "markSpecies": "{{name}} - Pokémon with it {{count}}/{{total}}",
-    "speciesMarks": "{{name}} - marks {{count}}/{{total}}",
+    "speciesMarks": "{{name}} - {{marks}}",
     "unknownSpecies": "???"
   },
   "unknownName": "???",

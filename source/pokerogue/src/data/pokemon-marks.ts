@@ -323,6 +323,37 @@ export const COMPLETION_EXEMPT_MARKS: readonly PokemonMark[] = [
   PokemonMark.ENDLESS_MASTER_RIBBON,
 ];
 
+/** Local fork (2026-11-18): the listed marks and ribbons: all but the hidden ones ({@linkcode COMPLETION_EXEMPT_MARKS}) */
+export const LISTED_POKEMON_MARKS: readonly PokemonMark[] = orderedPokemonMarks.filter(
+  m => !COMPLETION_EXEMPT_MARKS.includes(m),
+);
+
+/**
+ * Local fork (2026-11-18): how many of the listed marks and of the hidden ones a Pokémon or a starter line has. The
+ * counts used to be one number over the listed total, so the hidden marks made it run past it ("증표 12/69" for 7
+ * listed and 5 hidden ones) long before the list was complete.
+ * @param marks - The marks it has
+ * @returns The two counts
+ */
+export function countListedAndHiddenMarks(marks: readonly PokemonMark[]): { listed: number; hidden: number } {
+  return {
+    listed: LISTED_POKEMON_MARKS.filter(m => marks.includes(m)).length,
+    hidden: COMPLETION_EXEMPT_MARKS.filter(m => marks.includes(m)).length,
+  };
+}
+
+/**
+ * Local fork (2026-11-18): a Pokémon's or a starter line's marks counted for the Pokédex page's tray and the mark
+ * Pokédex: "증표 7/69", and " · 히든 5" after it for the hidden ones it has (none: nothing, they stay a surprise).
+ * @param marks - The marks it has
+ * @returns The text
+ */
+export function getMarkCountText(marks: readonly PokemonMark[]): string {
+  const { listed, hidden } = countListedAndHiddenMarks(marks);
+  const count = i18next.t("pokemonMarks:count", { count: listed, total: LISTED_POKEMON_MARKS.length });
+  return hidden > 0 ? `${count} · ${i18next.t("pokemonMarks:hiddenCount", { count: hidden })}` : count;
+}
+
 /** @returns Whether the marks are every mark and ribbon there is, but for {@linkcode COMPLETION_EXEMPT_MARKS} */
 export function isMarkCollectionComplete(marks: readonly PokemonMark[]): boolean {
   return orderedPokemonMarks.every(m => COMPLETION_EXEMPT_MARKS.includes(m) || marks.includes(m));

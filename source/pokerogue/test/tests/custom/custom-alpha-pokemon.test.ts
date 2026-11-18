@@ -417,18 +417,19 @@ describe("Local fork - alpha Pokémon", { timeout: 60_000 }, () => {
       return info["getNameWidthLimit"](pokemon);
     };
     // Measured from the battle info font (12px): "♂" is 4.5px wide. In the player's box the name starts at -115 and
-    // "Lv" (8px wide) ends at -41 + 5.5, moving 8px left per level digit past the third. The badge's icon is drawn
-    // 4px after the name's icons and is visible to 8.1px past that (36 of its 40px at 0.225).
+    // "Lv" (8px wide) ends at -41 + 5.5, moving 8px left per level digit past the third. 2026-11-18: the badge's number
+    // comes 1px after the name's icons (two 10px digits of 3.75px), and the crown's drawing ends 7.25px after it
     const genderWidth = 4.5;
     for (const level of [5, 50, 100, 999, 1000, 54321]) {
       const lvLeft = -41 + 5.5 - 8 + 115 - 8 * Math.max(level.toString().length - 3, 0);
-      const badgeRight = limit(level, 7) + genderWidth + 1 + 4 + 36 * 0.225;
+      const badgeRight = limit(level, ALPHA_MAX_BOOST) + genderWidth + 1 + 2 * 3.75 + 7.25;
       expect(badgeRight, `level ${level}`).toBeLessThanOrEqual(lvLeft);
     }
-    // An ordinary Pokémon's name keeps all its room
-    expect([5, 50, 100, 1000].map(level => limit(level, 0))).toEqual([70, 62, 54, 46]);
-    // An alpha's name is not shortened more than it needs: from 3 digits on only by 2px
-    expect([5, 50, 100, 1000].map(level => limit(level, ALPHA_MAX_BOOST))).toEqual([52, 52, 52, 44]);
+    // An ordinary Pokémon's name keeps the game's room, but for a level under 10, which gave it 8px more than there is
+    // before "Lv" (2026-11-18: its gender symbol touched it)
+    expect([5, 50, 100, 1000].map(level => limit(level, 0))).toEqual([64, 62, 54, 46]);
+    // An alpha's name is shortened by the badge's room, the same for every level under 1000
+    expect([5, 50, 100, 1000].map(level => limit(level, ALPHA_MAX_BOOST))).toEqual([48, 48, 48, 40]);
   });
 
   /**

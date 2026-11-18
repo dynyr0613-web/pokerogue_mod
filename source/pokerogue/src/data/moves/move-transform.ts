@@ -220,6 +220,8 @@ function finishStatusMove(move: Move, baseId: MoveId, t: MoveTransform, srcName:
       stronger.stages = MOVE_TRANSFORM_RULES.zMaxSwordsDanceStages;
       return stronger;
     });
+    // Local fork (2026-11-18): its own description, which says +4 (다이검무's says +3)
+    move.effect = i18next.t("battle:zMaxSwordsDanceEffect");
   } else {
     addZPower(move, baseId);
   }
