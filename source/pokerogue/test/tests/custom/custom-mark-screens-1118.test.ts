@@ -6,6 +6,7 @@
 // 5. the Pokédex page's mark tray counts the same way ("증표 12/69" for 7 listed and 5 hidden marks)
 // 6. the Pokédex page's IV key hint reads like the others (": 성별")
 
+import { Gender } from "#data/gender";
 import {
   COMPLETION_EXEMPT_MARKS,
   countListedAndHiddenMarks,
@@ -13,7 +14,6 @@ import {
   LISTED_POKEMON_MARKS,
   orderedPokemonMarks,
 } from "#data/pokemon-marks";
-import { Gender } from "#data/gender";
 import { MoveId } from "#enums/move-id";
 import { PokemonMark } from "#enums/pokemon-mark";
 import { SpeciesId } from "#enums/species-id";

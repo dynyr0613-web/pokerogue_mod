@@ -1,5 +1,3 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { AbilityId } from "#enums/ability-id";
 import { BattlerIndex } from "#enums/battler-index";
 import { BattlerTagType } from "#enums/battler-tag-type";
@@ -9,6 +7,8 @@ import { SpeciesId } from "#enums/species-id";
 import { StruggleRecoilAttr } from "#moves/move";
 import { GameManager } from "#test/framework/game-manager";
 import { toDmgValue } from "#utils/common";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import Phaser from "phaser";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 

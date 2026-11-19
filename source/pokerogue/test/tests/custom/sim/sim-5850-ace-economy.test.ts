@@ -50,6 +50,7 @@
  *   FORK_SIM_MERGE=1   summarize the JSON files already in FORK_SIM_OUT (per profile) instead of running
  *   FORK_SIM_REROLL_CAP_EXPERT  override the experts' rerolls per screen (default 10)
  *   FORK_SIM_GUARD     after-vitamins (default) | first (top of the GREAT picks) | last (filler) | off | nopool
+ *   FORK_SIM_ZMAX=take also take the Z-Ring, Max Mushrooms and the Mark Charm (added after this policy; ZMAX_TAKE)
  *   FORK_SIM_DEBUG / FORK_SIM_MEMLOG / FORK_SIM_CPUPROF=<file> / FORK_SIM_HEAPPROF=<file>  diagnostics
  */
 import { getGameMode } from "#app/game-mode";
@@ -79,6 +80,7 @@ import {
   LapsingPersistentModifier,
   MoneyMultiplierModifier,
   PersistentModifier,
+  PokemonFormChangeItemModifier,
   PokemonHeldItemModifier,
   TempExtraModifierModifier,
 } from "#modifiers/modifier";
@@ -211,6 +213,8 @@ const PARTY_ITEM_KEYS = new Set([
   "CANDY_JAR",
   // Local fork (2026-11-13): 방호 토큰 (party cap 65, 09 명세 4번); in the priority only when FORK_SIM_GUARD takes it
   "GUARD_TOKEN",
+  // Local fork (2026-11-19): Z링 (a key item like the Dynamax Band); in the priority only with FORK_SIM_ZMAX=take
+  "Z_RING",
 ]);
 
 /**
@@ -224,6 +228,20 @@ type GuardMode = "after-vitamins" | "first" | "last" | "off" | "nopool";
 const GUARD_MODE = (process.env.FORK_SIM_GUARD ?? "after-vitamins") as GuardMode;
 /** Whether the player keeps rerolling until the 방호 토큰 is full too (it joins LAST_CAPS) */
 const GUARD_KEEPS_REROLLING = GUARD_MODE === "after-vitamins" || GUARD_MODE === "first";
+/**
+ * Local fork (2026-11-19), 1.2.0 re-run (C4): FORK_SIM_ZMAX=take makes the player take the reward entries added after
+ * this policy was written (11-13) that otherwise stay in the pools for the whole run: the Z링 (Z-Ring, ROGUE, a key
+ * item up to weight 36, gone once owned, like the Dynamax Band), the 다이버섯 (Max Mushrooms, offered by the 24-weight
+ * ROGUE rare form-change entry while the player has the Dynamax Band and a party member holds none, 11-18) and the
+ * 증표부적 (Mark Charm, MASTER 14, 11-17). Experts take the first two in their pool cleaning (after the Dynamax Band),
+ * everyone takes all three as neutral picks (the Z-Ring and Max Mushrooms after the Dynamax Band, the Mark Charm after
+ * the Shiny Charm); Max Mushrooms go to the first member without them, the ace first. Without it (the default) the
+ * policy is the 11-13 one: in a 1.2.0 expert run the Z-Ring alone was a third of the ROGUE slots and Candy Piles came
+ * up about 600 times instead of ~1,800.
+ */
+const ZMAX_TAKE = process.env.FORK_SIM_ZMAX === "take";
+/** Local fork (2026-11-19): the reward key of Max Mushrooms (`itemKey` of its form-change item type) */
+const MAX_MUSHROOMS_KEY = `FORM_${FormChangeItem[FormChangeItem.MAX_MUSHROOMS]}`;
 /** Consumables the ace policy takes (counted, not applied) */
 const ACE_CONSUMABLE_KEYS = new Set(["CANDY_PILE"]);
 /**
@@ -279,6 +297,8 @@ function acePriority(profile: Profile): string[] {
     "KINGS_ROCK",
     // experts clean the pool: one copy of each item the ace has no use for leaves the pool for good (full rule)
     ...(profile.poolCleaning ? ["DYNAMAX_BAND", "CHOICE_SPECS", "POWER_LENS", "BATON", "THROAT_SPRAY"] : []),
+    // Local fork (2026-11-19): FORK_SIM_ZMAX=take, the Z-Ring (36) and the Max Mushrooms entry (24) leave the pool too
+    ...(profile.poolCleaning && ZMAX_TAKE ? ["Z_RING", MAX_MUSHROOMS_KEY] : []),
     // ULTRA
     "FOUR_LEAF_CLOVER",
     "WEIGHT_BAND",
@@ -341,6 +361,8 @@ const NEUTRAL_PRIORITY = [
   "RARER_CANDY",
   "RARE_CANDY",
   "DYNAMAX_BAND",
+  // Local fork (2026-11-19): FORK_SIM_ZMAX=take (see ZMAX_TAKE)
+  ...(ZMAX_TAKE ? ["Z_RING", MAX_MUSHROOMS_KEY] : []),
   "TERA_ORB",
   "EXP_SHARE",
   "IV_SCANNER",
@@ -349,6 +371,7 @@ const NEUTRAL_PRIORITY = [
   "CATCHING_CHARM",
   "ABILITY_CHARM",
   "SHINY_CHARM",
+  ...(ZMAX_TAKE ? ["MARK_CHARM"] : []), // Local fork (2026-11-19): FORK_SIM_ZMAX=take
   "HEALING_CHARM",
   "SUPER_EXP_CHARM",
   "EXP_CHARM",
@@ -617,12 +640,28 @@ describe.skipIf(!process.env.FORK_SIM)("Sim - 5850 ace economy (real reward gene
       }
     };
 
+    /**
+     * Local fork (2026-11-19): FORK_SIM_ZMAX=take, the member the next Max Mushrooms go to: the first without them, the
+     * ace first (the rare form-change entry offers them while any member has none)
+     */
+    const mushroomTaker = (): Pokemon | undefined =>
+      [ace, ...supports].find(
+        p =>
+          !p
+            .getHeldItems()
+            .some(m => m instanceof PokemonFormChangeItemModifier && m.formChangeItem === FormChangeItem.MAX_MUSHROOMS),
+      );
+
     /** Whether the option is useful to the ace right now, and how (null: not for the ace) */
     const aceUse = (opt: ModifierTypeOption): "ace" | "party" | "consumable" | "support" | null => {
       const type = opt.type;
       const key = itemKey(type);
       if (!rank.has(key)) {
         return null;
+      }
+      // Local fork (2026-11-19): FORK_SIM_ZMAX=take (experts' pool cleaning): Max Mushrooms while a member has none
+      if (key === MAX_MUSHROOMS_KEY) {
+        return mushroomTaker() ? "support" : null;
       }
       if (PARTY_ITEM_KEYS.has(key)) {
         const held = partyItem(type.id);
@@ -677,6 +716,15 @@ describe.skipIf(!process.env.FORK_SIM)("Sim - 5850 ace economy (real reward gene
           rareCandies++;
         } else {
           rarerCandies++;
+        }
+        return;
+      }
+      // Local fork (2026-11-19): FORK_SIM_ZMAX=take, Max Mushrooms (policy or neutral pick) for the first member without
+      // them; without the switch a pick of them changes nothing tracked, as before
+      if (ZMAX_TAKE && key === MAX_MUSHROOMS_KEY && type instanceof FormChangeItemModifierType) {
+        const taker = mushroomTaker();
+        if (taker) {
+          add(type.newModifier(taker) as PersistentModifier);
         }
         return;
       }

@@ -77,6 +77,7 @@
   "combiningPledge": "2개의 기술이 하나가 되었다!\n콤비네이션 기술이다!",
   "awaitingPledge": "{{userPokemonName}}[[는]]\n{{allyPokemonName}}[[를]] 기다리고 있다…",
   "corrosiveGasItem": "{{pokemonName}}[[는]] {{targetName}}[[가]]\n지닌 {{itemName}}[[를]] 녹여 버렸다!",
+  "recycledItem": "{{pokemonName}}[[는]]\n{{itemName}}[[를]] 주웠다!",
   "instructingMove": "{{targetPokemonName}}[[는]] {{userPokemonName}}의 지휘를 따른다!",
   "lunarDanceRestore": "{{pokemonName}}[[는]] 신비한 달빛에 둘러싸였다!",
   "stealPositiveStats": "{{pokemonName}}[[는]] {{targetName}}의 올라간 능력을 빼앗았다!",
@@ -90,5 +91,6 @@
   "zPower": "{{pokemonName}}[[는]]\nZ파워를 몸에 둘렀다!",
   "zPowerResetStats": "{{pokemonName}}[[는]] Z파워로\n떨어진 능력이 원래대로 돌아왔다!",
   "zPowerHeal": "{{pokemonName}}[[는]] Z파워로\n체력을 회복했다!",
-  "zPowerHealReplacement": "Z파워가 교체로 나온 포켓몬의\n체력을 회복시켰다!"
+  "zPowerHealReplacement": "Z파워가 교체로 나온 포켓몬의\n체력을 회복시켰다!",
+  "skyDropTooHeavy": "{{targetName}}[[는]] 너무 무거워서\n들어 올릴 수 없다!"
 }

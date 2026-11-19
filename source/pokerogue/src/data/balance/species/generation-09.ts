@@ -11995,7 +11995,7 @@ export function initGenerationNine(): SpeciesDataMapConfig {
       height: 2.7,
       weight: 333,
       ability1: AbilityId.MINDS_EYE,
-      ability2: AbilityId.NONE,
+      ability2: AbilityId.GRIT, // Local fork (2026-11-19): D12 extra ability, was NONE
       abilityHidden: AbilityId.NONE,
       baseTotal: 555,
       baseHp: 113,

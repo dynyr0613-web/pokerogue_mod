@@ -104,7 +104,8 @@ export type SemiInvulnerableTagType =
   | BattlerTagType.FLYING
   | BattlerTagType.UNDERGROUND
   | BattlerTagType.UNDERWATER
-  | BattlerTagType.HIDDEN;
+  | BattlerTagType.HIDDEN
+  | BattlerTagType.SKY_DROP; // Local fork (2026-11-19): the Pokémon carried by Sky Drop (프리폴)
 
 /**
  * Subset of {@linkcode BattlerTagType}s corresponding to {@linkcode AbilityBattlerTag}s

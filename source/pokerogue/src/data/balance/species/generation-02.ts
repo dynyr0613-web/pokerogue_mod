@@ -1594,7 +1594,7 @@ export function initGenerationTwo(): SpeciesDataMapConfig {
       height: 1.8,
       weight: 75,
       ability1: AbilityId.INNER_FOCUS,
-      ability2: AbilityId.NONE,
+      ability2: AbilityId.STRONG_JAW, // Local fork (2026-11-19): D12 extra ability, was NONE
       abilityHidden: AbilityId.INFILTRATOR,
       baseTotal: 535,
       baseHp: 85,
@@ -4490,7 +4490,7 @@ export function initGenerationTwo(): SpeciesDataMapConfig {
       height: 0.7,
       weight: 1,
       ability1: AbilityId.LEVITATE,
-      ability2: AbilityId.NONE,
+      ability2: AbilityId.WICKED_SCHEME, // Local fork (2026-11-19): D12 extra ability, was NONE
       abilityHidden: AbilityId.NONE,
       baseTotal: 435,
       baseHp: 60,
@@ -8096,7 +8096,7 @@ export function initGenerationTwo(): SpeciesDataMapConfig {
       height: 2.1,
       weight: 220,
       ability1: AbilityId.SWIFT_SWIM,
-      ability2: AbilityId.WATER_ABSORB,
+      ability2: AbilityId.LIGHTNING_ROD, // Local fork (2026-11-19): D12 extra ability, was WATER_ABSORB
       abilityHidden: AbilityId.WATER_VEIL,
       baseTotal: 485,
       baseHp: 85,
@@ -8219,7 +8219,7 @@ export function initGenerationTwo(): SpeciesDataMapConfig {
           height: 1.7,
           weight: 40.4,
           ability1: AbilityId.STALWART,
-          ability2: AbilityId.STALWART,
+          ability2: AbilityId.STEEL_BODY, // Local fork (2026-11-19): D12 extra ability, was STALWART
           abilityHidden: AbilityId.STALWART,
           baseTotal: 565,
           baseHp: 65,
@@ -8844,7 +8844,7 @@ export function initGenerationTwo(): SpeciesDataMapConfig {
       height: 0.6,
       weight: 32.5,
       ability1: AbilityId.TRACE,
-      ability2: AbilityId.DOWNLOAD,
+      ability2: AbilityId.SPACE_WARP, // Local fork (2026-11-19): D12 extra ability, was DOWNLOAD
       abilityHidden: AbilityId.ANALYTIC,
       baseTotal: 515,
       baseHp: 85,
@@ -9806,7 +9806,7 @@ export function initGenerationTwo(): SpeciesDataMapConfig {
       height: 1.9,
       weight: 178,
       ability1: AbilityId.PRESSURE,
-      ability2: AbilityId.NONE,
+      ability2: AbilityId.ELECTRIC_SURGE, // Local fork (2026-11-19): D12 extra ability, was NONE
       abilityHidden: AbilityId.INNER_FOCUS,
       baseTotal: 580,
       baseHp: 90,
@@ -9933,7 +9933,7 @@ export function initGenerationTwo(): SpeciesDataMapConfig {
       height: 2.1,
       weight: 198,
       ability1: AbilityId.PRESSURE,
-      ability2: AbilityId.NONE,
+      ability2: AbilityId.DROUGHT, // Local fork (2026-11-19): D12 extra ability, was NONE
       abilityHidden: AbilityId.INNER_FOCUS,
       baseTotal: 580,
       baseHp: 115,
@@ -10054,7 +10054,7 @@ export function initGenerationTwo(): SpeciesDataMapConfig {
       height: 2,
       weight: 187,
       ability1: AbilityId.PRESSURE,
-      ability2: AbilityId.NONE,
+      ability2: AbilityId.DRIZZLE, // Local fork (2026-11-19): D12 extra ability, was NONE
       abilityHidden: AbilityId.INNER_FOCUS,
       baseTotal: 580,
       baseHp: 100,
@@ -10398,7 +10398,7 @@ export function initGenerationTwo(): SpeciesDataMapConfig {
           height: 2.5,
           weight: 255,
           ability1: AbilityId.SAND_STREAM,
-          ability2: AbilityId.NONE,
+          ability2: AbilityId.SAND_RUSH, // Local fork (2026-11-19): D12 extra ability, was NONE
           abilityHidden: AbilityId.SAND_STREAM,
           baseTotal: 700,
           baseHp: 100,

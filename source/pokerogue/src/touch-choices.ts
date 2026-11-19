@@ -23,8 +23,8 @@ import { Button } from "#enums/buttons";
 import { Command } from "#enums/command";
 import { PartyUiMode } from "#enums/party-ui-mode";
 import { UiMode } from "#enums/ui-mode";
-import { formatMoney } from "#utils/common";
 import { getModifierTierTextTint } from "#ui/text";
+import { formatMoney } from "#utils/common";
 import { getPokemonTypeLocaleKey } from "#utils/i18n";
 import i18next from "i18next";
 

@@ -33,7 +33,7 @@ export function initGenerationFour(): SpeciesDataMapConfig {
       height: 0.4,
       weight: 10.2,
       ability1: AbilityId.OVERGROW,
-      ability2: AbilityId.NONE,
+      ability2: AbilityId.GRASSY_SURGE, // Local fork (2026-11-19): D12 extra ability, was NONE
       abilityHidden: AbilityId.SHELL_ARMOR,
       baseTotal: 318,
       baseHp: 55,
@@ -144,7 +144,7 @@ export function initGenerationFour(): SpeciesDataMapConfig {
       height: 1.1,
       weight: 97,
       ability1: AbilityId.OVERGROW,
-      ability2: AbilityId.NONE,
+      ability2: AbilityId.GRASSY_SURGE, // Local fork (2026-11-19): D12 extra ability, was NONE
       abilityHidden: AbilityId.SHELL_ARMOR,
       baseTotal: 405,
       baseHp: 75,
@@ -191,7 +191,7 @@ export function initGenerationFour(): SpeciesDataMapConfig {
       height: 2.2,
       weight: 310,
       ability1: AbilityId.OVERGROW,
-      ability2: AbilityId.NONE,
+      ability2: AbilityId.GRASSY_SURGE, // Local fork (2026-11-19): D12 extra ability, was NONE
       abilityHidden: AbilityId.SHELL_ARMOR,
       baseTotal: 525,
       baseHp: 95,
@@ -517,7 +517,7 @@ export function initGenerationFour(): SpeciesDataMapConfig {
       height: 0.4,
       weight: 5.2,
       ability1: AbilityId.TORRENT,
-      ability2: AbilityId.NONE,
+      ability2: AbilityId.OVERAWE, // Local fork (2026-11-19): D12 extra ability, was NONE
       abilityHidden: AbilityId.COMPETITIVE,
       baseTotal: 314,
       baseHp: 53,
@@ -631,7 +631,7 @@ export function initGenerationFour(): SpeciesDataMapConfig {
       height: 0.8,
       weight: 23,
       ability1: AbilityId.TORRENT,
-      ability2: AbilityId.NONE,
+      ability2: AbilityId.OVERAWE, // Local fork (2026-11-19): D12 extra ability, was NONE
       abilityHidden: AbilityId.COMPETITIVE,
       baseTotal: 405,
       baseHp: 64,
@@ -686,7 +686,7 @@ export function initGenerationFour(): SpeciesDataMapConfig {
       height: 1.7,
       weight: 84.5,
       ability1: AbilityId.TORRENT,
-      ability2: AbilityId.NONE,
+      ability2: AbilityId.OVERAWE, // Local fork (2026-11-19): D12 extra ability, was NONE
       abilityHidden: AbilityId.COMPETITIVE,
       baseTotal: 530,
       baseHp: 84,
@@ -1241,7 +1241,7 @@ export function initGenerationFour(): SpeciesDataMapConfig {
       height: 1,
       weight: 25.5,
       ability1: AbilityId.SWARM,
-      ability2: AbilityId.NONE,
+      ability2: AbilityId.LAST_STAND, // Local fork (2026-11-19): D12 extra ability, was NONE
       abilityHidden: AbilityId.TECHNICIAN,
       baseTotal: 384,
       baseHp: 77,
@@ -3992,7 +3992,7 @@ export function initGenerationFour(): SpeciesDataMapConfig {
       height: 0.9,
       weight: 4.4,
       ability1: AbilityId.LEVITATE,
-      ability2: AbilityId.NONE,
+      ability2: AbilityId.WICKED_SCHEME, // Local fork (2026-11-19): D12 extra ability, was NONE
       abilityHidden: AbilityId.NONE,
       baseTotal: 495,
       baseHp: 60,
@@ -6920,7 +6920,7 @@ export function initGenerationFour(): SpeciesDataMapConfig {
       height: 1,
       weight: 65,
       ability1: AbilityId.SWIFT_SWIM,
-      ability2: AbilityId.WATER_ABSORB,
+      ability2: AbilityId.LIGHTNING_ROD, // Local fork (2026-11-19): D12 extra ability, was WATER_ABSORB
       abilityHidden: AbilityId.WATER_VEIL,
       baseTotal: 345,
       baseHp: 45,
@@ -7331,7 +7331,7 @@ export function initGenerationFour(): SpeciesDataMapConfig {
       height: 1.2,
       weight: 180,
       ability1: AbilityId.MAGNET_PULL,
-      ability2: AbilityId.STURDY,
+      ability2: AbilityId.TRANSISTOR, // Local fork (2026-11-19): D12 extra ability, was STURDY
       abilityHidden: AbilityId.ANALYTIC,
       baseTotal: 535,
       baseHp: 70,
@@ -8093,7 +8093,7 @@ export function initGenerationFour(): SpeciesDataMapConfig {
       height: 0.9,
       weight: 34,
       ability1: AbilityId.ADAPTABILITY,
-      ability2: AbilityId.DOWNLOAD,
+      ability2: AbilityId.SPACE_WARP, // Local fork (2026-11-19): D12 extra ability, was DOWNLOAD
       abilityHidden: AbilityId.ANALYTIC,
       baseTotal: 535,
       baseHp: 85,
@@ -8198,7 +8198,7 @@ export function initGenerationFour(): SpeciesDataMapConfig {
           height: 1.6,
           weight: 56.4,
           ability1: AbilityId.INNER_FOCUS,
-          ability2: AbilityId.INNER_FOCUS,
+          ability2: AbilityId.INTREPID_SWORD, // Local fork (2026-11-19): D12 extra ability, was INNER_FOCUS
           abilityHidden: AbilityId.INNER_FOCUS,
           baseTotal: 618,
           baseHp: 68,
@@ -8462,7 +8462,7 @@ export function initGenerationFour(): SpeciesDataMapConfig {
       height: 1.3,
       weight: 26.6,
       ability1: AbilityId.SNOW_CLOAK,
-      ability2: AbilityId.NONE,
+      ability2: AbilityId.SNOW_WARNING, // Local fork (2026-11-19): D12 extra ability, was NONE
       abilityHidden: AbilityId.CURSED_BODY,
       baseTotal: 480,
       baseHp: 70,
@@ -8487,7 +8487,7 @@ export function initGenerationFour(): SpeciesDataMapConfig {
           height: 1.3,
           weight: 26.6,
           ability1: AbilityId.SNOW_CLOAK,
-          ability2: AbilityId.NONE,
+          ability2: AbilityId.SNOW_WARNING, // Local fork (2026-11-19): D12 extra ability, was NONE
           abilityHidden: AbilityId.CURSED_BODY,
           baseTotal: 480,
           baseHp: 70,
@@ -8511,7 +8511,7 @@ export function initGenerationFour(): SpeciesDataMapConfig {
           height: 2.6,
           weight: 29.6,
           ability1: AbilityId.SNOW_WARNING,
-          ability2: AbilityId.NONE,
+          ability2: AbilityId.SLUSH_RUSH, // Local fork (2026-11-19): D12 extra ability, was NONE
           abilityHidden: AbilityId.SNOW_WARNING,
           baseTotal: 580,
           baseHp: 70,
@@ -8733,7 +8733,7 @@ export function initGenerationFour(): SpeciesDataMapConfig {
           height: 0.3,
           weight: 0.3,
           ability1: AbilityId.LEVITATE,
-          ability2: AbilityId.NONE,
+          ability2: AbilityId.AERILATE, // Local fork (2026-11-19): D12 extra ability, was NONE
           abilityHidden: AbilityId.NONE,
           baseTotal: 520,
           baseHp: 50,
@@ -9775,7 +9775,7 @@ export function initGenerationFour(): SpeciesDataMapConfig {
           height: 2.8,
           weight: 570,
           ability1: AbilityId.FLASH_FIRE,
-          ability2: AbilityId.NONE,
+          ability2: AbilityId.DESOLATE_LAND, // Local fork (2026-11-19): D12 extra ability, was NONE
           abilityHidden: AbilityId.FLASH_FIRE,
           baseTotal: 700,
           baseHp: 91,

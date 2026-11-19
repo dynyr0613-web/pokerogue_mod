@@ -11725,7 +11725,7 @@ export function initGenerationEight(): SpeciesDataMapConfig {
       height: 1.6,
       weight: 58.2,
       ability1: AbilityId.DEFIANT,
-      ability2: AbilityId.NONE,
+      ability2: AbilityId.LIGHTNING_ROD, // Local fork (2026-11-19): D12 extra ability, was NONE
       abilityHidden: AbilityId.NONE,
       baseTotal: 580,
       baseHp: 90,
@@ -11842,7 +11842,7 @@ export function initGenerationEight(): SpeciesDataMapConfig {
       height: 2,
       weight: 66,
       ability1: AbilityId.BERSERK,
-      ability2: AbilityId.NONE,
+      ability2: AbilityId.DROUGHT, // Local fork (2026-11-19): D12 extra ability, was NONE
       abilityHidden: AbilityId.NONE,
       baseTotal: 580,
       baseHp: 90,

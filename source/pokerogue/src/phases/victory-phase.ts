@@ -6,9 +6,13 @@ import { BattleType } from "#enums/battle-type";
 import type { BattlerIndex } from "#enums/battler-index";
 import { ClassicFixedBossWaves } from "#enums/fixed-boss-waves";
 import { ModifierTier } from "#enums/modifier-tier";
+import { LockModifierTiersModifier } from "#modifiers/modifier";
 import { handleMysteryEncounterVictory } from "#mystery-encounters/encounter-phase-utils";
 import { PokemonPhase } from "#phases/pokemon-phase";
 import i18next from "i18next";
+
+/** Local fork (2026-11-19): the Endless wave after which the Lock Capsule is given (C7 ①) */
+export const ENDLESS_LOCK_CAPSULE_WAVE = 150;
 
 export class VictoryPhase extends PokemonPhase {
   public readonly phaseName = "VictoryPhase";
@@ -69,6 +73,16 @@ export class VictoryPhase extends PokemonPhase {
 
       if (gameMode.isEndless || !gameMode.isWaveFinal(currentWaveIndex)) {
         globalScene.phaseManager.pushNew("EggLapsePhase");
+        // Local fork (2026-11-19): Endless gets the Lock Capsule after clearing wave 150, the way Classic gets it on
+        // 165, before the next reward shop (docs/1.2.0_후보_20261119.md C7 ①; the user: "c7 - 1 지급"). It does not
+        // stack, so a player who already holds one (bought in the shop) gets nothing more here
+        if (
+          gameMode.isEndless
+          && currentWaveIndex === ENDLESS_LOCK_CAPSULE_WAVE
+          && !globalScene.findModifier(m => m instanceof LockModifierTiersModifier)
+        ) {
+          globalScene.phaseManager.pushNew("ModifierRewardPhase", modifierTypes.LOCK_CAPSULE);
+        }
         if (gameMode.isClassic) {
           switch (currentWaveIndex) {
             case ClassicFixedBossWaves.EVIL_BOSS_2:

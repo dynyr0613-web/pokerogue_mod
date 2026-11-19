@@ -8,11 +8,11 @@
 // 5. the Eternatus Mark's achievement did not unlock when Eternatus itself was the last catch;
 // 6. a mark obtained before the lines kept their own collections was "???" in the mark Pokédex.
 
+import { getGameMode } from "#app/game-mode";
 import { speciesDataRegistry } from "#app/global-species-data-registry";
 import { FORK_UNLOCK } from "#balance/fork-unlock";
-import { canTakeBattleForm } from "#data/enemy-battle-forms";
 import { applyRaidTurnEnd, ENDLESS_RAID_WAVE, isRaidBoss } from "#data/endless-raid";
-import { getGameMode } from "#app/game-mode";
+import { canTakeBattleForm } from "#data/enemy-battle-forms";
 import { BattleType } from "#enums/battle-type";
 import { Challenges } from "#enums/challenges";
 import { GameModes } from "#enums/game-modes";
@@ -167,7 +167,12 @@ describe("Local fork - second mod import: review fixes", () => {
     }
     gameData.dexData[SpeciesId.ETERNATUS].caughtAttr = 0n;
     delete gameData.achvUnlocks[achvs.ETERNATUS_MARK.id];
-    const eternatus = new EnemyPokemon(speciesDataRegistry.getSpecies(SpeciesId.ETERNATUS), 60, TrainerSlot.NONE, false);
+    const eternatus = new EnemyPokemon(
+      speciesDataRegistry.getSpecies(SpeciesId.ETERNATUS),
+      60,
+      TrainerSlot.NONE,
+      false,
+    );
     eternatus.marks = [];
     await gameData.setPokemonCaught(eternatus, true, false, false);
     expect(gameData.dexData[SpeciesId.ETERNATUS].caughtAttr).not.toBe(0n);

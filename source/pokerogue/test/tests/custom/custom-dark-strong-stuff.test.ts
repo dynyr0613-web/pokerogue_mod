@@ -150,8 +150,10 @@ describe("Custom mystery encounter - The Strong Stuff? (DARK_STRONG_STUFF)", () 
 
       expect(MysteryEncounterType.DARK_STRONG_STUFF).toBe(MysteryEncounterType.VENDING_MACHINE + 1);
       // Local fork (2026-11-18): "우두머리!" (ALPHA_ENCOUNTER) came after it; only later types follow it, so its id stays
+      // Local fork (2026-11-19): then "고철 속 보물" (SCRAP_TREASURE)
       expect(getEnumValues(MysteryEncounterType).filter(t => t > MysteryEncounterType.DARK_STRONG_STUFF)).toEqual([
         MysteryEncounterType.ALPHA_ENCOUNTER,
+        MysteryEncounterType.SCRAP_TREASURE,
       ]);
       expect(allMysteryEncounters[MysteryEncounterType.DARK_STRONG_STUFF]).toBe(DarkStrongStuffEncounter);
       expect(DarkStrongStuffEncounter.encounterTier).toBe(MysteryEncounterTier.ROGUE);

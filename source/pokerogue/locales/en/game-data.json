@@ -10,5 +10,6 @@
   "saveDataNotFound": "Save data could not be found. If this is a new account, you can safely ignore this message.",
   "tooManyConnections": "Too many people are trying to connect and the server is overloaded. Please try again later.",
   "failedSaveValidation": "Saving has been aborted due to detected data loss.\nYour data will be re-downloaded from the server…",
-  "gameOutOfDate": "Your game version is out of date.\nPlease clear your cache and reload the page."
+  "gameOutOfDate": "Your game version is out of date.\nPlease clear your cache and reload the page.",
+  "newerEditionSave": "This save is from a newer edition (v{{version}}).\nThis edition cannot open it. Please run the newer one."
 }

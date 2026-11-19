@@ -50,7 +50,11 @@ describe("Moves - Rollout", () => {
     let previousHp = enemyPkm.hp;
 
     for (let i = 0; i < turns; i++) {
-      game.move.select(MoveId.ROLLOUT);
+      // Local fork (2026-11-19): Rollout locks the user in for 5 turns (the user: "e2 구현"), so it is chosen only on the
+      // first turn of each chain
+      if (i % 5 === 0) {
+        game.move.select(MoveId.ROLLOUT);
+      }
       await game.toNextTurn();
       dmgHistory.push(previousHp - enemyPkm.hp);
       previousHp = enemyPkm.hp;

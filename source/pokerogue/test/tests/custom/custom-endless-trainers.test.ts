@@ -80,7 +80,10 @@ const EVOLUTION_SAMPLE: [TrainerType, TrainerVariant][] = [
   [TrainerType.BREEDER, TrainerVariant.DEFAULT],
 ];
 
-describe("Custom Endless trainers", () => {
+// Local fork (2026-11-19): A6. Most tests here build dozens of trainer parties in one synchronous loop: 2-5 s alone, but
+// 12-51 s under a full parallel run, past the 20 s default (the legend-rule tests at 983 / 1031 / 1090 timed out). Tests
+// with their own longer timeout keep it
+describe("Custom Endless trainers", { timeout: 120_000 }, () => {
   let phaserGame: Phaser.Game;
   let game: GameManager;
   let logSpy: MockInstance | undefined;

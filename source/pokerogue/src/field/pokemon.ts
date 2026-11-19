@@ -39,7 +39,8 @@ import {
 } from "#data/alpha-pokemon";
 import type { SuppressAbilitiesTag } from "#data/arena-tag";
 // Local fork (2026-11-11): ConditionalProtectTag for the Master Punching Glove's 1/4 through Quick Guard / Mat Block
-import { ConditionalProtectTag, NoCritTag, WeakenMoveScreenTag } from "#data/arena-tag";
+// Local fork (2026-11-19): getWonderRoomStat for Wonder Room (1.2.0 D6)
+import { ConditionalProtectTag, getWonderRoomStat, NoCritTag, WeakenMoveScreenTag } from "#data/arena-tag";
 import {
   AutotomizedTag,
   BattlerTag,
@@ -49,6 +50,7 @@ import {
   ExposedTag,
   getBattlerTag,
   HighestStatBoostTag,
+  isUproarActive, // Local fork (2026-11-19): Uproar
   MoveRestrictionBattlerTag,
   PowerTrickTag,
   ProtectedTag, // Local fork (2026-11-11): the Master Punching Glove's 1/4 through protection
@@ -60,6 +62,7 @@ import {
 import { getDailyEventSeedBoss, isDailyForcedWaveHiddenAbility } from "#data/daily-run";
 import { isDailyEventSeed, isDailyFinalBoss } from "#data/daily-seed-utils";
 import { allAbilities, allMoves } from "#data/data-lists";
+import { applyRaidHpMultiplier, isEndlessRaidWave } from "#data/endless-raid";
 import { rollEndlessTrainerFusion } from "#data/enemy-trainer-fusion"; // Local fork (2026-11-12): Endless trainer fusions
 import { getLevelTotalExp } from "#data/exp";
 import {
@@ -88,7 +91,6 @@ import {
   isInDynamaxState,
   MAX_FORM_KEYS,
 } from "#data/pokemon-forms-dynamax";
-import { applyRaidHpMultiplier, isEndlessRaidWave } from "#data/endless-raid";
 import { applyWildMark, normalizeMarks } from "#data/pokemon-marks";
 import type { PokemonSpeciesForm } from "#data/pokemon-species";
 import { PokemonSpecies } from "#data/pokemon-species";
@@ -830,13 +832,17 @@ export abstract class Pokemon extends Phaser.GameObjects.Container {
     if (pokemon instanceof Pokemon) {
       const speciesId = pokemon.species.speciesId;
 
+      // Local fork (2026-11-19): Illusion = Disguise's effect + a random ally's look (C10). The illusion keeps the
+      // holder's own shininess and variant: the battle sprite's id and its shiny colours are drawn from the holder's
+      // `shiny`/`variant` fields, so an ally's differing shininess loaded a sprite that was never shown (and a shiny
+      // holder still sparkles on entry, as in the main series)
       this.summonData.illusion = {
         name: pokemon.name,
         nickname: pokemon.nickname,
-        shiny: pokemon.shiny,
-        variant: pokemon.variant,
-        fusionShiny: pokemon.fusionShiny,
-        fusionVariant: pokemon.fusionVariant,
+        shiny: this.shiny,
+        variant: this.variant,
+        fusionShiny: this.fusionShiny,
+        fusionVariant: this.fusionVariant,
         species: speciesId,
         formIndex: pokemon.formIndex,
         gender: pokemon.gender,
@@ -846,7 +852,7 @@ export abstract class Pokemon extends Phaser.GameObjects.Container {
         fusionGender: pokemon.fusionGender,
       };
 
-      if (pokemon.shiny || pokemon.fusionShiny) {
+      if (this.shiny || this.fusionShiny) {
         this.initShinySparkle();
       }
     } else {
@@ -944,7 +950,9 @@ export abstract class Pokemon extends Phaser.GameObjects.Container {
     const formIndex = useIllusion ? illusion!.formIndex : this.formIndex;
     loadPromises.push(
       this.getSpeciesForm(false, useIllusion).loadAssets(
-        this.getGender(useIllusion) === Gender.FEMALE,
+        // Local fork (2026-11-19): the illusion's gender, as the battle sprite's id uses (C10); `useIllusion` used to be
+        // passed as `ignoreOverride`, so an illusion of the other gender loaded the wrong sprite of a gendered species
+        this.getGender(false, useIllusion) === Gender.FEMALE,
         formIndex,
         this.isShiny(useIllusion),
         this.getVariant(useIllusion),
@@ -1622,8 +1630,20 @@ export abstract class Pokemon extends Phaser.GameObjects.Container {
    * @returns The given move's final category
    */
   getMoveCategory(target: Pokemon, move: Move): MoveCategory {
+    // Local fork (2026-11-19): Shell Side Arm's category is decided once per move use and target, in
+    // `turnData.moveUseCategories` (opened by `MoveEffectPhase` for each use): an exact physical/special tie is a battle
+    // RNG roll, and the damage step, Tough Claws and every contact check of the use must agree
+    const useCategories =
+      this.turnData.moveUseCategories?.move === move.id && move.hasAttr("ShellSideArmCategoryAttr")
+        ? this.turnData.moveUseCategories.byTarget
+        : undefined;
+    const known = useCategories?.get(target.id);
+    if (known !== undefined) {
+      return known;
+    }
     const moveCategory = new NumberHolder(move.category);
     applyMoveAttrs("VariableMoveCategoryAttr", this, target, move, moveCategory);
+    useCategories?.set(target.id, moveCategory.value);
     return moveCategory.value;
   }
 
@@ -1654,7 +1674,11 @@ export abstract class Pokemon extends Phaser.GameObjects.Container {
   ): number {
     // Local fork (2026-11-13): Foul Play (08 명세 1번) starts from its target's plain stat instead of the user's; the
     // user's held items, abilities and field effects below apply to it as to any physical move (the main series' rule)
-    const statVal = new NumberHolder(foulPlayTarget ? foulPlayTarget.getFoulPlayStat(stat) : this.getStat(stat, false));
+    // Local fork (2026-11-19): Wonder Room (1.2.0 D6; the user: "d6 실행") swaps only the plain Defense / Sp. Def read
+    // here; the held items, abilities, stat stages and weather below stay with `stat` (the main series' rule)
+    const statVal = new NumberHolder(
+      foulPlayTarget ? foulPlayTarget.getFoulPlayStat(stat) : this.getStat(getWonderRoomStat(stat), false),
+    );
     if (!ignoreHeldItems) {
       globalScene.applyModifiers(StatBoosterModifier, this.isPlayer(), this, stat, statVal);
     }
@@ -1895,7 +1919,8 @@ export abstract class Pokemon extends Phaser.GameObjects.Container {
     // Local fork (2026-11-13), review fix: never more than the stat the Pokémon really has. The Soul Dew's weight is
     // dropped only where it raises the stat: a nature that lowers Attack pushes it to 1 with ten Soul Dews (special
     // aces), and the plain x0.9 would have handed Foul Play about 10M Attack the Pokémon does not have (08 re-run: 17
-    // hits, median 237% of the ace's max HP, on aces whose real Attack is 1)
+    // hits, median 237% of the ace's max HP, on aces whose real Attack is 1). Since 2026-11-19 (A4) ten Soul Dews
+    // leave a lowered Attack at about 31% instead of 1, still below the plain x0.9, so the same rule applies
     return Phaser.Math.Clamp(Math.min(statHolder.value, this.getStat(stat, false)), 1, Number.MAX_SAFE_INTEGER);
   }
 
@@ -2251,6 +2276,15 @@ export abstract class Pokemon extends Phaser.GameObjects.Container {
     }
 
     learnableMoves = learnableMoves.filter(lm => !this.moveset.some(m => m.moveId === lm[1]));
+
+    // Local fork (2026-11-19): leave out moves LearnMovePhase refuses (unimplemented "(N)" moves such as Trick or Bide,
+    // and Z / Max / G-Max ids), the same check the TM generator and the Master TM make. Picking one used to end the
+    // Memory Mushroom silently. Every user (party menu, reward eligibility, RememberMoveModifier's index) reads this list,
+    // so the indexes stay in step; a Pokémon left with nothing is simply not eligible.
+    learnableMoves = learnableMoves.filter(([, moveId]) => {
+      const move = allMoves[moveId];
+      return !!move && !move.isUnimplemented && !isZMaxOnlyMove(moveId);
+    });
 
     // Sort by source in descending order, so the moves with a species prefix will be at the top
     learnableMoves.sort((a, b) => {
@@ -2961,6 +2995,12 @@ export abstract class Pokemon extends Phaser.GameObjects.Container {
   public isTrapped(trappedAbMessages: string[] = [], simulated = true): boolean {
     const commandedTag = this.getTag(BattlerTagType.COMMANDED);
     if (commandedTag?.getSourcePokemon()?.isActive(true)) {
+      return true;
+    }
+
+    // Local fork (2026-11-19): a Pokémon carried by Sky Drop (프리폴) cannot be switched out, Ghost types and Run Away
+    // included, as in the main series (the user: "e2 구현")
+    if (this.getTag(BattlerTagType.SKY_DROP)) {
       return true;
     }
 
@@ -4225,9 +4265,8 @@ export abstract class Pokemon extends Phaser.GameObjects.Container {
     const damage = new NumberHolder(0);
     const defendingSide = this.isPlayer() ? ArenaTagSide.PLAYER : ArenaTagSide.ENEMY;
 
-    const variableCategory = new NumberHolder(move.category);
-    applyMoveAttrs("VariableMoveCategoryAttr", source, this, move, variableCategory);
-    const moveCategory = variableCategory.value as MoveCategory;
+    // Local fork (2026-11-19): through `getMoveCategory`, so Shell Side Arm uses the category its move use decided
+    const moveCategory = source.getMoveCategory(this, move);
     // Local fork (2026-11-14): passive rebalance. Remember the category this real hit used, so Toughness (맷집) follows
     // it after the hit instead of working it out again (Shell Side Arm breaks an exact tie with a battle RNG roll).
     if (!simulated) {
@@ -4409,7 +4448,11 @@ export abstract class Pokemon extends Phaser.GameObjects.Container {
       .getAttrs("HitsTagAttr")
       .filter(hta => hta.doubleDamage)
       .forEach(hta => {
-        if (this.getTag(hta.tagType)) {
+        // Local fork (2026-11-19): a Pokémon carried by Sky Drop is up in the air like a Fly user (Gust, Twister)
+        if (
+          this.getTag(hta.tagType)
+          || (hta.tagType === BattlerTagType.FLYING && this.getTag(BattlerTagType.SKY_DROP))
+        ) {
           hitsTagMultiplier.value *= 2;
         }
       });
@@ -4451,6 +4494,7 @@ export abstract class Pokemon extends Phaser.GameObjects.Container {
         () => this.getProtectionInTheWay(source, move),
         !ignoreSourceAbility && source.hasAbilityWithAttr("IgnoreProtectOnContactAbAttr"),
         damage,
+        this, // Local fork (2026-11-19): Shell Side Arm counts as contact when physical for this use
       );
     }
 
@@ -4700,6 +4744,10 @@ export abstract class Pokemon extends Phaser.GameObjects.Container {
    * Local fork (2026-11-18): whether this Pokémon is Dynamaxed in any way: a G-Max / E-Max form ({@linkcode isMax})
    * or the Dynamax state ({@linkcode hasDynamaxState}). The form checks (the Eviolite, the Evolution Crystals) keep
    * asking {@linkcode isMax}.
+   * Local fork (2026-11-19): also the one check of the main-series Dynamax rules, player and enemy alike: no forced
+   * switch (`ForceSwitchOutAttr`), no flinch (`FlinchedTag`), weight-based moves fail, Behemoth Blade / Bash x2, no
+   * Destiny Bond (`DestinyBondTag`); no 3-turn limit (the user: "다이맥스 강제 교체와 풀죽음, 체중기술 실패, 거수참/탄
+   * 두배, 길동무 면역을 넣도록 하죠, 거다이맥스에도 반영이 아직 안되어있다면 거다이맥스에도 넣고").
    */
   public isDynamaxed(): boolean {
     return this.isMax() || this.hasDynamaxState();
@@ -5518,6 +5566,17 @@ export abstract class Pokemon extends Phaser.GameObjects.Container {
         this.queueStatusImmuneMessage(quiet, TerrainType.MISTY);
         return false;
       }
+    }
+
+    // Local fork (2026-11-19): Uproar (소란피기): while an uproar goes on, no Pokémon can fall asleep (Rest and Yawn
+    // included) (the user: "e2 구현")
+    if (effect === StatusEffect.SLEEP && !ignoreField && isUproarActive()) {
+      if (!quiet) {
+        globalScene.phaseManager.queueMessage(
+          i18next.t("battlerTags:uproarPreventSleep", { pokemonNameWithAffix: getPokemonNameWithAffix(this) }),
+        );
+      }
+      return false;
     }
 
     const types = this.getTypes({ returnOriginalTypesIfStellar: true });

@@ -300,6 +300,7 @@ export class MovePhase extends PokemonPhase {
    * @returns Whether the move failed during the check
    * @remarks
    * Based on battle mechanics research conducted primarily by Smogon, checks happen in the following order (as of Gen 9):
+   * 0. (Local fork (2026-11-19)) Being carried by Sky Drop, before everything else as in the main series
    * 1. Sleep/Freeze
    * 2. Disobedience due to overleveled (not implemented in Pokerogue)
    * 3. Insufficient PP after being selected
@@ -324,7 +325,10 @@ export class MovePhase extends PokemonPhase {
   protected firstFailureCheck(): boolean {
     // A big if statement will handle the checks (that each have side effects!) in the correct order
     return (
-      this.checkSleep()
+      // Local fork (2026-11-19): a Pokémon carried by Sky Drop (프리폴) cannot move; it does not wake up, thaw or hurt
+      // itself in confusion meanwhile (`SkyDropTag`; the user: "e2 구현")
+      this.checkTagCancel(BattlerTagType.SKY_DROP)
+      || this.checkSleep()
       || this.checkFreeze()
       || this.checkPP()
       || this.checkValidity()

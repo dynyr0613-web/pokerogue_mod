@@ -2740,7 +2740,14 @@ export class PokemonNatureWeightModifier extends PokemonHeldItemModifier {
    */
   override apply(_pokemon: Pokemon, multiplier: NumberHolder): boolean {
     if (multiplier.value !== 1) {
-      multiplier.value += 0.1 * this.getStackCount() * (multiplier.value > 1 ? 1 : -1);
+      // Local fork (2026-11-19): the raised stat keeps the additive rule (1.1 + 0.1 x stacks), the lowered stat is
+      // multiplied by 0.9 per Soul Dew (0.9 x 0.9^stacks, about 0.31 at 10, never 0), so 9+ dews no longer drop it to 1
+      // (the user: "마음의물방울은 하락 성격만 곱연산으로 처리하도록")
+      if (multiplier.value > 1) {
+        multiplier.value += 0.1 * this.getStackCount();
+      } else {
+        multiplier.value *= 0.9 ** this.getStackCount();
+      }
       return true;
     }
 

@@ -63,7 +63,7 @@ import { MoveCategory } from "#enums/move-category";
 import { MoveId } from "#enums/move-id";
 import { MoveTarget } from "#enums/move-target";
 import { PokemonType } from "#enums/pokemon-type";
-import { type BattleStat, Stat } from "#enums/stat";
+import { type BattleStat, type EffectiveStat, Stat } from "#enums/stat"; // Local fork (2026-11-19): Wonder Room
 import { StatChangeSource } from "#enums/stat-change-source";
 import { StatusEffect } from "#enums/status-effect";
 import { ArenaTagAddedEvent } from "#events/arena";
@@ -1258,6 +1258,39 @@ export class TrickRoomTag extends RoomArenaTag {
 }
 
 /**
+ * Local fork (2026-11-19): Wonder Room (원더룸, 1.2.0 D6; the user: "d6 실행"). For 5 turns (the turn it is used
+ * included, as with Trick Room) every Pokémon on the field has its Defense and Sp. Def swapped: the plain stats trade
+ * places, while stat stages, held items, abilities and weather stay with the stat they belong to (the main series'
+ * rule). `Pokemon.getEffectiveStat` reads it ({@linkcode getWonderRoomStat}), so every damage calculation, Psyshock,
+ * Body Press and confusion follow. Using the move again while it is up ends it (`RoomArenaTag.onOverlap`).
+ */
+export class WonderRoomTag extends RoomArenaTag {
+  public readonly tagType = ArenaTagType.WONDER_ROOM;
+  constructor(turnCount: number, sourceId?: number) {
+    super(turnCount, MoveId.WONDER_ROOM, sourceId);
+  }
+
+  protected override get onAddMessageKey(): string {
+    return "arenaTag:wonderRoomOnAdd";
+  }
+
+  protected override get onRemoveMessageKey(): string {
+    return "arenaTag:wonderRoomOnRemove";
+  }
+}
+
+/**
+ * Local fork (2026-11-19): Wonder Room (1.2.0 D6). The plain stat to read for `stat`: Sp. Def for Defense and Defense for
+ * Sp. Def while Wonder Room is up, else `stat` itself.
+ */
+export function getWonderRoomStat(stat: EffectiveStat): EffectiveStat {
+  if ((stat !== Stat.DEF && stat !== Stat.SPDEF) || !globalScene.arena?.getTag(ArenaTagType.WONDER_ROOM)) {
+    return stat;
+  }
+  return stat === Stat.DEF ? Stat.SPDEF : Stat.DEF;
+}
+
+/**
  * Arena Tag class for {@link https://bulbapedia.bulbagarden.net/wiki/Gravity_(move) | Gravity}.
  *
  * Grounds all Pokémon on the field, including Flying-types and those with
@@ -2124,6 +2157,9 @@ export function getArenaTag(
       return new GmaxVolcalithTag(turnCount, sourceId, side);
     case ArenaTagType.G_MAX_STEELSURGE:
       return new GmaxSteelsurgeTag(sourceId, side);
+    // Local fork (2026-11-19): Wonder Room (1.2.0 D6)
+    case ArenaTagType.WONDER_ROOM:
+      return new WonderRoomTag(turnCount, sourceId);
     default:
       return null;
   }
@@ -2181,5 +2217,7 @@ export type ArenaTagTypeMap = {
   [ArenaTagType.G_MAX_CANNONADE]: GmaxCannonadeTag;
   [ArenaTagType.G_MAX_VOLCALITH]: GmaxVolcalithTag;
   [ArenaTagType.G_MAX_STEELSURGE]: GmaxSteelsurgeTag;
+  // Local fork (2026-11-19): Wonder Room (1.2.0 D6)
+  [ArenaTagType.WONDER_ROOM]: WonderRoomTag;
   [ArenaTagType.NONE]: NoneTag;
 };

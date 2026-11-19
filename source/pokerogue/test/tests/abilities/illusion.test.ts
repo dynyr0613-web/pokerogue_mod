@@ -5,10 +5,13 @@ import { PokeballType } from "#enums/pokeball";
 import { SpeciesId } from "#enums/species-id";
 import { GameManager } from "#test/framework/game-manager";
 import Phaser from "phaser";
-import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-// TODO: Rework and re-enable once Illusion is implemented again, however that may be
-describe.todo("Abilities - Illusion", () => {
+// Local fork (2026-11-19): turned on again for the fork's Illusion (C10, the user: "c10 일루전의 효과를 탈 + 랜덤 아군
+// 변신으로 해두기"): a random ally's look on entry and Disguise's block. A wild holder has no ally to copy, so these
+// tests use the player's Zoroark (Illusion is its only ability); the fork's own cases are in
+// test/tests/custom/custom-illusion-1119.test.ts.
+describe("Abilities - Illusion", () => {
   let phaserGame: Phaser.Game;
   let game: GameManager;
 
@@ -22,73 +25,66 @@ describe.todo("Abilities - Illusion", () => {
     game = new GameManager(phaserGame);
     game.override
       .battleStyle("single")
-      .enemySpecies(SpeciesId.ZORUA)
-      .enemyAbility(AbilityId.ILLUSION)
-      .enemyMoveset(MoveId.TACKLE)
-      .enemyHeldItems([{ name: "WIDE_LENS", count: 3 }])
-      .moveset([MoveId.WORRY_SEED, MoveId.SOAK, MoveId.TACKLE])
-      .startingHeldItems([{ name: "WIDE_LENS", count: 3 }]);
+      .criticalHits(false)
+      .enemySpecies(SpeciesId.MAGIKARP)
+      .enemyAbility(AbilityId.BALL_FETCH)
+      .enemyMoveset(MoveId.SPLASH)
+      .moveset([MoveId.SPLASH, MoveId.TACKLE]);
   });
 
   it("creates illusion at the start", async () => {
     await game.classicMode.startBattle(SpeciesId.ZOROARK, SpeciesId.FEEBAS);
     const zoroark = game.field.getPlayerPokemon();
-    const zorua = game.field.getEnemyPokemon();
 
-    expect(!!zoroark.summonData.illusion).toBe(true);
-    expect(!!zorua.summonData.illusion).toBe(true);
+    expect(zoroark.summonData.illusion?.species).toBe(SpeciesId.FEEBAS);
   });
 
-  it("break after receiving damaging move", async () => {
-    await game.classicMode.startBattle(SpeciesId.FEEBAS);
-    game.move.select(MoveId.TACKLE);
+  it("breaks after receiving a damaging move", async () => {
+    await game.classicMode.startBattle(SpeciesId.ZOROARK, SpeciesId.FEEBAS);
+    game.move.select(MoveId.SPLASH);
+    await game.move.forceEnemyMove(MoveId.TACKLE);
 
     await game.phaseInterceptor.to("TurnEndPhase");
 
-    const zorua = game.field.getEnemyPokemon();
+    const zoroark = game.field.getPlayerPokemon();
 
-    expect(!!zorua.summonData.illusion).toBe(false);
-    expect(zorua.name).toBe("Zorua");
+    expect(zoroark.summonData.illusion).toBeNull();
+    expect(zoroark.getNameToRender()).toBe("Zoroark");
   });
 
-  it("break after getting ability changed", async () => {
-    await game.classicMode.startBattle(SpeciesId.FEEBAS);
-    game.move.select(MoveId.WORRY_SEED);
+  it("breaks after getting its ability changed", async () => {
+    await game.classicMode.startBattle(SpeciesId.ZOROARK, SpeciesId.FEEBAS);
+    game.move.select(MoveId.SPLASH);
+    await game.move.forceEnemyMove(MoveId.WORRY_SEED);
 
     await game.phaseInterceptor.to("TurnEndPhase");
 
-    const zorua = game.field.getEnemyPokemon();
-
-    expect(!!zorua.summonData.illusion).toBe(false);
+    expect(game.field.getPlayerPokemon().summonData.illusion).toBeNull();
   });
 
-  it("breaks with neutralizing gas", async () => {
+  it("breaks when neutralizing gas comes in", async () => {
     game.override.enemyAbility(AbilityId.NEUTRALIZING_GAS);
-    await game.classicMode.startBattle(SpeciesId.KOFFING);
+    await game.classicMode.startBattle(SpeciesId.ZOROARK, SpeciesId.FEEBAS);
 
-    const zorua = game.field.getEnemyPokemon();
-
-    expect(!!zorua.summonData.illusion).toBe(false);
+    expect(game.field.getPlayerPokemon().summonData.illusion).toBeNull();
   });
 
   it("does not activate if neutralizing gas is active", async () => {
-    game.override
-      .enemyAbility(AbilityId.NEUTRALIZING_GAS)
-      .ability(AbilityId.ILLUSION)
-      .moveset(MoveId.SPLASH)
-      .enemyMoveset(MoveId.SPLASH);
-    await game.classicMode.startBattle(SpeciesId.MAGIKARP, SpeciesId.FEEBAS, SpeciesId.MAGIKARP);
+    game.override.enemyAbility(AbilityId.NEUTRALIZING_GAS);
+    await game.classicMode.startBattle(SpeciesId.MAGIKARP, SpeciesId.ZOROARK, SpeciesId.FEEBAS);
 
     game.doSwitchPokemon(1);
     await game.toNextTurn();
 
-    expect(game.field.getPlayerPokemon().summonData.illusion).toBeFalsy();
+    const zoroark = game.field.getPlayerPokemon();
+    expect(zoroark.species.speciesId).toBe(SpeciesId.ZOROARK);
+    expect(zoroark.summonData.illusion).toBeFalsy();
   });
 
   // TODO: This doesn't actually check that the ai calls the function this way... useless test
   it("causes enemy AI to consider the illusion's type instead of the actual type when considering move effectiveness", async () => {
     game.override.enemyMoveset([MoveId.FLAMETHROWER, MoveId.PSYCHIC, MoveId.TACKLE]);
-    await game.classicMode.startBattle(SpeciesId.ZOROARK, SpeciesId.FEEBAS);
+    await game.classicMode.startBattle(SpeciesId.ZOROARK, SpeciesId.FERROTHORN);
 
     const enemy = game.field.getEnemyPokemon();
     const zoroark = game.field.getPlayerPokemon();
@@ -105,7 +101,9 @@ describe.todo("Abilities - Illusion", () => {
       move: psychic,
       useIllusion: true,
     });
-    expect(psychicEffectiveness).toBeGreaterThan(flameThrowerEffectiveness);
+    // As Ferrothorn (Grass/Steel), Flamethrower is 4x and Psychic 0.5x; the real Dark-type Zoroark is immune to Psychic
+    expect(flameThrowerEffectiveness).toBeGreaterThan(psychicEffectiveness);
+    expect(psychicEffectiveness).toBeGreaterThan(0);
   });
 
   it("should not break from indirect damage from status, weather or recoil", async () => {
@@ -118,43 +116,44 @@ describe.todo("Abilities - Illusion", () => {
     await game.toEndOfTurn();
 
     const zoroark = game.field.getPlayerPokemon();
-    expect(!!zoroark.summonData.illusion).toBe(true);
+    expect(zoroark.summonData.illusion).not.toBeNull();
   });
 
-  it("copies the the name, nickname, gender, shininess, and pokeball from the illusion source", async () => {
-    game.override.enemyMoveset(MoveId.SPLASH);
+  it("copies the name, nickname, gender and pokeball from the illusion source, in the holder's own shininess", async () => {
     await game.classicMode.startBattle(SpeciesId.ABRA, SpeciesId.ZOROARK, SpeciesId.AXEW);
 
-    const axew = game.scene.getPlayerParty().at(2)!;
+    const zoroark = game.scene.getPlayerParty()[1];
+    const axew = game.scene.getPlayerParty()[2];
     axew.shiny = true;
     axew.nickname = btoa(unescape(encodeURIComponent("axew nickname")));
     axew.gender = Gender.FEMALE;
     axew.pokeball = PokeballType.GREAT_BALL;
+    // Abra and Axew can be copied; pick Axew
+    vi.spyOn(zoroark, "randBattleSeedInt").mockReturnValueOnce(1);
 
     game.doSwitchPokemon(1);
 
     await game.phaseInterceptor.to("TurnEndPhase");
 
-    const zoroark = game.field.getPlayerPokemon();
-
+    expect(game.field.getPlayerPokemon()).toBe(zoroark);
     expect(zoroark.summonData.illusion?.name).toBe("Axew");
     expect(zoroark.getNameToRender()).toBe("axew nickname");
     expect(zoroark.getGender(false, true)).toBe(Gender.FEMALE);
-    expect(zoroark.isShiny(true)).toBe(true);
+    expect(zoroark.isShiny(true)).toBe(zoroark.shiny);
     expect(zoroark.getPokeball(true)).toBe(PokeballType.GREAT_BALL);
   });
 
   it("breaks when suppressed", async () => {
-    game.override.moveset(MoveId.GASTRO_ACID);
-    await game.classicMode.startBattle(SpeciesId.MAGIKARP);
-    const zorua = game.field.getEnemyPokemon();
+    await game.classicMode.startBattle(SpeciesId.ZOROARK, SpeciesId.FEEBAS);
+    const zoroark = game.field.getPlayerPokemon();
 
-    expect(!!zorua.summonData?.illusion).toBe(true);
+    expect(zoroark.summonData.illusion).not.toBeNull();
 
-    game.move.select(MoveId.GASTRO_ACID);
+    game.move.select(MoveId.SPLASH);
+    await game.move.forceEnemyMove(MoveId.GASTRO_ACID);
     await game.phaseInterceptor.to("BerryPhase");
 
-    expect(zorua).toHaveFullHp();
-    expect(!!zorua.summonData?.illusion).toBe(false);
+    expect(zoroark).toHaveFullHp();
+    expect(zoroark.summonData.illusion).toBeNull();
   });
 });

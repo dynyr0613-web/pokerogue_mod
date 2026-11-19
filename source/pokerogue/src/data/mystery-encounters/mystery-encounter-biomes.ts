@@ -26,6 +26,7 @@ import { MysteriousChestEncounter } from "#mystery-encounters/mysterious-chest-e
 import type { MysteryEncounter } from "#mystery-encounters/mystery-encounter";
 import { PartTimerEncounter } from "#mystery-encounters/part-timer-encounter";
 import { SafariZoneEncounter } from "#mystery-encounters/safari-zone-encounter";
+import { ScrapTreasureEncounter } from "#mystery-encounters/scrap-treasure-encounter"; // Local fork (2026-11-19)
 import { ShadyVitaminDealerEncounter } from "#mystery-encounters/shady-vitamin-dealer-encounter";
 import { SlumberingSnorlaxEncounter } from "#mystery-encounters/slumbering-snorlax-encounter";
 import { SuperGlobalTradeSystemEncounter } from "#mystery-encounters/super-global-trade-system-encounter";
@@ -239,11 +240,11 @@ export const mysteryEncountersByBiome = new Map<BiomeId, MysteryEncounterType[]>
   [BiomeId.DESERT, []],
   [BiomeId.ICE_CAVE, []],
   [BiomeId.MEADOW, [MysteryEncounterType.DANCING_LESSONS]],
-  [BiomeId.POWER_PLANT, []],
+  [BiomeId.POWER_PLANT, [MysteryEncounterType.SCRAP_TREASURE]], // Local fork (2026-11-19)
   [BiomeId.VOLCANO, [MysteryEncounterType.FIERY_FALLOUT, MysteryEncounterType.TINKATON_FORGE]], // Local fork (2026-11-08)
   [BiomeId.GRAVEYARD, [MysteryEncounterType.DANCING_LESSONS, MysteryEncounterType.DARK_MYSTERIOUS_CHEST]], // Local fork (2026-11-08)
   [BiomeId.DOJO, []],
-  [BiomeId.FACTORY, [MysteryEncounterType.TINKATON_FORGE]], // Local fork (2026-11-08)
+  [BiomeId.FACTORY, [MysteryEncounterType.TINKATON_FORGE, MysteryEncounterType.SCRAP_TREASURE]], // Local fork (2026-11-08, 2026-11-19)
   [BiomeId.RUINS, [MysteryEncounterType.DANCING_LESSONS, MysteryEncounterType.DARK_MYSTERIOUS_CHEST]], // Local fork (2026-11-08)
   [BiomeId.WASTELAND, []],
   [
@@ -258,14 +259,14 @@ export const mysteryEncountersByBiome = new Map<BiomeId, MysteryEncounterType[]>
     BiomeId.SPACE,
     [MysteryEncounterType.THE_EXPERT_POKEMON_BREEDER, MysteryEncounterType.DARK_GLOBAL_TRADE_SYSTEM], // Local fork (2026-11-08)
   ],
-  [BiomeId.CONSTRUCTION_SITE, [MysteryEncounterType.TINKATON_FORGE]], // Local fork (2026-11-08)
+  [BiomeId.CONSTRUCTION_SITE, [MysteryEncounterType.TINKATON_FORGE, MysteryEncounterType.SCRAP_TREASURE]], // Local fork (2026-11-08, 2026-11-19)
   [BiomeId.JUNGLE, [MysteryEncounterType.SAFARI_ZONE]],
   [BiomeId.FAIRY_CAVE, []],
   [BiomeId.TEMPLE, [MysteryEncounterType.DANCING_LESSONS, MysteryEncounterType.DARK_MYSTERIOUS_CHEST]], // Local fork (2026-11-08)
   [BiomeId.SLUM, []],
   [BiomeId.SNOWY_FOREST, []],
   [BiomeId.ISLAND, [MysteryEncounterType.DANCING_LESSONS]],
-  [BiomeId.LABORATORY, []],
+  [BiomeId.LABORATORY, [MysteryEncounterType.SCRAP_TREASURE]], // Local fork (2026-11-19)
   // Local fork (2026-11-08): the End had no entry; in practice only the Endless "GTS?" wave before an Eternatus
   // (dark-gts-spawn.ts) is an encounter there
   [BiomeId.END, [MysteryEncounterType.DARK_GLOBAL_TRADE_SYSTEM]],
@@ -311,6 +312,7 @@ export function initMysteryEncounters() {
   allMysteryEncounters[MysteryEncounterType.VENDING_MACHINE] = VendingMachineEncounter; // Local fork (2026-11-08)
   allMysteryEncounters[MysteryEncounterType.DARK_STRONG_STUFF] = DarkStrongStuffEncounter; // Local fork (2026-11-08)
   allMysteryEncounters[MysteryEncounterType.ALPHA_ENCOUNTER] = AlphaEncounter; // Local fork (2026-11-18)
+  allMysteryEncounters[MysteryEncounterType.SCRAP_TREASURE] = ScrapTreasureEncounter; // Local fork (2026-11-19)
 
   // Add extreme encounters to biome map
   extremeBiomeEncounters.forEach(encounter => {

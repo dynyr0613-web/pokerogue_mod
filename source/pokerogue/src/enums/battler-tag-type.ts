@@ -104,4 +104,10 @@ export enum BattlerTagType {
   MAX_GUARD = "MAX_GUARD",
   /** Local fork (2026-11-16): G-Max Chi Strike (거다이회심격): critical-hit stage +1 per hit, up to +3 (`GmaxChiStrikeTag`) */
   G_MAX_CHI_STRIKE = "G_MAX_CHI_STRIKE",
+  /** Local fork (2026-11-19): Uproar (소란피기): a 3-turn lock during which no Pokémon can fall asleep (`UproarTag`) */
+  UPROAR = "UPROAR",
+  /** Local fork (2026-11-19): Rollout (구르기) / Ice Ball (아이스볼): a 5-turn lock, power x2 per hit (`RolloutTag`) */
+  ROLLOUT = "ROLLOUT",
+  /** Local fork (2026-11-19): Sky Drop (프리폴): the Pokémon carried into the sky, which cannot act (`SkyDropTag`) */
+  SKY_DROP = "SKY_DROP",
 }

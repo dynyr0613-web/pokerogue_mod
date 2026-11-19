@@ -7,6 +7,7 @@ import { globalScene } from "#app/global-scene";
 import { settings } from "#app/global-settings-manager";
 import { speciesDataRegistry } from "#app/global-species-data-registry";
 import { bypassLogin, isBeta, isDev } from "#constants/app-constants";
+import { EDITION_VERSION_TEXT } from "#constants/edition-version";
 import { getSplashMessages } from "#data/splash-messages";
 import { SpeciesId } from "#enums/species-id";
 import { TextStyle } from "#enums/text-style";
@@ -22,9 +23,6 @@ import i18next, { type TOptions } from "i18next";
 /** If the stats can not be retrieved, use this fallback value */
 const BATTLES_WON_FALLBACK = -1;
 
-
-/** Local fork (2026-11-14): version text shown under the title logo (the edition's own version). */
-export const EDITION_VERSION_TEXT = "v1.1.0 (베타)";
 export class TitleUiHandler extends OptionSelectUiHandler {
   private titleContainer: Phaser.GameObjects.Container;
   private usernameLabel: Phaser.GameObjects.Text;
@@ -202,8 +200,9 @@ export class TitleUiHandler extends OptionSelectUiHandler {
 
     // Local fork (2026-11-14): the title shows the edition version of "포켓로그 - 도주런 없는 엔드리스 에디션", not the
     // PokeRogue version in package.json (that one still goes into saves and the update check, so it stays as it is).
-    // Bump EDITION_VERSION_TEXT with each release, together with offline-app/package.json and line 3 of the
-    // distribution's 읽어주세요.txt (2026-11-18: custom-edition-version.test.ts checks that the three agree).
+    // Bump EDITION_VERSION with each release, together with offline-app/package.json and line 3 of the
+    // distribution's 읽어주세요.txt (2026-11-18: custom-edition-version.test.ts checks that the three agree). Since
+    // 2026-11-19 the text comes from src/constants/edition-version.ts, which saves also use (A3).
     const betaText = isBeta || isDev ? " (Beta)" : "";
     this.appVersionText.setText(EDITION_VERSION_TEXT + betaText);
 

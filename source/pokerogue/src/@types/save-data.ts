@@ -43,6 +43,11 @@ export interface SystemSaveData {
   voucherCounts: VoucherCounts;
   eggs: EggData[];
   gameVersion: string;
+  /**
+   * Local fork (2026-11-19): the edition that wrote the save (`EDITION_VERSION`); missing in saves of 1.1.0 and older.
+   * A save from a newer edition is refused (A3)
+   */
+  editionVersion?: string | undefined;
   timestamp: number;
   eggPity: number[];
   unlockPity: number[];
@@ -69,6 +74,8 @@ export interface SessionSaveData {
   // TODO: This being nullable NEEDS to be reflected in the type signature
   trainer: TrainerData;
   gameVersion: string;
+  /** Local fork (2026-11-19): the edition that wrote the session, as in {@linkcode SystemSaveData.editionVersion} */
+  editionVersion?: string | undefined;
   /** The player-chosen name of the run */
   name: string;
   timestamp: number;

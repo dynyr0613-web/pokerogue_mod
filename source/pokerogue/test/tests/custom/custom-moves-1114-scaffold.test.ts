@@ -141,10 +141,12 @@ describe("Custom moves 2026-11-14 scaffold", () => {
     }
   });
 
-  it("appends Gardener and Turnabout right after Clearing Gust, at the end of the enum", () => {
+  // Local fork (2026-11-19): 1.2.0 D12 (the user: "d12 실행") appended Archmage / Wicked Scheme / Grit after Turnabout,
+  // so Turnabout is no longer the last member; the end of the enum is pinned in custom-abilities-1114-scaffold.test.ts
+  it("appends Gardener and Turnabout right after Clearing Gust, followed only by later custom abilities", () => {
     expect(AbilityId.GARDENER).toBe(AbilityId.CLEARING_GUST + 1);
     expect(AbilityId.TURNABOUT).toBe(AbilityId.CLEARING_GUST + 2);
-    expect(AbilityId[AbilityId.TURNABOUT + 1]).toBeUndefined();
+    expect(AbilityId[AbilityId.TURNABOUT + 1]).toBe("ARCHMAGE");
     expect(allAbilities[AbilityId.GARDENER].id).toBe(AbilityId.GARDENER);
     expect(allAbilities[AbilityId.TURNABOUT].id).toBe(AbilityId.TURNABOUT);
   });

@@ -77,6 +77,7 @@
   "combiningPledge": "The two moves have become one!\nIt’s a combined move!",
   "awaitingPledge": "{{userPokemonName}} is waiting for {{allyPokemonName}}’s move…",
   "corrosiveGasItem": "{{pokemonName}} corroded\n{{targetName}}’s {{itemName}}!",
+  "recycledItem": "{{pokemonName}} found\none {{itemName}}!",
   "instructingMove": "{{targetPokemonName}} followed {{userPokemonName}}’s instructions!",
   "lunarDanceRestore" : "{{pokemonName}} became cloaked in mystical moonlight!",
   "stealPositiveStats": "{{pokemonName}} stole {{targetName}}’s boosted stats!",
@@ -90,5 +91,6 @@
   "zPower": "{{pokemonName}} surrounded itself with its Z-Power!",
   "zPowerResetStats": "{{pokemonName}} returned its decreased\nstats to normal using its Z-Power!",
   "zPowerHeal": "{{pokemonName}} restored its HP\nusing its Z-Power!",
-  "zPowerHealReplacement": "The Z-Power restored the HP\nof the Pokémon that switched in!"
+  "zPowerHealReplacement": "The Z-Power restored the HP\nof the Pokémon that switched in!",
+  "skyDropTooHeavy": "{{targetName}} is too heavy\nto be lifted!"
 }

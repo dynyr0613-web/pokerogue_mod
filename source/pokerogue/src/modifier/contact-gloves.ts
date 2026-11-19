@@ -70,10 +70,12 @@ export function getContactGlove(pokemon: Pokemon): ContactGloveKind | undefined 
 /**
  * Local fork (2026-11-11): whether a glove of `kind` covers `move`: the plain glove covers punching moves (the flag Iron
  * Fist uses); the Master glove covers every contact move, and punching moves too so it is never less than the plain one.
+ * Local fork (2026-11-19): `user` / `target` let the Master glove cover Shell Side Arm when it is physical for this use
+ * (`Move.hasContactFlag`); without them it is left out, as before.
  */
-export function isGloveMove(kind: ContactGloveKind, move: Move): boolean {
+export function isGloveMove(kind: ContactGloveKind, move: Move, user?: Pokemon, target?: Pokemon | null): boolean {
   if (kind === "master") {
-    return move.hasFlag(MoveFlags.MAKES_CONTACT) || move.hasFlag(MoveFlags.PUNCHING_MOVE);
+    return move.hasContactFlag(user, target) || move.hasFlag(MoveFlags.PUNCHING_MOVE);
   }
   return move.hasFlag(MoveFlags.PUNCHING_MOVE);
 }
@@ -85,15 +87,15 @@ export function isGloveMove(kind: ContactGloveKind, move: Move): boolean {
  * Tangling Hair, Mummy / Wandering Spirit / Lingering Aroma, Perish Body, Pickpocket, Fluffy, Aftermath, Beak Blast …
  * then do nothing.
  */
-export function hidesContactFromTarget(user: Pokemon, move: Move): boolean {
+export function hidesContactFromTarget(user: Pokemon, move: Move, target?: Pokemon | null): boolean {
   const kind = getContactGlove(user);
-  return kind != null && isGloveMove(kind, move);
+  return kind != null && isGloveMove(kind, move, user, target);
 }
 
 /** Local fork (2026-11-11): the power multiplier `user`'s glove gives `move`, in tenths (10 = none) */
-export function getContactGlovePowerTenths(user: Pokemon, move: Move): number {
+export function getContactGlovePowerTenths(user: Pokemon, move: Move, target?: Pokemon | null): number {
   const kind = getContactGlove(user);
-  if (kind == null || !isGloveMove(kind, move)) {
+  if (kind == null || !isGloveMove(kind, move, user, target)) {
     return 10;
   }
   return kind === "master"
@@ -105,8 +107,8 @@ export function getContactGlovePowerTenths(user: Pokemon, move: Move): number {
  * Local fork (2026-11-11): multiply `power` by `user`'s glove (x1.1 plain / x1.2 Master), as `Move.calculateBattlePower`
  * applies the type-boosting items; `power * tenths / 10` keeps a whole power exact (75 becomes 82.5, not 82.50000000000001)
  */
-export function applyContactGlovePower(user: Pokemon, move: Move, power: NumberHolder): void {
-  const tenths = getContactGlovePowerTenths(user, move);
+export function applyContactGlovePower(user: Pokemon, move: Move, power: NumberHolder, target?: Pokemon | null): void {
+  const tenths = getContactGlovePowerTenths(user, move, target);
   if (tenths !== 10) {
     power.value = (power.value * tenths) / 10;
   }
@@ -120,11 +122,12 @@ export function applyContactGlovePower(user: Pokemon, move: Move, power: NumberH
  * no meaning, and its result skips the damage formula, so a gloved Guillotine (with No Guard, which the Master TM makes
  * easy) used to knock a protected target out at full effect. Protection stops those moves as usual.
  */
-export function masterGloveIgnoresProtect(user: Pokemon, move: Move): boolean {
+export function masterGloveIgnoresProtect(user: Pokemon, move: Move, target?: Pokemon | null): boolean {
   return (
     getContactGlove(user) === "master"
     && !move.hasAttr("OneHitKOAttr")
-    && move.doesFlagEffectApply({ flag: MoveFlags.MAKES_CONTACT, user })
+    // Local fork (2026-11-19): the target only finds Shell Side Arm's category for this use (no substitute check)
+    && move.doesFlagEffectApply({ flag: MoveFlags.MAKES_CONTACT, user, categoryTarget: target })
   );
 }
 
@@ -159,6 +162,7 @@ export interface ProtectionInTheWay {
  *   own 1/4 (`MoveDamageBoostAbAttr`, a protection tag on the target) applied to `damage`; `false` on the fixed-damage
  *   path, which skips abilities
  * @param damage - The damage so far, changed in place
+ * @param target - Local fork (2026-11-19): the Pokemon hit, so Shell Side Arm counts when it is physical for this use
  */
 export function applyMasterGloveProtectDamage(
   user: Pokemon,
@@ -166,8 +170,9 @@ export function applyMasterGloveProtectDamage(
   getProtection: () => ProtectionInTheWay,
   abilityQuartersProtectTag: boolean,
   damage: NumberHolder,
+  target?: Pokemon | null,
 ): void {
-  if (move.hasFlag(MoveFlags.IGNORE_PROTECT) || !masterGloveIgnoresProtect(user, move)) {
+  if (move.hasFlag(MoveFlags.IGNORE_PROTECT) || !masterGloveIgnoresProtect(user, move, target)) {
     return;
   }
   const { protectTag, conditionalTag } = getProtection();

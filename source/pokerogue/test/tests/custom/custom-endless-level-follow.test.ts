@@ -229,10 +229,9 @@ describe("Local fork: Endless enemy levels follow the player both ways from wave
         [4000, CAP_4000],
         [5850, CAP_5850],
       ]) {
-        expect(getEndlessPlayerLevelFollowFactor(gameMode, wave, cap * ENDLESS_PLAYER_LEVEL_FOLLOW_NEUTRAL_RATIO)).toBeCloseTo(
-          1,
-          12,
-        );
+        expect(
+          getEndlessPlayerLevelFollowFactor(gameMode, wave, cap * ENDLESS_PLAYER_LEVEL_FOLLOW_NEUTRAL_RATIO),
+        ).toBeCloseTo(1, 12);
       }
       // Above it: 0.9637 x (P / C) ^ 0.6, so 2 x C gives 1.4607 and 4 x C 2.2140 (1.5157 / 2.2974 under the first 11-18
       // rule, 1.4142 / 2 under the 3차 rule)
@@ -270,7 +269,7 @@ describe("Local fork: Endless enemy levels follow the player both ways from wave
     }
     expect(getEndlessPlayerLevelFollowFactor(endless, 5850, 0.999_999 * CAP_5850)).toBeCloseTo(0.9637, 5);
     expect(getEndlessPlayerLevelFollowFactor(endless, 5850, 1.000_001 * CAP_5850)).toBeCloseTo(0.9637, 5);
-    expect(getEndlessPlayerLevelFollowFactor(endless, 5850, 0.733_240 * CAP_5850)).toBe(0.8);
+    expect(getEndlessPlayerLevelFollowFactor(endless, 5850, 0.733_24 * CAP_5850)).toBe(0.8);
     expect(getEndlessPlayerLevelFollowFactor(endless, 5850, 0.733_242 * CAP_5850)).toBeCloseTo(0.8, 5);
     expect(getEndlessPlayerLevelFollowFactor(endless, 5850, 0.733_242 * CAP_5850)).toBeGreaterThan(0.8);
 

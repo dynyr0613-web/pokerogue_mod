@@ -171,6 +171,8 @@ export const GMAX_ANIM_ALIASES: ReadonlyMap<MoveId, MoveId> = new Map([
  * {@linkcode getAnimMoveId}. A test checks this list against the files.
  * Local fork (2026-11-19): plus the Max / G-Max / Max Guard animations rebuilt from Complete FireRed Upgrade (Skeli and
  * the CFRU team; the user: "CFRU 받아서 만들기"): {@linkcode CFRU_MAX_ANIM_MOVES}.
+ * Local fork (2026-11-19): plus 다이검무 (Z다이검무 keeps its id, so it plays it too): Swords Dance's animation with its
+ * swords recoloured Dynamax red and drawn x1.5 (the user: "e1 칼춤 모션 색깔 / 크기 변경으로 제작").
  */
 export const ZMAX_OWN_ANIM_MOVES: ReadonlySet<MoveId> = new Set([
   // Z moves (one Essentials animation for both MoveIds of a type)
@@ -229,6 +231,8 @@ export const ZMAX_OWN_ANIM_MOVES: ReadonlySet<MoveId> = new Set([
   MoveId.CLANGOROUS_SOULBLAZE,
   // Local fork (2026-11-19): the CFRU Max / G-Max / Max Guard animations
   ...CFRU_MAX_ANIM_MOVES,
+  // Local fork (2026-11-19): 다이검무 / Z다이검무, Swords Dance's motion in Dynamax red at x1.5 (max-swords-dance.json)
+  MoveId.MAX_SWORDS_DANCE,
 ]);
 
 /** The Gigantamax form keys (Eternamax is not one: Eternatus has no G-Max move) */
@@ -467,6 +471,9 @@ export function getMoveTransform(move: Move): Readonly<MoveTransform> | undefine
  * {@linkcode CFRU_MAX_ANIM_MOVES}), and the other 14 G-Max moves play the animation CFRU gives them
  * ({@linkcode GMAX_ANIM_ALIASES}); so only 다이검무 / Z다이검무 (Swords Dance), 10,000,000 Volt Thunderbolt and Z status
  * moves still use the fallbacks below.
+ * Local fork (2026-11-19): 다이검무 / Z다이검무 have their own file too now (Swords Dance's motion recoloured and x1.5;
+ * the user: "e1 칼춤 모션 색깔 / 크기 변경으로 제작"), so their Swords Dance fallback is gone: only 10,000,000 Volt
+ * Thunderbolt and Z status moves are left.
  */
 export function getAnimMoveId(move: Move): MoveId {
   if (ZMAX_OWN_ANIM_MOVES.has(move.id)) {
@@ -478,9 +485,6 @@ export function getAnimMoveId(move: Move): MoveId {
   }
   if (move.id === MoveId.MAX_GUARD) {
     return MoveId.PROTECT;
-  }
-  if (move.id === MoveId.MAX_SWORDS_DANCE) {
-    return MoveId.SWORDS_DANCE;
   }
   const baseId = derivedInfo.get(move)?.baseId;
   if (baseId !== undefined) {

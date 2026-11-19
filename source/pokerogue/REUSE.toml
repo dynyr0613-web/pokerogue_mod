@@ -402,3 +402,15 @@ path = [
 ]
 SPDX-FileCopyrightText = ["Skeli and the Complete FireRed Upgrade team", "The Pokemon Reborn Team https://www.rebornevo.com/pr/index.html/"]
 SPDX-License-Identifier = "LicenseRef-CFRU AND LicenseRef-POKEMON-REBORN"
+
+# Local fork (2026-11-19): Max Swords Dance's battle animation, a copy of PokeRogue's Swords Dance animation (Pokemon
+# Reborn's PRAS one, assets/battle-anims/REUSE.toml's "Battle animations from pokemon reborn") with its swords drawn
+# x1.5, and its sheet, the sword of "PRAS- Swords Dance + Signal Beam.png" with its two colours swapped for Dynamax
+# red / magenta. Same source and terms as the originals. The user: "e1 칼춤 모션 색깔 / 크기 변경으로 제작"
+[[annotations]]
+path = [
+    "assets/battle-anims/max-swords-dance.json",
+    "assets/images/battle_anims/PRAS- Swords Dance (Max).png",
+]
+SPDX-FileCopyrightText = "The Pokemon Reborn Team https://www.rebornevo.com/pr/index.html/"
+SPDX-License-Identifier = "LicenseRef-POKEMON-REBORN"

@@ -537,7 +537,9 @@ describe.skipIf(!process.env.FORK_SIM)("Sim - the enemy's side at Endless wave 5
       WAVE,
       BiomeId.END,
       SpeciesId.GARCHOMP,
-      Math.round(getNaturalMaxExpLevel(getGameMode(GameModes.ENDLESS), WAVE) * ENDLESS_PLAYER_LEVEL_FOLLOW_NEUTRAL_RATIO),
+      Math.round(
+        getNaturalMaxExpLevel(getGameMode(GameModes.ENDLESS), WAVE) * ENDLESS_PLAYER_LEVEL_FOLLOW_NEUTRAL_RATIO,
+      ),
     );
     mute();
     const { scene } = game;

@@ -506,12 +506,18 @@ export class CommandPhase extends FieldPhase {
     } else {
       const trapTag = playerPokemon.getTag(TrappedTag);
       const fairyLockTag = globalScene.arena.getTagOnSide(ArenaTagType.FAIRY_LOCK, ArenaTagSide.PLAYER);
+      // Local fork (2026-11-19): Sky Drop (프리폴) traps the Pokémon it carries without a `TrappedTag` (`Pokemon.isTrapped`,
+      // Ghost types included); without its own message, trying to flee left an empty message box that took no input
+      // (the user: "e2 구현")
+      const skyDropTag = playerPokemon.getTag(BattlerTagType.SKY_DROP);
 
       if (!isSwitch) {
         globalScene.ui.setMode(UiMode.COMMAND, this.fieldIndex);
         globalScene.ui.setMode(UiMode.MESSAGE);
       }
-      if (trapTag) {
+      if (skyDropTag) {
+        this.showNoEscapeText(skyDropTag, false);
+      } else if (trapTag) {
         this.showNoEscapeText(trapTag, false);
       } else if (fairyLockTag) {
         this.showNoEscapeText(fairyLockTag, false);

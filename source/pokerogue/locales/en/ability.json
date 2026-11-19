@@ -593,7 +593,7 @@
   },
   "illusion": {
     "name": "Illusion",
-    "description": "The Pokémon fools opponents by entering battle disguised as the last Pokémon in its party. It reverts to its usual appearance when it takes damage from a move."
+    "description": "The Pokémon enters battle disguised as a random ally in its party. Once per battle, the illusion can protect it from an attack at the cost of losing 1/8 of its max HP; then the illusion wears off."
   },
   "imposter": {
     "name": "Imposter",
@@ -1522,5 +1522,17 @@
   "turnabout": {
     "name": "Turnabout",
     "description": "Swaps the effects on either side of the field when the Pokémon enters a battle. This works only once per battle."
+  },
+  "archmage": {
+    "name": "Archmage",
+    "description": "Doubles the power of the Pokémon’s special moves."
+  },
+  "wickedScheme": {
+    "name": "Wicked Scheme",
+    "description": "Sharply raises Sp. Atk on entering battle, once per battle."
+  },
+  "grit": {
+    "name": "Grit",
+    "description": "It’s so gritty that having a status condition boosts the Pokémon’s Sp. Atk stat by 50%."
   }
 }

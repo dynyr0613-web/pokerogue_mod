@@ -1119,6 +1119,18 @@ if (!selfTestDir && !app.requestSingleInstanceLock()) {
 
   app.whenReady().then(() => {
     Menu.setApplicationMenu(null);
+    // 2026-11-19 (1.2.0): copy the save (Local Storage\leveldb) to <userData>\save-backups\<YYYYMMDD-HHMMSS>\ before
+    // the game can touch it, keeping the 10 newest (save-backup.js). Here the single-instance lock is held; never in
+    // the self-test (its own throwaway profile). An error is only logged: the game starts either way.
+    if (!selfTestDir) {
+      try {
+        require("./save-backup.js").backupSaves(app.getPath("userData"), {
+          log: line => console.log(`[save-backup] ${line}`),
+        });
+      } catch (e) {
+        console.error(`[save-backup] ${e && e.stack ? e.stack : e}`);
+      }
+    }
     registerGameProtocol();
     blockNetwork();
     createWindow();

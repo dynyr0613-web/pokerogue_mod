@@ -127,6 +127,7 @@ export class TurnStartPhase extends FieldPhase {
           turnCommand.cursor!, // TODO: Is this bang correct?
           true,
           pokemon.isPlayer(),
+          "check", // Local fork (2026-11-19): a foe's Pursuit catches this switch (the user: "e2 구현")
         );
         break;
       case Command.RUN:

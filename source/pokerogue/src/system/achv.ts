@@ -289,6 +289,35 @@ function getSpeciesWith(flag: "legendary" | "subLegendary" | "mythical"): Specie
     .map(s => s.speciesId);
 }
 
+/**
+ * Local fork (2026-11-19): every species whose default form (form 0) has the type as its first or second type,
+ * regional ones included, the same ones the other collections can ask for: every species is a starter or evolves from
+ * one, and Eternatus is left out, which can only be caught once every other Pokémon is (as for ALL_LEGENDARY)
+ */
+export function getSpeciesOfType(type: RegularPokemonType): SpeciesId[] {
+  return speciesDataRegistry
+    .getAllSpecies()
+    .filter(s => {
+      const form = s.forms[0] ?? s;
+      return s.speciesId !== SpeciesId.ETERNATUS && (form.type1 === type || form.type2 === type);
+    })
+    .map(s => s.speciesId);
+}
+
+/**
+ * Local fork (2026-11-19): a collection per type (the user: "새 업적으로 각 타입에 해당하는 포켓몬 수집을
+ * 넣어둡시다"): every species of the type ({@linkcode getSpeciesOfType}) caught, checked like the other Pokédex
+ * collections ({@linkcode DexCollectionAchv})
+ */
+export class TypeCollectionAchv extends DexCollectionAchv {
+  public readonly type: RegularPokemonType;
+
+  constructor(localizationKey: string, type: RegularPokemonType, iconImage: string, score: number) {
+    super(localizationKey, iconImage, score, () => getSpeciesOfType(type));
+    this.type = type;
+  }
+}
+
 export class DamageAchv extends Achv {
   private readonly damageAmount: number;
   // intentionally overwriting base property
@@ -990,6 +1019,41 @@ export const achvs = {
   ALL_LEGENDARY: new DexCollectionAchv("allLegendary", "legend_plate", 100, () =>
     getSpeciesWith("legendary").filter(id => id !== SpeciesId.ETERNATUS),
   ),
+  // Local fork (2026-11-19): a collection per type (the user: "새 업적으로 각 타입에 해당하는 포켓몬 수집을
+  // 넣어둡시다"), in the order of the types, before the last one; the icons are the types' Tera Shards
+  TYPE_COLLECTOR_NORMAL: new TypeCollectionAchv("typeCollectorNormal", PokemonType.NORMAL, "normal_tera_shard", 100),
+  TYPE_COLLECTOR_FIGHTING: new TypeCollectionAchv(
+    "typeCollectorFighting",
+    PokemonType.FIGHTING,
+    "fighting_tera_shard",
+    100,
+  ),
+  TYPE_COLLECTOR_FLYING: new TypeCollectionAchv("typeCollectorFlying", PokemonType.FLYING, "flying_tera_shard", 100),
+  TYPE_COLLECTOR_POISON: new TypeCollectionAchv("typeCollectorPoison", PokemonType.POISON, "poison_tera_shard", 100),
+  TYPE_COLLECTOR_GROUND: new TypeCollectionAchv("typeCollectorGround", PokemonType.GROUND, "ground_tera_shard", 100),
+  TYPE_COLLECTOR_ROCK: new TypeCollectionAchv("typeCollectorRock", PokemonType.ROCK, "rock_tera_shard", 100),
+  TYPE_COLLECTOR_BUG: new TypeCollectionAchv("typeCollectorBug", PokemonType.BUG, "bug_tera_shard", 100),
+  TYPE_COLLECTOR_GHOST: new TypeCollectionAchv("typeCollectorGhost", PokemonType.GHOST, "ghost_tera_shard", 100),
+  TYPE_COLLECTOR_STEEL: new TypeCollectionAchv("typeCollectorSteel", PokemonType.STEEL, "steel_tera_shard", 100),
+  TYPE_COLLECTOR_FIRE: new TypeCollectionAchv("typeCollectorFire", PokemonType.FIRE, "fire_tera_shard", 100),
+  TYPE_COLLECTOR_WATER: new TypeCollectionAchv("typeCollectorWater", PokemonType.WATER, "water_tera_shard", 100),
+  TYPE_COLLECTOR_GRASS: new TypeCollectionAchv("typeCollectorGrass", PokemonType.GRASS, "grass_tera_shard", 100),
+  TYPE_COLLECTOR_ELECTRIC: new TypeCollectionAchv(
+    "typeCollectorElectric",
+    PokemonType.ELECTRIC,
+    "electric_tera_shard",
+    100,
+  ),
+  TYPE_COLLECTOR_PSYCHIC: new TypeCollectionAchv(
+    "typeCollectorPsychic",
+    PokemonType.PSYCHIC,
+    "psychic_tera_shard",
+    100,
+  ),
+  TYPE_COLLECTOR_ICE: new TypeCollectionAchv("typeCollectorIce", PokemonType.ICE, "ice_tera_shard", 100),
+  TYPE_COLLECTOR_DRAGON: new TypeCollectionAchv("typeCollectorDragon", PokemonType.DRAGON, "dragon_tera_shard", 100),
+  TYPE_COLLECTOR_DARK: new TypeCollectionAchv("typeCollectorDark", PokemonType.DARK, "dark_tera_shard", 100),
+  TYPE_COLLECTOR_FAIRY: new TypeCollectionAchv("typeCollectorFairy", PokemonType.FAIRY, "fairy_tera_shard", 100),
   // Local fork (2026-11-17): the last one, hidden without a hint (the user: "숨겨진 업적(힌트도 안뜸)으로 히든 증표 +
   // 모든 업적 달성 시 완주 라던가 끝"): every hidden mark obtained and every other achievement unlocked. Checked
   // whenever another achievement unlocks (BattleScene.validateAchv). Keep it the last entry.

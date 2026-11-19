@@ -57,6 +57,14 @@ enum MenuOptions {
 let wikiUrl = import.meta.env.VITE_WIKI_URL;
 const { VITE_DISCORD_URL, VITE_GITHUB_URL, VITE_REDDIT_URL, VITE_DONATE_URL } = import.meta.env;
 
+/**
+ * Local fork (2026-11-19): whether the community menu shows the Admin entry: only for an account with a real admin
+ * role, no longer whenever login is bypassed (C8; the user: "admin 수정 필요")
+ */
+export function isAdminMenuShown(): boolean {
+  return loggedInUser?.hasAdminRole === true;
+}
+
 export class MenuUiHandler extends OptionSelectUiHandler {
   private readonly textPadding = 8;
 
@@ -485,7 +493,10 @@ export class MenuUiHandler extends OptionSelectUiHandler {
         keepOpen: true,
       },
     ];
-    if (bypassLogin || loggedInUser?.hasAdminRole) {
+    // Local fork (2026-11-19): only a real admin role shows the (English, server-only) Admin entry; upstream also showed
+    // it whenever login was bypassed, which the offline app always does (docs/1.2.0_후보_20261119.md C8; the user:
+    // "admin 수정 필요"). The official links above stay as they are
+    if (isAdminMenuShown()) {
       communityOptions.push({
         label: "Admin",
         handler: () => {

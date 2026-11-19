@@ -595,7 +595,10 @@ describe("Custom named trainers - Volo, Irida, Adaman, Kamado, Sonia, Hop, Peony
         const { party, trainer, cleanUp } = buildParty(type, wave, `${TrainerType[type]}-${wave}`);
         const label = `${TrainerType[type]} wave ${wave}`;
         // Known while the party is made (the ace's moveset and battle-form roll see it), the same after genAI
-        expect(party.map(p => willTerastallize(p)), label).toEqual(party.map((_, i) => i === party.length - 1));
+        expect(
+          party.map(p => willTerastallize(p)),
+          label,
+        ).toEqual(party.map((_, i) => i === party.length - 1));
         for (let again = 0; again < 2; again++) {
           trainer.genAI(party);
           expect(trainer.config.trainerAI.instantTeras, label).toEqual([party.length - 1]);
@@ -621,7 +624,10 @@ describe("Custom named trainers - Volo, Irida, Adaman, Kamado, Sonia, Hop, Peony
     /** No species twice, and one Eevee at most (none once every Eeveelution is above its level) */
     const expectOneEevee = (party: readonly EnemyPokemon[], label: string, eevees: number) => {
       expect(new Set(party.map(p => p.species.speciesId)).size, label).toBe(party.length);
-      expect(party.filter(p => p.species.speciesId === SpeciesId.EEVEE), label).toHaveLength(eevees);
+      expect(
+        party.filter(p => p.species.speciesId === SpeciesId.EEVEE),
+        label,
+      ).toHaveLength(eevees);
     };
     for (const [type, eeveelutions] of [
       [TrainerType.IRIDA, [SpeciesId.FLAREON, SpeciesId.ESPEON, SpeciesId.GLACEON]],
@@ -632,7 +638,10 @@ describe("Custom named trainers - Volo, Irida, Adaman, Kamado, Sonia, Hop, Peony
       for (const seed of ["a", "b", "c"]) {
         const { party, cleanUp } = buildParty(type, 30, `${TrainerType[type]}-30-${seed}`);
         const label = `${TrainerType[type]} wave 30 seed ${seed}`;
-        expect(party.map(p => p.species.speciesId), label).toEqual([SpeciesId.EEVEE, eeveelutions[1], eeveelutions[2]]);
+        expect(
+          party.map(p => p.species.speciesId),
+          label,
+        ).toEqual([SpeciesId.EEVEE, eeveelutions[1], eeveelutions[2]]);
         expectOneEevee(party, label, 1);
         cleanUp();
       }

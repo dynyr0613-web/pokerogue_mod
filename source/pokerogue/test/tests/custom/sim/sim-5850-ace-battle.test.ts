@@ -63,6 +63,15 @@
  *   the game's enemy levels follow the ace both ways from wave 1000 (option 다, f = max(0.8, 0.9637 x (P / C)^0.6),
  *   chosen 2026-11-18; the `factor` in every record). The build tag is "12" ("11" was the 11-13 forge rule with the 3차 level rule; FORK_SIM_FORGED set
  *   still gives "10" / "09"; the 4-lens ablation is now "12@L4/2.4").
+ *   Local fork (2026-11-19), 1.2.0 re-run (C4): the final trainer now always Dynamaxes its ace with Max moves and gives
+ *   one other member a Z-Move (the user: "5850웨이브 적 트레이너가 다이맥스와 다이맥스 기술은 사용하고, z기술은 에이스가
+ *   아닌 포켓몬이 한마리 확정으로 가지고 있도록 하죠"), and a Dynamaxed Pokémon follows the main-series rules (C12). The
+ *   battle already went through the game's own EncounterPhase (`rollTrainerMoveConversions` / `rollTrainerDynamax`,
+ *   which apply that rule for the final trainer), so nothing in the setup changes; every enemy record now says what the
+ *   game did (`dynamax`, `converted`), every row has `finalRule` (the game's ace pick, the Dynamaxed members, the ace's
+ *   Max slots, the Z holders), and `run.rules` names the game rules ("1.2.0"). FORK_SIM_FINAL_RULE=off undoes the
+ *   final trainer's Dynamax state and Z / Max slots at the first command (an ablation, tag "@F0"), to split the 1.2.0
+ *   change into the level / forge part and the Dynamax / Z part.
  *
  * Player AI each turn: the usable move with the highest expected damage on the current target (simulated
  * `getAttackDamage` x accuracy); Choice-locked into a move that does 0 (immunity) -> switch to a support, then back
@@ -104,6 +113,9 @@
  *   FORK_SIM_LENS=3                 the ace's Multi Lenses (default the player cap, PLAYER_HELD_ITEM_CAPS.MULTI_LENS = 3
  *                                   since the 4th balance patch; above it the cap is raised for the run: 4 = the old cap)
  *   FORK_SIM_LOG_BASE=2.4           BOSS_SEGMENT_OVERFLOW.logBase for the run (default the game's, 2.4; 2 = the old rule)
+ *   FORK_SIM_FINAL_RULE=off         undo the final trainer's fixed Dynamax ace and Z / Max slots at the first command
+ *                                   (ablation; default on = the game's 1.2.0 rule)
+ *   FORK_SIM_ACE_DYNAMAX=1          the ace holds Max Mushrooms (Dynamax state, max HP x1.5; sensitivity run)
  *   FORK_SIM_MOVES=A2:M1/M2/M3/M4   replace an ace's moveset, ";" between aces (sensitivity run)
  *   FORK_SIM_MERGE=1                only merge every <key>.json in FORK_SIM_OUT into summary-all.json + summary-all.txt
  */
@@ -121,6 +133,8 @@ import {
   getNaturalMaxExpLevel,
 } from "#balance/endless-level-scaling";
 import { allMoves, modifierTypes } from "#data/data-lists";
+// Local fork (2026-11-19): 1.2.0 re-run, the game's pick of the final trainer's Dynamax ace (C4)
+import { getEndlessFinalAce } from "#data/enemy-dynamax";
 import { Gender } from "#data/gender";
 import { AbilityId } from "#enums/ability-id";
 import { BattleType } from "#enums/battle-type";
@@ -163,6 +177,7 @@ import {
   EnemyTurnHealModifier,
   HitHealModifier,
   type PersistentModifier,
+  PokemonFormChangeItemModifier,
   PokemonHeldItemModifier,
   PokemonInstantReviveModifier,
   PokemonMultiHitModifier,
@@ -179,6 +194,7 @@ import type { MovePhase } from "#phases/move-phase";
 import { SelectStarterPhase } from "#phases/select-starter-phase";
 import { GameManager } from "#test/framework/game-manager";
 import { generateStarters } from "#test/utils/game-manager-utils";
+import { isEndlessFinalTrainerBattle } from "#trainers/endless-final-trainer"; // Local fork (2026-11-19): 1.2.0 re-run
 import type { PhaseString } from "#types/phase-types";
 import { NumberHolder } from "#utils/common";
 import { BOSS_SEGMENT_OVERFLOW } from "#utils/damage"; // Local fork (2026-11-13): 11 re-run, FORK_SIM_LOG_BASE
@@ -432,6 +448,22 @@ const LOG_BASE_OVERRIDE = process.env.FORK_SIM_LOG_BASE == null ? null : Number(
 /** Local fork (2026-11-13): 11 re-run, BOSS_SEGMENT_OVERFLOW.logBase during the run (FORK_SIM_LOG_BASE, else the game's) */
 const RUN_LOG_BASE = LOG_BASE_OVERRIDE ?? BOSS_SEGMENT_OVERFLOW.logBase;
 /**
+ * Local fork (2026-11-19): 1.2.0 re-run, the game rules the records were made under (C4 the final trainer's fixed
+ * Dynamax ace + Max moves + one Z-Move, C12 the Dynamax rules, the escalating Struggle recoil, level option 다)
+ */
+const GAME_RULES = "1.2.0";
+/**
+ * Local fork (2026-11-19): 1.2.0 re-run, FORK_SIM_FINAL_RULE=off undoes the final trainer's fixed Dynamax state and
+ * Z / Max slots at the first command ({@linkcode undoFinalTrainerRule}; an ablation, tag "@F0")
+ */
+const FINAL_RULE_OFF = process.env.FORK_SIM_FINAL_RULE === "off";
+/**
+ * Local fork (2026-11-19): 1.2.0 re-run, FORK_SIM_ACE_DYNAMAX=1 gives the ace Max Mushrooms (and the party the Dynamax
+ * Band), so it fights in the Dynamax state as a 1.2.0 player's ace may (max HP x1.5, the C12 immunities; its moves stay
+ * plain, no 다이사탕); a sensitivity run, tag "@D1"
+ */
+const ACE_DYNAMAX = !!process.env.FORK_SIM_ACE_DYNAMAX;
+/**
  * Local fork (2026-11-13): 11 re-run, the Multi Lenses and overflow log base the runs tagged 07-10 played with (the
  * player's lens cap before 10 명세 1번, upstream's base before 10 명세 2번)
  */
@@ -460,7 +492,11 @@ function buildName(): string {
     items = GUARD_TOKENS > 0 || FORGED_STEEL_OVERRIDE > 0 ? "10" : "09";
   }
   const own = items === "12" ? { lens: PLAYER_LENS_CAP, logBase: BOSS_SEGMENT_OVERFLOW.logBase } : PRE_PATCH4_RULES;
-  return LENS_COUNT === own.lens && RUN_LOG_BASE === own.logBase ? items : `${items}@L${LENS_COUNT}/${RUN_LOG_BASE}`;
+  const name =
+    LENS_COUNT === own.lens && RUN_LOG_BASE === own.logBase ? items : `${items}@L${LENS_COUNT}/${RUN_LOG_BASE}`;
+  // Local fork (2026-11-19): 1.2.0 re-run, the ablation without the final trainer's Dynamax / Z rule, and the ace in
+  // the Dynamax state
+  return `${name}${FINAL_RULE_OFF ? "@F0" : ""}${ACE_DYNAMAX ? "@D1" : ""}`;
 }
 const BUILD_NAME = buildName();
 
@@ -626,6 +662,13 @@ interface EnemyRec {
   ability: string;
   passive: string | null;
   moves: string[];
+  /**
+   * Local fork (2026-11-19): 1.2.0 re-run, whether it is Dynamaxed at the first command (`isDynamaxed`: the Dynamax
+   * state or a G-Max form; after FORK_SIM_FINAL_RULE=off undid the state)
+   */
+  dynamax: boolean;
+  /** Local fork (2026-11-19): 1.2.0 re-run, its converted slots at the first command, "BASE>DERIVED(kind)" */
+  converted: string[];
   battleItems: Record<string, number>;
   heldStacks: number;
   /** Heal Token 20% + Leftovers 1/16 per stack, % of max HP per turn (before the missing-HP cap) */
@@ -706,6 +749,30 @@ interface BattleRec {
   handCheck: { aceHit?: Breakdown; enemyHit?: Breakdown };
   /** Switch-outs to reset a Choice lock on a move with no PP left */
   ppSwitches: number;
+  /** Local fork (2026-11-19): 1.2.0 re-run, what the game did for the final trainer's fixed Dynamax / Z rule */
+  finalRule?: FinalRuleRec;
+}
+
+/**
+ * Local fork (2026-11-19): 1.2.0 re-run, the final trainer's fixed Dynamax / Z rule (C4) as the game applied it, read
+ * at the first command before FORK_SIM_FINAL_RULE=off undoes it (slots are party slots)
+ */
+interface FinalRuleRec {
+  /** `isEndlessFinalTrainerBattle()` at the first command */
+  finalBattle: boolean;
+  /** The game's pick of the ace (`getEndlessFinalAce`), null when no member can take the state */
+  gameAceSlot: number | null;
+  /** The slot this harness calls the main ace (the most bars, the later slot on a tie) */
+  mainAceSlot: number | null;
+  /** The members in the Dynamax state / G-Max form */
+  dynamaxSlots: number[];
+  /** The game's ace: its Max / G-Max slots and its damaging slots */
+  aceMaxSlots: number;
+  aceDamagingSlots: number;
+  /** The members holding a Z-Move slot */
+  zSlots: number[];
+  /** Whether FORK_SIM_FINAL_RULE=off undid it for this battle */
+  undone: boolean;
 }
 
 /** Local fork (2026-11-13): 11 re-run, what every battle record says about the run's build and rules */
@@ -720,10 +787,16 @@ interface RunParams {
   /** The ace's Forged Steel pieces asked for */
   forgedSteel: number;
   guardTokens: number;
+  /** Local fork (2026-11-19): the game rules ({@linkcode GAME_RULES}) */
+  rules: string;
+  /** Local fork (2026-11-19): whether the final trainer's Dynamax / Z rule was left on (FORK_SIM_FINAL_RULE) */
+  finalTrainerRule: boolean;
 }
 
 function runParams(def: AceDef): RunParams {
   return {
+    rules: GAME_RULES,
+    finalTrainerRule: !FINAL_RULE_OFF,
     build: BUILD_NAME,
     multiLens: LENS_COUNT,
     multiLensCap: PLAYER_HELD_ITEM_CAPS.MULTI_LENS,
@@ -1469,6 +1542,74 @@ function enemyBattleItems(p: Pokemon): { items: Record<string, number>; total: n
   return { items, total };
 }
 
+/** Local fork (2026-11-19): 1.2.0 re-run, `p`'s converted slots, "BASE>DERIVED(kind)" */
+function convertedSlots(p: Pokemon): string[] {
+  return p
+    .getMoveset()
+    .filter(m => !!m.transform)
+    .map(m => `${moveName(m.moveId)}>${moveName(m.transform!.moveId)}(${m.transform!.kind})`);
+}
+
+/** Local fork (2026-11-19): 1.2.0 re-run, the slot this harness calls the main ace (the most bars, the later on a tie) */
+function mainAceIndex(party: readonly EnemyPokemon[]): number | null {
+  let best: number | null = null;
+  party.forEach((p, i) => {
+    if (best == null || (p.bossSegments ?? 0) >= (party[best].bossSegments ?? 0)) {
+      best = i;
+    }
+  });
+  return best;
+}
+
+/**
+ * Local fork (2026-11-19): 1.2.0 re-run, what the game did for the final trainer's fixed Dynamax / Z rule (C4), read at
+ * the first command (the party is the one EncounterPhase made)
+ */
+function readFinalRule(party: readonly EnemyPokemon[]): FinalRuleRec {
+  // The game picks the ace before giving it the state; holding Max Mushrooms then takes it out of
+  // `canTakeEnemyDynamax`, so the member in the state is the pick when there is one, else `getEndlessFinalAce` now
+  const ace = party.find(p => p.hasDynamaxState()) ?? getEndlessFinalAce(party);
+  const damaging = ace ? ace.getMoveset().filter(m => allMoves[m.moveId].category !== MoveCategory.STATUS) : [];
+  return {
+    finalBattle: isEndlessFinalTrainerBattle(),
+    gameAceSlot: ace ? party.indexOf(ace) : null,
+    mainAceSlot: mainAceIndex(party),
+    dynamaxSlots: party.flatMap((p, i) => (p.isDynamaxed() ? [i] : [])),
+    aceMaxSlots: ace
+      ? ace.getMoveset().filter(m => m.transform?.kind === "max" || m.transform?.kind === "gmax").length
+      : 0,
+    aceDamagingSlots: damaging.length,
+    zSlots: party.flatMap((p, i) => (p.getMoveset().some(m => m.transform?.kind.startsWith("z")) ? [i] : [])),
+    undone: false,
+  };
+}
+
+/**
+ * Local fork (2026-11-19): 1.2.0 re-run, FORK_SIM_FINAL_RULE=off: takes the final trainer's Dynamax state (its Max
+ * Mushrooms, so max HP x1.5 goes too; HP set back to full) and every Z / Max slot away at the first command, so the
+ * battle is the one before C4 without the old 40% roll (an ablation; the game never does this)
+ */
+function undoFinalTrainerRule(party: readonly EnemyPokemon[]): void {
+  for (const p of party) {
+    for (const m of p.getMoveset()) {
+      m.transform = undefined;
+    }
+    const mushrooms = p
+      .getHeldItems()
+      .filter(m => m instanceof PokemonFormChangeItemModifier && m.formChangeItem === FormChangeItem.MAX_MUSHROOMS);
+    if (mushrooms.length === 0) {
+      continue;
+    }
+    for (const m of mushrooms) {
+      globalScene.removeModifier(m, true);
+    }
+    p.calculateStats();
+    p.hp = p.getMaxHp();
+    p.updateScale();
+  }
+  globalScene.updateModifiers(false, true);
+}
+
 // #endregion Helpers
 
 describe.skipIf(!process.env.FORK_SIM)("Sim - the 5850 ace battle", () => {
@@ -1656,6 +1797,12 @@ describe.skipIf(!process.env.FORK_SIM)("Sim - the 5850 ace battle", () => {
     for (const f of def.formItems) {
       giveHeld(ace, typeOf("FORM_CHANGE_ITEM", [f]), 1, `FORM_${FormChangeItem[f]}`, items);
     }
+    // Local fork (2026-11-19): 1.2.0 re-run, FORK_SIM_ACE_DYNAMAX: the ace in the Dynamax state (Max Mushrooms with the
+    // Dynamax Band, as the reward screen offers them)
+    if (ACE_DYNAMAX) {
+      giveParty("DYNAMAX_BAND", 1, items);
+      giveHeld(ace, typeOf("FORM_CHANGE_ITEM", [FormChangeItem.MAX_MUSHROOMS]), 1, "FORM_MAX_MUSHROOMS", items);
+    }
     giveParty("PIERCING_TOKEN", 10, items);
     giveParty("HEALING_CHARM", 5, items);
     // Local fork (2026-11-13): 10 re-run, the 3rd balance patch's Guard Tokens (enemy hits on the party x0.995^m),
@@ -1827,6 +1974,14 @@ describe.skipIf(!process.env.FORK_SIM)("Sim - the 5850 ace battle", () => {
       }
     }
 
+    // Local fork (2026-11-19): 1.2.0 re-run, the final trainer's fixed Dynamax / Z rule as EncounterPhase applied it
+    // (C4), then the FORK_SIM_FINAL_RULE=off ablation takes it away before anything is recorded
+    const finalRule = readFinalRule(battle.enemyParty);
+    if (FINAL_RULE_OFF) {
+      undoFinalTrainerRule(battle.enemyParty);
+      finalRule.undone = true;
+    }
+
     const rec: BattleRec = {
       key: spec.key,
       ace: spec.ace,
@@ -1856,6 +2011,7 @@ describe.skipIf(!process.env.FORK_SIM)("Sim - the 5850 ace battle", () => {
       struggles: 0,
       ppSwitches: 0,
       handCheck: {},
+      finalRule, // Local fork (2026-11-19): 1.2.0 re-run
     };
 
     const enemies = new Map<number, EnemyRec>();
@@ -1876,6 +2032,8 @@ describe.skipIf(!process.env.FORK_SIM)("Sim - the 5850 ace battle", () => {
         ability: p.getAbility().name,
         passive: p.hasPassive() ? p.getPassiveAbility().name : null,
         moves: p.getMoveset().map(m => moveName(m.moveId)),
+        dynamax: p.isDynamaxed(), // Local fork (2026-11-19): 1.2.0 re-run
+        converted: convertedSlots(p),
         battleItems,
         heldStacks: total,
         nominalHealPctPerTurn: r4(
@@ -1931,6 +2089,7 @@ describe.skipIf(!process.env.FORK_SIM)("Sim - the 5850 ace battle", () => {
         SPD: ace.stats[5],
       },
       maxHp: ace.getMaxHp(),
+      dynamax: ace.isDynamaxed(), // Local fork (2026-11-19): 1.2.0 re-run (FORK_SIM_ACE_DYNAMAX)
       effectiveStatsAtStart: effective,
       statStages: v.batonPass ? "+6 Atk / +6 SpA / +6 Spe" : "none",
       // Local fork (2026-11-13): 09 re-run, the level following ("적의 에이스 포켓몬이 플레이어의 가장 높은 레벨의
@@ -2301,10 +2460,14 @@ function compact(rec: BattleRec): Record<string, unknown> {
     flinches: rec.turnLog.reduce((a, t) => a + (t.flinched ?? 0), 0),
     aceStatuses: rec.aceStatuses.map(s => `${s.turn}:${s.status}`),
     aceMinHpPct: rec.turnLog.length > 0 ? Math.min(...rec.turnLog.map(t => t.aceHpPct)) : null,
+    finalRule: rec.finalRule ?? null, // Local fork (2026-11-19): 1.2.0 re-run (missing in older records)
     enemies: rec.enemies.map(e => ({
       sp: `${e.species}${e.form ? `-${e.form}` : ""}${e.fusion ? `/${e.fusion}${e.fusionForm ? `-${e.fusionForm}` : ""}` : ""}`,
       bars: e.bars,
       maxHp: e.maxHp,
+      // Local fork (2026-11-19): 1.2.0 re-run, Dynamaxed and converted slots at the first command
+      dyn: e.dynamax ?? false,
+      tf: e.converted ?? [],
       ko: e.koTurn,
       koBy: e.koBy ?? null, // Local fork (2026-11-13): 11 re-run (missing in older records)
       hits: e.aceHits.length,

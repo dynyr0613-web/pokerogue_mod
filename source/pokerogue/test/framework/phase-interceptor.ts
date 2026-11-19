@@ -40,6 +40,14 @@ export class PhaseInterceptor {
   private state: StateType = "idling";
   /** The current target that is being ran to. */
   private target: PhaseString;
+  /**
+   * Local fork (2026-11-19): A6, random failures in full runs. The interceptor of the newest {@linkcode GameManager}
+   * in this worker. Tests share one scene per worker (`isolate: false`), so a test that timed out inside
+   * {@linkcode to} left its polling loop running and starting phases of the next test for up to 20 more seconds.
+   */
+  private static current: PhaseInterceptor | undefined;
+  /** Local fork (2026-11-19): set once a newer interceptor took over the scene; stops this one's {@linkcode to} loop */
+  private disposed = false;
 
   /**
    * Initialize a new PhaseInterceptor.
@@ -51,6 +59,11 @@ export class PhaseInterceptor {
   // TODO: This should take a `GameManager` instance once multi-scene things become a reality
   // (though our entire Phase system will likely have to be redone anyways)
   constructor(scene: BattleScene) {
+    // Local fork (2026-11-19): A6. Retire the previous test's interceptor (see `current`)
+    if (PhaseInterceptor.current) {
+      PhaseInterceptor.current.disposed = true;
+    }
+    PhaseInterceptor.current = this;
     this.scene = scene;
     // Persistently stub out `this.scene.phaseManager.getCurrentPhase`
     // to toggle the interceptor's state (rather than starting a new phase).
@@ -85,6 +98,9 @@ export class PhaseInterceptor {
     // This entire function can likely be made synchronous once UI code is moved to a separate scene.
     await vi.waitUntil(
       async () => {
+        // Local fork (2026-11-19): A6. A newer test owns the scene now: stop here (the error ends the timed-out test's
+        // remaining code, whose result vitest no longer reports) instead of running the newer test's phases
+        this.throwIfDisposed();
         // If we were interrupted by a UI prompt, we assume that the calling code will queue inputs to
         // end the current phase manually, so we just wait for the phase to end from the caller.
         if (this.state === "interrupted") {
@@ -129,11 +145,28 @@ export class PhaseInterceptor {
       this.state = "running";
       this.logPhase(currentPhase.phaseName);
       currentPhase.start();
-      await vi.waitUntil(() => this.state !== "running", { interval: 50, timeout: TEST_TIMEOUT });
+      // Local fork (2026-11-19): A6. A retired interceptor stops waiting (see `disposed`)
+      await vi.waitUntil(
+        () => {
+          this.throwIfDisposed();
+          return this.state !== "running";
+        },
+        { interval: 50, timeout: TEST_TIMEOUT },
+      );
     } catch (error) {
       throw error instanceof Error
         ? error
         : new Error(`Unknown error occurred while running phase ${currentPhase.phaseName}!\nError: ${inspect(error)}`);
+    }
+  }
+
+  /**
+   * Local fork (2026-11-19): A6. Stop a retired interceptor's polling (see {@linkcode disposed}).
+   * @throws Error once a newer interceptor took over the scene
+   */
+  private throwIfDisposed(): void {
+    if (this.disposed) {
+      throw new Error("PhaseInterceptor: a newer test took over the scene; stopping this timed-out test's phase loop");
     }
   }
 

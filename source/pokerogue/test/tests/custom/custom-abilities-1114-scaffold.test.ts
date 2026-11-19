@@ -14,8 +14,17 @@ const LAST = AbilityId.CANNONEER;
 /**
  * Local fork (2026-11-14): passive rebalance. Follow-up abilities after the 42, in enum order (custom-abilities-1114-e.ts).
  * Local fork (2026-11-14): custom moves. Then Gardener and Turnabout (custom-abilities-1114-f.ts).
+ * Local fork (2026-11-19): 1.2.0 D12 (the user: "d12 실행"). Then Archmage, Wicked Scheme and Grit
+ * (custom-abilities-1119-d12.ts).
  */
-const FOLLOW_UP = [AbilityId.CLEARING_GUST, AbilityId.GARDENER, AbilityId.TURNABOUT] as const;
+const FOLLOW_UP = [
+  AbilityId.CLEARING_GUST,
+  AbilityId.GARDENER,
+  AbilityId.TURNABOUT,
+  AbilityId.ARCHMAGE,
+  AbilityId.WICKED_SCHEME,
+  AbilityId.GRIT,
+] as const;
 /** The last custom ability: the end of the enum and of `allAbilities`. */
 const REGION_END = FOLLOW_UP.at(-1) ?? LAST;
 

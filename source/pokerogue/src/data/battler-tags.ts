@@ -70,7 +70,7 @@ import { MoveId } from "#enums/move-id";
 import { MovePhaseTimingModifier } from "#enums/move-phase-timing-modifier";
 import { MoveResult } from "#enums/move-result";
 import { MoveTarget } from "#enums/move-target";
-import { MoveUseMode } from "#enums/move-use-mode";
+import { isVirtual, MoveUseMode } from "#enums/move-use-mode";
 import { PokemonAnimType } from "#enums/pokemon-anim-type";
 import { PokemonType } from "#enums/pokemon-type";
 import { SpeciesFormKey } from "#enums/species-form-key";
@@ -380,7 +380,12 @@ export abstract class MoveRestrictionBattlerTag extends SerializableBattlerTag {
  * @param user - The Pokémon whose slot it is, if known
  */
 function getRestrictionMove(move: MoveId, user?: Pokemon): Move {
-  return user?.getMoveset().find(m => m.moveId === move)?.getMove() ?? allMoves[move];
+  return (
+    user
+      ?.getMoveset()
+      .find(m => m.moveId === move)
+      ?.getMove() ?? allMoves[move]
+  );
 }
 
 /**
@@ -1280,6 +1285,16 @@ export class FlinchedTag extends BattlerTag {
   }
 
   /**
+   * Local fork (2026-11-19): a Dynamaxed Pokémon (`Pokemon.isDynamaxed`: a G-Max / E-Max form or the Dynamax state,
+   * player and enemy alike) never flinches, as in the main series: Fake Out, flinch chances, King's Rock and Stench
+   * all add this tag through `Pokemon.addTag` (the user: "다이맥스 강제 교체와 풀죽음 ... 거다이맥스에도
+   * 반영이 아직 안되어있다면 거다이맥스에도 넣고")
+   */
+  override canAdd(pokemon: Pokemon): boolean {
+    return !pokemon.isDynamaxed();
+  }
+
+  /**
    * Cancels the flinched Pokemon's currently used move this turn if called mid-execution, or removes the tag at end of turn.
    * @param pokemon - The {@linkcode Pokemon} with this tag.
    * @param lapseType - The {@linkcode BattlerTagLapseType | lapse type} used for this function call.
@@ -1490,7 +1505,9 @@ export class DestinyBondTag extends SerializableBattlerTag {
       return false;
     }
 
-    if (pokemon.isBossImmune()) {
+    // Local fork (2026-11-19): nor a Dynamaxed attacker (`Pokemon.isDynamaxed`: a G-Max / E-Max form or the Dynamax
+    // state), as in the main series, with the bosses' message (the user: "... 길동무 면역을 넣도록 하죠")
+    if (pokemon.isBossImmune() || pokemon.isDynamaxed()) {
       globalScene.phaseManager.queueMessage(
         i18next.t("battlerTags:destinyBondLapseIsBoss", {
           pokemonNameWithAffix: getPokemonNameWithAffix(pokemon),
@@ -1838,6 +1855,131 @@ export class FrenzyTag extends MoveLockTag {
     // in which case the duration will have ticked down to 0.
     if (this.turnCount <= 0) {
       pokemon.addTag(BattlerTagType.CONFUSED, pokemon.randBattleSeedIntRange(2, 5));
+    }
+  }
+}
+
+/**
+ * Local fork (2026-11-19): Rollout (구르기) and Ice Ball (아이스볼) (the user: "e2 구현"). The first hit locks the holder
+ * into the move for 5 uses in all; each hit doubles the power of the next (`RolloutPowerAttr` reads
+ * {@linkcode getHitNumber}). As with a frenzy, a miss or an interruption (flinch, full paralysis, sleep ...) ends the
+ * chain; so does a move the holder chose itself (the lock lifted, e.g. by Disable). The next use starts again at hit 1.
+ */
+export class RolloutTag extends MoveLockTag {
+  public override readonly tagType = BattlerTagType.ROLLOUT;
+  /** The number of uses in a full chain */
+  public static readonly CHAIN_LENGTH = 5;
+
+  constructor(turnCount: number, sourceMove: MoveId) {
+    super(BattlerTagType.ROLLOUT, turnCount, sourceMove);
+  }
+
+  /** @returns Which hit of the chain the holder's current or next use of the move is (1 to 5) */
+  public getHitNumber(): number {
+    const hit = RolloutTag.CHAIN_LENGTH - this.turnCount + 1;
+    return Math.min(Math.max(hit, 1), RolloutTag.CHAIN_LENGTH);
+  }
+
+  public override lapse(pokemon: Pokemon, lapseType: BattlerTagLapseType): boolean {
+    const lastMove = pokemon.getLastXMoves().at(0);
+    if (
+      lastMove
+      && this.sourceMove !== lastMove.move
+      && lastMove.move !== MoveId.NONE
+      && !isVirtual(lastMove.useMode)
+    ) {
+      return false;
+    }
+    return super.lapse(pokemon, lapseType);
+  }
+}
+
+/**
+ * Local fork (2026-11-19): Uproar (소란피기) (the user: "e2 구현"). The first hit starts an uproar that locks the holder
+ * into the move for 3 uses in all. While any Pokémon on the field holds this tag, no Pokémon can fall asleep
+ * ({@linkcode isUproarActive}, checked by `Pokemon.canSetStatus`), and each use wakes the sleeping Pokémon on the field,
+ * Soundproof (방음) ones included ({@linkcode wakeUpInUproar}). Unlike a frenzy it always runs its 3 turns (as in
+ * the main series): a miss, an immune target or a turn the holder cannot act (flinch, full paralysis) still counts.
+ * Throat Chop, or a move the holder chose itself (the lock lifted, e.g. by Disable), ends it early.
+ */
+export class UproarTag extends MoveLockTag {
+  public override readonly tagType = BattlerTagType.UPROAR;
+  /** The number of turns an uproar lasts */
+  public static readonly DURATION = 3;
+
+  constructor(turnCount: number, sourceMove: MoveId) {
+    super(BattlerTagType.UPROAR, turnCount, sourceMove);
+  }
+
+  public override onAdd(pokemon: Pokemon): void {
+    super.onAdd(pokemon);
+    globalScene.phaseManager.queueMessage(
+      i18next.t("battlerTags:uproarOnAdd", { pokemonNameWithAffix: getPokemonNameWithAffix(pokemon) }),
+    );
+    wakeUpInUproar();
+  }
+
+  public override lapse(pokemon: Pokemon, _lapseType: BattlerTagLapseType): boolean {
+    const { sourceMove } = this;
+    const lastMove = pokemon.getLastXMoves().at(0);
+    if (sourceMove == null || !lastMove) {
+      return true;
+    }
+    if (lastMove.move !== sourceMove && lastMove.move !== MoveId.NONE) {
+      // A move used through another effect (Dancer) does not count; one the holder chose itself ends the uproar
+      return isVirtual(lastMove.useMode);
+    }
+
+    // The use that started the uproar already woke everyone and showed its message (onAdd)
+    const firstUse = this.turnCount >= UproarTag.DURATION;
+    if (lastMove.move === sourceMove && !firstUse) {
+      wakeUpInUproar();
+    }
+    if (pokemon.getTag(BattlerTagType.THROAT_CHOPPED) || --this.turnCount <= 0) {
+      return false;
+    }
+
+    const nextTargets = this.getNextTargets(pokemon, allMoves[sourceMove], lastMove.targets);
+    pokemon.pushMoveQueue({ move: sourceMove, targets: nextTargets, useMode: MoveUseMode.IGNORE_PP });
+    if (!firstUse) {
+      globalScene.phaseManager.queueMessage(
+        i18next.t("battlerTags:uproarLapse", { pokemonNameWithAffix: getPokemonNameWithAffix(pokemon) }),
+      );
+    }
+    return true;
+  }
+
+  public override onRemove(pokemon: Pokemon): void {
+    super.onRemove(pokemon);
+    globalScene.phaseManager.queueMessage(
+      i18next.t("battlerTags:uproarOnRemove", { pokemonNameWithAffix: getPokemonNameWithAffix(pokemon) }),
+    );
+  }
+}
+
+/**
+ * Local fork (2026-11-19): Uproar (소란피기). Whether an uproar is going on: some active Pokémon on the field holds
+ * {@linkcode UproarTag}. While it is, no Pokémon can fall asleep. A holder hit by Throat Chop stops at once (main
+ * series); its tag goes when it next moves, since it can no longer use the move it was locked into.
+ */
+export function isUproarActive(): boolean {
+  return globalScene
+    .getField(true)
+    .some(p => p.getTag(BattlerTagType.UPROAR) != null && p.getTag(BattlerTagType.THROAT_CHOPPED) == null);
+}
+
+/**
+ * Local fork (2026-11-19): Uproar (소란피기). Wake every sleeping Pokémon on the field. E2 review: Soundproof (방음)
+ * ones too, as in the current games (Showdown's Gen 9 Uproar has no Soundproof check; Soundproof only blocks the hit),
+ * matching the sleep prevention, which never spared them either.
+ */
+export function wakeUpInUproar(): void {
+  for (const pokemon of globalScene.getField(true)) {
+    if (pokemon.status?.effect === StatusEffect.SLEEP) {
+      pokemon.cureStatus(
+        StatusEffect.SLEEP,
+        i18next.t("battlerTags:uproarWake", { pokemonNameWithAffix: getPokemonNameWithAffix(pokemon) }),
+      );
     }
   }
 }
@@ -2609,6 +2751,123 @@ export class SemiInvulnerableTag extends SerializableBattlerTag {
       duration: getFrameMs(2),
       onComplete: () => pokemon.setVisible(true),
     });
+  }
+}
+
+/**
+ * Local fork (2026-11-19): Sky Drop (프리폴) is no longer partial (the user: "e2 구현"). The user's own flight on Sky
+ * Drop's charging turn: a Fly state (tag type `FLYING`, so Thunder, Gust, Gravity, Smack Down, sleep ... treat it the
+ * same; `getBattlerTag` makes it for a `FLYING` tag from Sky Drop) that also lets go of the Pokémon it carries
+ * ({@linkcode SkyDropTag}) whenever it ends: quietly when the second turn's attack drops it (the hit checks then find
+ * the target on the ground), with the "freed" message when the user lands any other way (its move fails or is
+ * cancelled, it falls asleep, Gravity, fainting ...).
+ */
+export class SkyDropCarrierTag extends SemiInvulnerableTag {
+  declare public readonly tagType: BattlerTagType.FLYING;
+
+  constructor(turnCount: number) {
+    super(BattlerTagType.FLYING, turnCount, MoveId.SKY_DROP);
+  }
+
+  override onRemove(pokemon: Pokemon): void {
+    super.onRemove(pokemon);
+    const currentPhase = globalScene.phaseManager.getCurrentPhase();
+    /** The second turn's attack, which lands this user at the start of its `MoveEffectPhase` */
+    const dropping =
+      currentPhase.is("MoveEffectPhase")
+      && currentPhase.getPokemon() === pokemon
+      && currentPhase.move.id === MoveId.SKY_DROP;
+    for (const carried of globalScene.getField(true)) {
+      const tag = carried.getTag(BattlerTagType.SKY_DROP);
+      if (tag?.sourceId === pokemon.id) {
+        tag.dropped = dropping;
+        carried.removeTag(BattlerTagType.SKY_DROP);
+      }
+    }
+  }
+}
+
+/** Local fork (2026-11-19): when {@linkcode SkyDropTag} is checked by `lapseTags` */
+const SKY_DROP_LAPSE_TYPES: readonly BattlerTagLapseType[] = Object.freeze([
+  BattlerTagLapseType.MOVE_EFFECT,
+  BattlerTagLapseType.TURN_END,
+]);
+
+/**
+ * Local fork (2026-11-19): Sky Drop (프리폴) is no longer partial (the user: "e2 구현"). The Pokémon a Sky Drop user (the
+ * source, holding a {@linkcode SkyDropCarrierTag}) carried into the sky on its charging turn. Until it is dropped it:
+ * - is up in the air like a Fly user: semi-invulnerable, though Thunder, Hurricane, Gust, Twister, Sky Uppercut ...
+ *   still reach it (`MoveEffectPhase.checkBypassSemiInvuln`, Gust / Twister's double damage in `Pokemon.getAttackDamage`),
+ * - cannot move: its move is cancelled before any other check (`MovePhase.firstFailureCheck`), so it neither wakes up
+ *   nor hurts itself in confusion meanwhile, as in the main series,
+ * - cannot be switched out, Ghost types included (`Pokemon.isTrapped`),
+ * - stops drawing moves with Follow Me / Rage Powder.
+ * It ends when the user drops it, and on its own (with the "freed" message) once the user is no longer carrying it: the
+ * user fainted, left the field or landed without its attack.
+ */
+export class SkyDropTag extends SemiInvulnerableTag {
+  declare public readonly tagType: BattlerTagType.SKY_DROP;
+  /** Set by the carrier when its attack drops this Pokémon, so no "freed" message shows (not saved) */
+  public dropped = false;
+
+  constructor(sourceId: number) {
+    super(BattlerTagType.SKY_DROP, 1, MoveId.SKY_DROP);
+    this.sourceId = sourceId;
+  }
+
+  /**
+   * Not tied to this Pokémon's own moves like a Fly state: kept through its cancelled move (`MOVE_EFFECT`) while it is
+   * carried, and checked at the end of each turn. The "cannot move" check (`PRE_MOVE`) is run only through
+   * `Pokemon.lapseTag`, first thing in `MovePhase.firstFailureCheck`.
+   */
+  public override get lapseTypes(): readonly BattlerTagLapseType[] {
+    return SKY_DROP_LAPSE_TYPES;
+  }
+
+  override isSourceLinked(): boolean {
+    return true;
+  }
+
+  override onAdd(pokemon: Pokemon): void {
+    super.onAdd(pokemon);
+    // Follow Me / Rage Powder end when their user is taken into the sky
+    pokemon.removeTag(BattlerTagType.CENTER_OF_ATTENTION);
+  }
+
+  override onRemove(pokemon: Pokemon): void {
+    super.onRemove(pokemon);
+    if (!this.dropped && pokemon.isActive(true)) {
+      globalScene.phaseManager.queueMessage(
+        i18next.t("battlerTags:skyDropFreed", { pokemonNameWithAffix: getPokemonNameWithAffix(pokemon) }),
+      );
+    }
+  }
+
+  override lapse(pokemon: Pokemon, lapseType: BattlerTagLapseType): boolean {
+    if (!this.isCarried(pokemon)) {
+      return false;
+    }
+    if (lapseType === BattlerTagLapseType.PRE_MOVE) {
+      const currentPhase = globalScene.phaseManager.getCurrentPhase();
+      if (currentPhase.is("MovePhase")) {
+        currentPhase.cancel();
+      }
+      globalScene.phaseManager.queueMessage(
+        i18next.t("battlerTags:skyDropCannotMove", { pokemonNameWithAffix: getPokemonNameWithAffix(pokemon) }),
+      );
+    }
+    return true;
+  }
+
+  /** @returns Whether the source still holds `pokemon` up: on the field, in its Sky Drop flight */
+  private isCarried(pokemon: Pokemon): boolean {
+    const carrier = this.getSourcePokemon();
+    return (
+      carrier != null
+      && carrier !== pokemon
+      && carrier.isActive(true)
+      && carrier.getTag(BattlerTagType.FLYING) instanceof SkyDropCarrierTag
+    );
   }
 }
 
@@ -3693,9 +3952,14 @@ export class TormentTag extends MoveRestrictionBattlerTag {
       return false;
     }
     // This checks for locking / momentum moves like Rollout and Hydro Cannon + if the user is under the influence of BattlerTagType.FRENZY
-    // Because Uproar's unique behavior is not implemented, it does not check for Uproar. Torment has been marked as partial in moves.ts
+    // Torment has been marked as partial in moves.ts
+    // Local fork (2026-11-19): Rollout / Ice Ball (`RolloutPowerAttr`) and an uproar's lock count too (the user: "e2 구현")
     const moveObj = allMoves[lastMove.move];
-    const isUnaffected = moveObj.hasAttr("ConsecutiveUseDoublePowerAttr") || user.getTag(BattlerTagType.FRENZY);
+    const isUnaffected =
+      moveObj.hasAttr("ConsecutiveUseDoublePowerAttr")
+      || moveObj.hasAttr("RolloutPowerAttr")
+      || user.getTag(BattlerTagType.FRENZY)
+      || user.getTag(BattlerTagType.UPROAR);
     const validLastMoveResult = lastMove.result === MoveResult.SUCCESS || lastMove.result === MoveResult.MISS;
     return lastMove.move === move && validLastMoveResult && lastMove.move !== MoveId.STRUGGLE && !isUnaffected;
   }
@@ -4159,6 +4423,10 @@ export function getBattlerTag(
       return new NightmareTag();
     case BattlerTagType.FRENZY:
       return new FrenzyTag(turnCount, sourceMove);
+    case BattlerTagType.UPROAR: // Local fork (2026-11-19): Uproar
+      return new UproarTag(turnCount, sourceMove);
+    case BattlerTagType.ROLLOUT: // Local fork (2026-11-19): Rollout / Ice Ball
+      return new RolloutTag(turnCount, sourceMove);
     case BattlerTagType.CHARGING:
       return new SerializableBattlerTag(tagType, BattlerTagLapseType.CUSTOM, 1, sourceMove, sourceId);
     case BattlerTagType.ENCORE:
@@ -4235,10 +4503,17 @@ export function getBattlerTag(
     case BattlerTagType.QUARK_DRIVE:
       return new TerrainHighestStatBoostTag(tagType, AbilityId.QUARK_DRIVE, TerrainType.ELECTRIC);
     case BattlerTagType.FLYING:
+      // Local fork (2026-11-19): Sky Drop's flight also carries the target (and lets go of it when it ends)
+      if (sourceMove === MoveId.SKY_DROP) {
+        return new SkyDropCarrierTag(turnCount);
+      }
+      return new SemiInvulnerableTag(tagType, turnCount, sourceMove);
     case BattlerTagType.UNDERGROUND:
     case BattlerTagType.UNDERWATER:
     case BattlerTagType.HIDDEN:
       return new SemiInvulnerableTag(tagType, turnCount, sourceMove);
+    case BattlerTagType.SKY_DROP: // Local fork (2026-11-19): the Pokémon carried by Sky Drop
+      return new SkyDropTag(sourceId);
     case BattlerTagType.FIRE_BOOST:
       return new TypeBoostTag(tagType, sourceMove, PokemonType.FIRE, 1.5, false);
     case BattlerTagType.CRIT_BOOST:
@@ -4468,6 +4743,9 @@ export type BattlerTagTypeMap = {
   [BattlerTagType.CHOICE_LOCK]: ChoiceLockTag; // Local fork (2026-11-09)
   [BattlerTagType.MAX_GUARD]: MaxGuardTag; // Local fork (2026-11-16): Max Guard (다이월)
   [BattlerTagType.G_MAX_CHI_STRIKE]: GmaxChiStrikeTag; // Local fork (2026-11-16): G-Max Chi Strike
+  [BattlerTagType.UPROAR]: UproarTag; // Local fork (2026-11-19): Uproar
+  [BattlerTagType.ROLLOUT]: RolloutTag; // Local fork (2026-11-19): Rollout / Ice Ball
+  [BattlerTagType.SKY_DROP]: SkyDropTag; // Local fork (2026-11-19): the Pokémon carried by Sky Drop
 };
 
 /**

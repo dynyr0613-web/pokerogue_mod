@@ -116,7 +116,8 @@
       "description": "Causes certain Pokémon to evolve."
     },
     "FormChangeItemModifierType": {
-      "description": "Causes certain Pokémon to change form."
+      "description": "Causes certain Pokémon to change form.",
+      "maxMushroomsDescription": "The holder enters the Dynamax state: its form, Ability and passive stay, its max HP rises 1.5x and its moves do not change. A Pokémon that can Gigantamax takes its G-Max form instead. Held with a Mega Stone, it Dynamaxes in its Mega form."
     },
     "FusePokemonModifierType": {
       "description": "Combines two Pokémon (transfers Ability, splits base stats and types, shares move pool)."
@@ -219,7 +220,7 @@
     "CHOICE_SPECS": { "name": "Choice Specs", "description": "Raises the holder’s Sp. Atk by 50%, but it can only use the first move it used. Switching out or the end of the battle lifts the lock." },
     "CHOICE_ARMOR": { "name": "Choice Armor", "description": "Raises the holder’s Defense and Sp. Def by 30%, but it can only use the first move it used. Switching out or the end of the battle lifts the lock." },
     "PRISM": { "name": "Prism", "description": "Single-target attacks also deal 50/75/100% of their damage (1/2/3 Prisms, up to 3) to the target’s partner (double battles). Spread moves are not affected." },
-    "LIFE_ORB": { "name": "Life Orb", "description": "Attacks deal 30% more damage per orb (x1.3/x1.6/x1.9). After a turn in which the holder attacked, it loses 10/15/20% of its max HP." },
+    "LIFE_ORB": { "name": "Life Orb", "description": "Attacks deal 30% more damage per orb (x1.3/x1.6/x1.9). After a turn in which the holder attacked, it loses 10/15/20% of its max HP, but this recoil never makes it faint (it keeps 1 HP)." },
     "TRAINING_SHACKLES": { "name": "Training Shackles", "description": "Halves the holder’s Speed but raises its Attack, Defense, Sp. Atk and Sp. Def by 20%. With two, Speed falls to 1/3 and those stats rise by 40%." },
     "ULTIMATE_GENE": { "name": "Ultimate Gene", "description": "Raises the holder’s Attack, Defense, Sp. Atk, Sp. Def and Speed by 20%. Held by Mewtwo, by 40%." },
     "FLAME_CAULDRON": { "name": "Flame Cauldron", "description": "A cauldron holding the ashes of something burnt. It looks like it needs something to light it again." },
@@ -253,7 +254,7 @@
     "POWER_ANKLET": { "name": "Power Anklet", "description": "A heavy anklet for training. Each time the holder takes part in a battle and gets a defeated foe's EXP, its Speed EVs rise by 1 (up to 252; not from the EXP Share alone). Only one per party." },
     "FORGED_STEEL": { "name": "Forged Steel", "description": "Raises base HP, Defense and Sp. Def by 10% per piece (added up, x1.1 to x2.0, up to 10)." },
 
-    "SOUL_DEW": { "name": "Soul Dew", "description": "Increases the influence of a Pokémon’s nature on its stats by 10% (additive)." },
+    "SOUL_DEW": { "name": "Soul Dew", "description": "Increases the influence of a Pokémon’s nature by 10% per Soul Dew (the raised stat adds up, the lowered stat is multiplied by 0.9 each)." },
 
     "NUGGET": { "name": "Nugget" },
     "BIG_NUGGET": { "name": "Big Nugget" },

@@ -33,7 +33,7 @@ describe("Custom held items - orb vessel pairs and the player's steals", () => {
     if (pokemon.isPlayer()) {
       game.scene.addModifier(item, true, false, false, true);
     } else {
-      game.scene.addEnemyModifier(item, true);
+      void game.scene.addEnemyModifier(item, true);
     }
     return pokemon.getHeldItems().find(m => m.type.id === name)!;
   };
@@ -65,7 +65,9 @@ describe("Custom held items - orb vessel pairs and the player's steals", () => {
       "DISCHARGED_COIL",
       "SUPERCONDUCTING_COIL",
     ] as const) {
-      const item = modifierTypes[name]().withIdFromFunc(modifierTypes[name]).newModifier({ id: pokemonId } as Pokemon);
+      const item = modifierTypes[name]()
+        .withIdFromFunc(modifierTypes[name])
+        .newModifier({ id: pokemonId } as Pokemon);
       expect(isOrbVesselItem(item!), name).toBe(true);
     }
     const leftovers = modifierTypes

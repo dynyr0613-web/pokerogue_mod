@@ -269,7 +269,7 @@ export function initGenerationThree(): SpeciesDataMapConfig {
           height: 1.9,
           weight: 55.2,
           ability1: AbilityId.LIGHTNING_ROD,
-          ability2: AbilityId.NONE,
+          ability2: AbilityId.MEGA_SOL, // Local fork (2026-11-19): D12 extra ability, was NONE
           abilityHidden: AbilityId.LIGHTNING_ROD,
           baseTotal: 630,
           baseHp: 70,
@@ -5668,7 +5668,7 @@ export function initGenerationThree(): SpeciesDataMapConfig {
           height: 1.8,
           weight: 44,
           ability1: AbilityId.INTIMIDATE,
-          ability2: AbilityId.INTIMIDATE,
+          ability2: AbilityId.TRANSISTOR, // Local fork (2026-11-19): D12 extra ability, was INTIMIDATE
           abilityHidden: AbilityId.INTIMIDATE,
           baseTotal: 575,
           baseHp: 70,
@@ -6602,7 +6602,7 @@ export function initGenerationThree(): SpeciesDataMapConfig {
           height: 2.5,
           weight: 130.3,
           ability1: AbilityId.STRONG_JAW,
-          ability2: AbilityId.NONE,
+          ability2: AbilityId.GORILLA_TACTICS, // Local fork (2026-11-19): D12 extra ability, was NONE
           abilityHidden: AbilityId.STRONG_JAW,
           baseTotal: 560,
           baseHp: 70,
@@ -7008,7 +7008,7 @@ export function initGenerationThree(): SpeciesDataMapConfig {
           height: 2.5,
           weight: 320.5,
           ability1: AbilityId.SHEER_FORCE,
-          ability2: AbilityId.SHEER_FORCE,
+          ability2: AbilityId.SOLAR_POWER, // Local fork (2026-11-19): D12 extra ability, was SHEER_FORCE
           abilityHidden: AbilityId.SHEER_FORCE,
           baseTotal: 560,
           baseHp: 70,
@@ -7635,7 +7635,7 @@ export function initGenerationThree(): SpeciesDataMapConfig {
       height: 1.1,
       weight: 15.3,
       ability1: AbilityId.LEVITATE,
-      ability2: AbilityId.NONE,
+      ability2: AbilityId.SAND_FORCE, // Local fork (2026-11-19): D12 extra ability, was NONE
       abilityHidden: AbilityId.NONE,
       baseTotal: 340,
       baseHp: 50,
@@ -7714,7 +7714,7 @@ export function initGenerationThree(): SpeciesDataMapConfig {
       height: 2,
       weight: 82,
       ability1: AbilityId.LEVITATE,
-      ability2: AbilityId.NONE,
+      ability2: AbilityId.SAND_FORCE, // Local fork (2026-11-19): D12 extra ability, was NONE
       abilityHidden: AbilityId.NONE,
       baseTotal: 520,
       baseHp: 80,
@@ -7794,7 +7794,7 @@ export function initGenerationThree(): SpeciesDataMapConfig {
       height: 0.4,
       weight: 51.3,
       ability1: AbilityId.SAND_VEIL,
-      ability2: AbilityId.NONE,
+      ability2: AbilityId.ROUGH_SKIN, // Local fork (2026-11-19): D12 extra ability, was NONE
       abilityHidden: AbilityId.WATER_ABSORB,
       baseTotal: 335,
       baseHp: 50,
@@ -7922,7 +7922,7 @@ export function initGenerationThree(): SpeciesDataMapConfig {
       height: 1.3,
       weight: 77.4,
       ability1: AbilityId.SAND_VEIL,
-      ability2: AbilityId.NONE,
+      ability2: AbilityId.ROUGH_SKIN, // Local fork (2026-11-19): D12 extra ability, was NONE
       abilityHidden: AbilityId.WATER_ABSORB,
       baseTotal: 475,
       baseHp: 70,
@@ -12367,7 +12367,7 @@ export function initGenerationThree(): SpeciesDataMapConfig {
       height: 1.5,
       weight: 102.6,
       ability1: AbilityId.INTIMIDATE,
-      ability2: AbilityId.NONE,
+      ability2: AbilityId.ROCK_HEAD, // Local fork (2026-11-19): D12 extra ability, was NONE
       abilityHidden: AbilityId.MOXIE,
       baseTotal: 600,
       baseHp: 95,
@@ -12392,7 +12392,7 @@ export function initGenerationThree(): SpeciesDataMapConfig {
           height: 1.5,
           weight: 102.6,
           ability1: AbilityId.INTIMIDATE,
-          ability2: AbilityId.NONE,
+          ability2: AbilityId.ROCK_HEAD, // Local fork (2026-11-19): D12 extra ability, was NONE
           abilityHidden: AbilityId.MOXIE,
           baseTotal: 600,
           baseHp: 95,
@@ -12792,7 +12792,7 @@ export function initGenerationThree(): SpeciesDataMapConfig {
       height: 1.7,
       weight: 230,
       ability1: AbilityId.CLEAR_BODY,
-      ability2: AbilityId.NONE,
+      ability2: AbilityId.SAND_FORCE, // Local fork (2026-11-19): D12 extra ability, was NONE
       abilityHidden: AbilityId.STURDY,
       baseTotal: 580,
       baseHp: 80,
@@ -12918,7 +12918,7 @@ export function initGenerationThree(): SpeciesDataMapConfig {
       height: 1.8,
       weight: 175,
       ability1: AbilityId.CLEAR_BODY,
-      ability2: AbilityId.NONE,
+      ability2: AbilityId.POLAR_LIGHT, // Local fork (2026-11-19): D12 extra ability, was NONE
       abilityHidden: AbilityId.ICE_BODY,
       baseTotal: 580,
       baseHp: 80,
@@ -13042,7 +13042,7 @@ export function initGenerationThree(): SpeciesDataMapConfig {
       height: 1.9,
       weight: 205,
       ability1: AbilityId.CLEAR_BODY,
-      ability2: AbilityId.NONE,
+      ability2: AbilityId.STEEL_BODY, // Local fork (2026-11-19): D12 extra ability, was NONE
       abilityHidden: AbilityId.LIGHT_METAL,
       baseTotal: 580,
       baseHp: 80,
@@ -13221,7 +13221,7 @@ export function initGenerationThree(): SpeciesDataMapConfig {
           height: 1.8,
           weight: 52,
           ability1: AbilityId.LEVITATE,
-          ability2: AbilityId.NONE,
+          ability2: AbilityId.SPEED_BOOST, // Local fork (2026-11-19): D12 extra ability, was NONE
           abilityHidden: AbilityId.NONE,
           baseTotal: 700,
           baseHp: 80,
@@ -13437,7 +13437,7 @@ export function initGenerationThree(): SpeciesDataMapConfig {
           height: 2.3,
           weight: 70,
           ability1: AbilityId.LEVITATE,
-          ability2: AbilityId.NONE,
+          ability2: AbilityId.SPEED_BOOST, // Local fork (2026-11-19): D12 extra ability, was NONE
           abilityHidden: AbilityId.NONE,
           baseTotal: 700,
           baseHp: 80,
@@ -14391,7 +14391,7 @@ export function initGenerationThree(): SpeciesDataMapConfig {
           height: 1.7,
           weight: 60.8,
           ability1: AbilityId.PRESSURE,
-          ability2: AbilityId.NONE,
+          ability2: AbilityId.MOXIE, // Local fork (2026-11-19): D12 extra ability, was NONE
           abilityHidden: AbilityId.NONE,
           baseTotal: 600,
           baseHp: 50,
@@ -14412,7 +14412,7 @@ export function initGenerationThree(): SpeciesDataMapConfig {
           height: 1.7,
           weight: 60.8,
           ability1: AbilityId.PRESSURE,
-          ability2: AbilityId.NONE,
+          ability2: AbilityId.STAMINA, // Local fork (2026-11-19): D12 extra ability, was NONE
           abilityHidden: AbilityId.NONE,
           baseTotal: 600,
           baseHp: 50,
@@ -14433,7 +14433,7 @@ export function initGenerationThree(): SpeciesDataMapConfig {
           height: 1.7,
           weight: 60.8,
           ability1: AbilityId.PRESSURE,
-          ability2: AbilityId.NONE,
+          ability2: AbilityId.SPEED_BOOST, // Local fork (2026-11-19): D12 extra ability, was NONE
           abilityHidden: AbilityId.NONE,
           baseTotal: 600,
           baseHp: 50,

@@ -90,6 +90,9 @@ import {
 } from "#moves/move-transform";
 import type { WeightedModifierTypeWeightFunc } from "#types/modifier-types";
 
+/** Local fork (2026-11-19): the DNA Splicers' master-tier weight in Endless (24 elsewhere; C7 ⑤) */
+export const ENDLESS_DNA_SPLICERS_WEIGHT = 12;
+
 /**
  * Initialize the wild modifier pool
  */
@@ -1130,14 +1133,21 @@ function initMasterModifierPool() {
           : 0,
       5,
     ),
+    // Local fork (2026-11-19): 12 instead of 24 in Endless, from the Endless reward proposals (docs/1.2.0_후보_20261119.md
+    // C7 ⑤, docs/엔드리스_보상_제안.md "엔드리스 MASTER 풀의 DNA스플라이서 24"; the user: "c7 - 5 가중치 12"). Classic, Challenge
+    // and Daily keep 24 like the other Endless knobs; the max weight stays 24 for them
     new WeightedModifierType(
       modifierTypes.DNA_SPLICERS,
-      (party: Pokemon[]) =>
-        !(globalScene.gameMode.isClassic && timedEventManager.areFusionsBoosted())
-        && !globalScene.gameMode.isSplicedOnly
-        && party.filter(p => !p.fusionSpecies).length > 1
-          ? 24
-          : 0,
+      (party: Pokemon[]) => {
+        if (
+          (globalScene.gameMode.isClassic && timedEventManager.areFusionsBoosted())
+          || globalScene.gameMode.isSplicedOnly
+          || party.filter(p => !p.fusionSpecies).length <= 1
+        ) {
+          return 0;
+        }
+        return globalScene.gameMode.isEndless ? ENDLESS_DNA_SPLICERS_WEIGHT : 24;
+      },
       24,
     ),
     new WeightedModifierType(

@@ -83,6 +83,12 @@ export class MoveEffectPhase extends PokemonPhase {
   private lastHit: boolean;
   /** Fork: Prism - the damage of the hit just applied by `applyMoveDamage`, splashed by `applyMove` */
   private prismSplashDamage = 0;
+  /**
+   * Local fork (2026-11-19): Dragon Darts' smart targeting (the user: "e2 구현"). The Pokémon its strikes take turns on
+   * (the chosen target, then its ally), or the one Pokémon every strike goes to when the other could not be hit;
+   * handed on to the phase of each next strike. `undefined` when the move is aimed normally.
+   */
+  private smartTargets: BattlerIndex[] | undefined;
 
   /**
    * @param useMode - The {@linkcode MoveUseMode} corresponding to how this move was used.
@@ -146,6 +152,12 @@ export class MoveEffectPhase extends PokemonPhase {
     // Lapse `MOVE_EFFECT` effects (i.e. semi-invulnerability) when applicable
     user.lapseTags(BattlerTagLapseType.MOVE_EFFECT);
 
+    // Local fork (2026-11-19): a new move use (or a called move) starts with no Shell Side Arm category decided; later
+    // hits of the same use keep it (`Pokemon.getMoveCategory`)
+    if (user.turnData.hitsLeft === -1 || user.turnData.moveUseCategories?.move !== move.id) {
+      user.turnData.moveUseCategories = { move: move.id, byTarget: new Map() };
+    }
+
     /**
      * If this phase is for the first hit of the invoked move,
      * resolve the move's total hit count. This block combines the
@@ -176,11 +188,17 @@ export class MoveEffectPhase extends PokemonPhase {
       result: MoveResult.PENDING,
       useMode: this.useMode,
       ...(this.move.id === baseMoveId ? {} : { derivedMoveId: this.move.id }),
+      ...this.getUsedMoveTypeEntry(user), // Local fork (2026-11-19): for Conversion 2
     };
 
     const fieldMove = isFieldTargeted(move);
 
-    const targets = this.conductHitChecks(user, fieldMove);
+    // Local fork (2026-11-19): Dragon Darts' smart targeting. On the first strike both Pokémon of the pair are checked
+    const smartFirstStrike = this.startSmartTargeting(user);
+    let targets = this.conductHitChecks(user, fieldMove);
+    if (smartFirstStrike) {
+      targets = this.settleSmartTargets(targets);
+    }
 
     this.firstHit = user.turnData.hitCount === user.turnData.hitsLeft;
     this.lastHit = user.turnData.hitsLeft === 1 || !targets.some(t => t.isActive(true));
@@ -510,7 +528,10 @@ export class MoveEffectPhase extends PokemonPhase {
       return false;
     }
     const move = this.move;
-    return move.getAttrs("HitsTagAttr").some(hta => hta.tagType === semiInvulnerableTag.tagType);
+    // Local fork (2026-11-19): a Pokémon carried by Sky Drop is up in the air like a Fly user (Thunder, Hurricane ...)
+    const tagType =
+      semiInvulnerableTag.tagType === BattlerTagType.SKY_DROP ? BattlerTagType.FLYING : semiInvulnerableTag.tagType;
+    return move.getAttrs("HitsTagAttr").some(hta => hta.tagType === tagType);
   }
 
   /**
@@ -675,7 +696,8 @@ export class MoveEffectPhase extends PokemonPhase {
 
     const result = this.applyMoveDamage(user, target, effectiveness);
 
-    if (user.turnData.hitsLeft === 1 || target.isFainted()) {
+    // Local fork (2026-11-19): Dragon Darts' strikes that take turns on two Pokémon each show their own effectiveness
+    if (user.turnData.hitsLeft === 1 || target.isFainted() || (this.smartTargets?.length ?? 0) > 1) {
       this.queueHitResultMessage(result[0]);
     }
 
@@ -896,8 +918,8 @@ export class MoveEffectPhase extends PokemonPhase {
     // Force `lastHit` to be true if this is a multi hit move with hits left
     // `hitsLeft` must be left as-is in order for the message displaying the number of hits
     // to display the proper number.
-    // Note: When Dragon Darts' smart targeting is implemented, this logic may need to be adjusted.
-    if (!this.lastHit && user.turnData.hitsLeft > 1) {
+    // Local fork (2026-11-19): not when Dragon Darts' smart targeting still has the other Pokémon to strike
+    if (!this.lastHit && user.turnData.hitsLeft > 1 && !this.hasOtherSmartTarget(target)) {
       this.lastHit = true;
     }
   }
@@ -1004,10 +1026,14 @@ export class MoveEffectPhase extends PokemonPhase {
      * If this phase isn't for the invoked move's last strike (and we still have something to hit),
      * unshift another MoveEffectPhase for the next strike before ending this phase.
      */
-    if (--user.turnData.hitsLeft >= 1 && this.getFirstTarget()) {
-      this.addNextHitPhase();
-      super.end();
-      return;
+    if (--user.turnData.hitsLeft >= 1) {
+      // Local fork (2026-11-19): Dragon Darts' smart targeting picks the next strike's target itself
+      const nextTargets = this.getNextStrikeTargets(user);
+      if (nextTargets) {
+        this.addNextHitPhase(nextTargets);
+        super.end();
+        return;
+      }
     }
 
     /**
@@ -1021,7 +1047,8 @@ export class MoveEffectPhase extends PokemonPhase {
     }
 
     globalScene.applyModifiers(HitHealModifier, this.player, user);
-    this.getTargets().forEach(target => {
+    // Local fork (2026-11-19): Dragon Darts' smart targeting checked (Tera Shell ...) Pokémon this strike was not aimed at
+    (this.smartTargets ? globalScene.getField(true) : this.getTargets()).forEach(target => {
       target.turnData.moveEffectiveness = null;
     });
 
@@ -1128,9 +1155,125 @@ export class MoveEffectPhase extends PokemonPhase {
    * Unshifts a new `MoveEffectPhase` with the same properties as this phase.
    * Used to queue the next hit of multi-strike moves.
    */
-  protected addNextHitPhase(): void {
-    globalScene.phaseManager.unshiftNew("MoveEffectPhase", this.battlerIndex, this.targets, this.move, this.useMode);
+  protected addNextHitPhase(targets: BattlerIndex[] = this.targets): void {
+    // Local fork (2026-11-19): the next strike gets its target from Dragon Darts' smart targeting, which it carries on
+    const nextPhase = globalScene.phaseManager.create(
+      "MoveEffectPhase",
+      this.battlerIndex,
+      targets,
+      this.move,
+      this.useMode,
+    );
+    nextPhase.smartTargets = this.smartTargets;
+    globalScene.phaseManager.unshiftPhase(nextPhase);
   }
+
+  /**
+   * Local fork (2026-11-19): the type this move is used as, for the move history when it differs from the move's own
+   * (Weather Ball in rain, Normalize, Electrify ...; Conversion 2 reads it, the user: "e2 구현")
+   */
+  private getUsedMoveTypeEntry(user: Pokemon): Pick<TurnMove, "moveType"> {
+    const usedType = user.getMoveType(this.move);
+    return usedType === this.move.type ? {} : { moveType: usedType };
+  }
+
+  // #region Smart targeting
+
+  /**
+   * Local fork (2026-11-19): Dragon Darts' smart targeting, set up on its first strike: when it has a pair to strike
+   * ({@linkcode getSmartTargetPair}), this strike checks both of them.
+   * @returns Whether this is such a first strike
+   */
+  private startSmartTargeting(user: Pokemon): boolean {
+    const smartPair = this.getSmartTargetPair(user);
+    if (!smartPair) {
+      return false;
+    }
+    this.smartTargets = smartPair;
+    this.targets = [...smartPair];
+    this.hitChecks = new Array(smartPair.length).fill([HitCheckResult.PENDING, 0]);
+    return true;
+  }
+
+  /**
+   * Local fork (2026-11-19): Dragon Darts (드래곤애로) is no longer partial (the user: "e2 구현"). In a double battle,
+   * aimed at an opponent whose ally is on the field, it strikes both of them: the pair is the chosen target, then its
+   * ally. Not for later strikes, a move aimed at the user's own ally (that is struck twice) or a lone opponent.
+   * @param user - The Pokémon using the move
+   * @returns The pair's battler indices, or `undefined` when the move is aimed normally
+   */
+  private getSmartTargetPair(user: Pokemon): BattlerIndex[] | undefined {
+    if (
+      this.smartTargets
+      || !this.move.hasAttr("SmartTargetAttr")
+      || !globalScene.currentBattle.double
+      || user.turnData.hitsLeft !== user.turnData.hitCount
+      || this.targets.length !== 1
+    ) {
+      return;
+    }
+    const chosen = this.getFirstTarget();
+    const partner = chosen?.getAlly();
+    if (!chosen || !partner?.isActive(true) || partner === user || !user.isOpponent(chosen)) {
+      return;
+    }
+    return [chosen.getBattlerIndex(), partner.getBattlerIndex()];
+  }
+
+  /**
+   * Local fork (2026-11-19): Dragon Darts' first strike, once both Pokémon of the pair were checked. If both can be hit,
+   * this strike goes to the chosen target and the next to its ally (taking turns if Multi-Lens adds strikes). If one of
+   * them cannot be hit (it is protected, immune, semi-invulnerable, or the move missed it), its message shows and every
+   * strike goes to the other, as in the main series. If neither can be hit, the move fails as usual.
+   * @param targets - The pair, as {@linkcode conductHitChecks} returned it (field order, matching `hitChecks`)
+   * @returns The Pokémon this strike is applied to (with their hit checks, still matching `hitChecks`)
+   */
+  private settleSmartTargets(targets: Pokemon[]): Pokemon[] {
+    const hit = targets.filter((_t, i) => this.hitChecks[i]?.[0] === HitCheckResult.HIT);
+    if (hit.length === 1) {
+      this.smartTargets = [hit[0].getBattlerIndex()];
+      return targets;
+    }
+    if (hit.length === 0) {
+      this.smartTargets = undefined;
+      return targets;
+    }
+    const chosenIndex = this.smartTargets?.[0];
+    const keep = Math.max(
+      0,
+      targets.findIndex(t => t.getBattlerIndex() === chosenIndex),
+    );
+    this.hitChecks = [this.hitChecks[keep]];
+    this.targets = [targets[keep].getBattlerIndex()];
+    return [targets[keep]];
+  }
+
+  /**
+   * Local fork (2026-11-19): the target of the next strike of this move use, once `hitsLeft` counts it.
+   * @returns The next strike's targets, or `undefined` when nothing is left to strike
+   */
+  private getNextStrikeTargets(user: Pokemon): BattlerIndex[] | undefined {
+    if (!this.smartTargets) {
+      return this.getFirstTarget() ? this.targets : undefined;
+    }
+    const onField = globalScene.getField(true).map(p => p.getBattlerIndex());
+    const active = this.smartTargets.filter(i => onField.includes(i));
+    if (active.length === 0) {
+      return;
+    }
+    const strike = user.turnData.hitCount - user.turnData.hitsLeft;
+    const preferred = this.smartTargets[strike % this.smartTargets.length];
+    return [active.includes(preferred) ? preferred : active[0]];
+  }
+
+  /** @returns Whether Dragon Darts' smart targeting still has a Pokémon on the field other than `target` to strike */
+  private hasOtherSmartTarget(target: Pokemon): boolean {
+    return !!this.smartTargets?.some(
+      i => i !== target.getBattlerIndex() && globalScene.getField(true).some(p => p.getBattlerIndex() === i),
+    );
+  }
+
+  // #endregion Smart targeting
 
   /** Remove all substitutes that were broken by this phase's invoked move. */
   protected updateSubstitutes(): void {

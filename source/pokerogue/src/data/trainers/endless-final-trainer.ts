@@ -13,10 +13,12 @@
  *   Endless boss-trainer battle of that wave (held items, vitamins, fork items, fixed fusions, enemy tokens).
  * - Hook: `BattleScene.handleNonFixedBattle` (battle-scene.ts) before the Mystery Encounter check; the run's end at the
  *   final wave (battle-end-phase.ts) now lets the trainer's defeat (`TrainerVictoryPhase`) play before `GameOverPhase`.
+ * - Local fork (2026-11-19): its Dynamax and Z / Max moves are fixed, not rolled ({@linkcode isEndlessFinalTrainerBattle}).
  */
 
 import type { GameMode } from "#app/game-mode";
 import { globalScene } from "#app/global-scene";
+import { BattleType } from "#enums/battle-type";
 import { TrainerType } from "#enums/trainer-type";
 import { randSeedItem } from "#utils/common";
 
@@ -40,6 +42,23 @@ export function isEndlessFinalWave(gameMode: GameMode, waveIndex: number): boole
 /** Local fork (2026-11-13): whether `waveIndex` is the final Endless trainer battle of `gameMode` */
 export function isEndlessFinalTrainerWave(gameMode: GameMode, waveIndex: number): boolean {
   return gameMode.isEndless === true && gameMode.hasTrainers === true && waveIndex === ENDLESS_FINAL_WAVE;
+}
+
+/**
+ * Local fork (2026-11-19): whether the current battle is the final Endless trainer battle (a trainer battle at the final
+ * wave). Its Dynamax and Z / Max moves are fixed instead of rolled: its ace (`getEndlessFinalAce`, enemy-dynamax.ts)
+ * always comes in the Dynamax state with its damaging moves as Max moves, exactly one other member (seeded) always has
+ * one Z-Move, and no other enemy Dynamax or move-conversion roll is made (enemy-dynamax.ts, enemy-move-conversions.ts;
+ * the user: "5850웨이브 적 트레이너가 다이맥스와 다이맥스 기술은 사용하고, z기술은 에이스가 아닌 포켓몬이 한마리 확정으로
+ * 가지고 있도록 하죠")
+ */
+export function isEndlessFinalTrainerBattle(): boolean {
+  const battle = globalScene.currentBattle;
+  return (
+    battle?.battleType === BattleType.TRAINER
+    && !!battle.trainer
+    && isEndlessFinalTrainerWave(globalScene.gameMode, battle.waveIndex)
+  );
 }
 
 /**

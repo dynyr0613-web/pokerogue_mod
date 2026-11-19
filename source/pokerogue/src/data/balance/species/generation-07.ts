@@ -11904,7 +11904,7 @@ export function initGenerationSeven(): SpeciesDataMapConfig {
       height: 10.9,
       weight: 415.6,
       ability1: AbilityId.FRISK,
-      ability2: AbilityId.NONE,
+      ability2: AbilityId.SUNBATHE, // Local fork (2026-11-19): D12 extra ability, was NONE
       abilityHidden: AbilityId.HARVEST,
       baseTotal: 530,
       baseHp: 95,
@@ -11993,7 +11993,7 @@ export function initGenerationSeven(): SpeciesDataMapConfig {
       height: 1,
       weight: 34,
       ability1: AbilityId.CURSED_BODY,
-      ability2: AbilityId.LIGHTNING_ROD,
+      ability2: AbilityId.GORILLA_TACTICS, // Local fork (2026-11-19): D12 extra ability, was LIGHTNING_ROD
       abilityHidden: AbilityId.ROCK_HEAD,
       baseTotal: 425,
       baseHp: 60,

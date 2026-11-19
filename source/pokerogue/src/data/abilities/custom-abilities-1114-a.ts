@@ -85,8 +85,9 @@ export function customAbilities1114A(): Ability[] {
     // After review: the spec's "no boost once the glove removes contact" is the main-series / Essentials rule; the
     // sheet's detailed-description column (detail_final.json) and the 효과자세히 note record the PokeRogue exception
     // ("포켓로그: 펀치글러브를 지녀 접촉하지 않게 된 펀치 기술에도 1.3배가 적용된다"), as for Tough Claws.
+    // Local fork (2026-11-19): `hasContactFlag` like Tough Claws, so Shell Side Arm gets it when physical for this use
     new AbBuilder(AbilityId.HAND_TO_HAND, 9) //
-      .attr(MovePowerBoostAbAttr, (_user, _target, move) => move.hasFlag(MoveFlags.MAKES_CONTACT), 1.3)
+      .attr(MovePowerBoostAbAttr, (user, target, move) => move.hasContactFlag(user, target), 1.3)
       .build(),
     // Local fork (2026-11-14): passive rebalance. Flameworker = Fire Mane renamed: Fire-type moves x1.5 power, judged
     // by the move's type after type changes (MoveTypePowerBoostAbAttr uses getMoveType). Stacks with Fire Mane, so

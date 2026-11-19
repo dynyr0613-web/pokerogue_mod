@@ -24,6 +24,9 @@
  *   (its form does not change) and a Terastallized one.
  * - Never in a mystery-encounter battle, for the Classic final boss or for the Daily final boss
  *   (`getBattleFormRollWave`, as the battle forms and the Z / Max move conversions).
+ * - Local fork (2026-11-19): the final Endless trainer (wave 5850, `isEndlessFinalTrainerBattle`) rolls nothing: its ace
+ *   ({@linkcode getEndlessFinalAce}) always comes in the state (the user: "5850웨이브 적 트레이너가 다이맥스와 다이맥스
+ *   기술은 사용하고, z기술은 에이스가 아닌 포켓몬이 한마리 확정으로 가지고 있도록 하죠").
  * - Hooks (encounter-phase.ts, inside the new-wave `!loaded` blocks): the last of the enemy rolls, after the battle forms
  *   and fixed fusions, the Endless boss bars and the Z / Max move conversions (`rollTrainerMoveConversions` /
  *   `rollWildMoveConversion`), so the HP it multiplies is final; before the Pokédex, the boss-bar split of a double
@@ -57,6 +60,7 @@ import { FormChangeItem } from "#enums/form-change-item";
 import { SpeciesId } from "#enums/species-id";
 import type { EnemyPokemon, Pokemon } from "#field/pokemon";
 import { PokemonFormChangeItemModifier } from "#modifiers/modifier";
+import { isEndlessFinalTrainerBattle } from "#trainers/endless-final-trainer";
 import { randSeedInt } from "#utils/common";
 
 /**
@@ -196,6 +200,23 @@ export function canTakeEnemyDynamax(pokemon: Pokemon): boolean {
 }
 
 /**
+ * Local fork (2026-11-19): the final Endless trainer's ace, the member the trainer Dynamax order picks: the first of
+ * {@linkcode getTrainerDynamaxOrder} (ace first) among the members that can take the state
+ * ({@linkcode canTakeEnemyDynamax}: one already in a G-Max form is passed over, as by the roll). It always comes in the
+ * Dynamax state ({@linkcode rollTrainerDynamax}) and its damaging moves become Max moves
+ * (`rollTrainerMoveConversions`, enemy-move-conversions.ts); the user: "5850웨이브 적 트레이너가 다이맥스와 다이맥스 기술은
+ * 사용하고, z기술은 에이스가 아닌 포켓몬이 한마리 확정으로 가지고 있도록 하죠".
+ * @param party - The enemy party (`currentBattle.enemyParty`)
+ * @returns The ace, or `undefined` when no member can take the state
+ */
+export function getEndlessFinalAce(party: readonly EnemyPokemon[]): EnemyPokemon | undefined {
+  return getTrainerDynamaxOrder(
+    party.filter(p => !!p && canTakeEnemyDynamax(p)),
+    true,
+  )[0];
+}
+
+/**
  * Local fork (2026-11-18): puts the enemy in the Dynamax state (no roll): gives it Max Mushrooms, active and not
  * transferable (adding them changes no form and redraws it x1.5, `PokemonFormChangeItemModifier.apply`), then works
  * out its stats (max HP x1.5) and starts it at the new max HP when it was full (a new enemy always is).
@@ -239,6 +260,18 @@ export function rollTrainerDynamax(party: readonly EnemyPokemon[]): EnemyPokemon
   const trainer = globalScene.currentBattle?.trainer;
   const dynamaxed: EnemyPokemon[] = [];
   if (wave == null || !trainer) {
+    return dynamaxed;
+  }
+  // Local fork (2026-11-19): the final Endless trainer rolls nothing: its ace always comes in the state
+  // ({@linkcode getEndlessFinalAce}), so the last battle no longer swings on this roll (the user: "5850웨이브 적
+  // 트레이너가 다이맥스와 다이맥스 기술은 사용하고 ..."); on the same seed offset, so no other draw of the wave moves
+  if (isEndlessFinalTrainerBattle()) {
+    globalScene.executeWithSeedOffset(() => {
+      const ace = getEndlessFinalAce(party);
+      if (ace && giveEnemyDynamax(ace)) {
+        dynamaxed.push(ace);
+      }
+    }, getEnemyDynamaxSeedOffset(0));
     return dynamaxed;
   }
   const { battleType } = globalScene.currentBattle;

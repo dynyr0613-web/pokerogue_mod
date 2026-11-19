@@ -55,7 +55,9 @@ describe("Custom held items - Discharged Coil, Superconducting Coil", () => {
   const newItem = (name: Name, pokemon: Pokemon) =>
     modifierTypes[name]().withIdFromFunc(modifierTypes[name]).newModifier(pokemon) as PokemonHeldItemModifier;
   const lightBallGenerator = () =>
-    modifierTypes.RARE_SPECIES_STAT_BOOSTER().withIdFromFunc(modifierTypes.RARE_SPECIES_STAT_BOOSTER) as ModifierTypeGenerator;
+    modifierTypes
+      .RARE_SPECIES_STAT_BOOSTER()
+      .withIdFromFunc(modifierTypes.RARE_SPECIES_STAT_BOOSTER) as ModifierTypeGenerator;
   const newLightBall = (pokemon: Pokemon) =>
     lightBallGenerator().generateType([], ["LIGHT_BALL"])!.newModifier(pokemon) as PokemonHeldItemModifier;
   /** The key of the rare species item the generator offers this party, or null when it offers none */

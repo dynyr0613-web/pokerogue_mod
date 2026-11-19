@@ -16,8 +16,10 @@
  * - the Endless/Classic mystery encounter roll, `3000a`: 3000 = 8 * 375, so always 0 modulo 8;
  * - the "GTS?" roll, `3000a + 1500`: 1500 = 8 * 187 + 4, so always 4 modulo 8;
  * - the encounter pick in EncounterPhase, `16a`: always 0 modulo 8;
- * - the "Mysterious Chest?" roll, `3000w + 777`: 777 = 8 * 97 + 1, so always 1 modulo 8, never equal to any of them.
- * A later entry keeps the rule with another odd constant (1 modulo 8 is taken by the chest: use 3, 5 or 7 modulo 8).
+ * - the "Mysterious Chest?" roll, `3000w + 777`: 777 = 8 * 97 + 1, so always 1 modulo 8, never equal to any of them;
+ * - Local fork (2026-11-19): the "고철 속 보물" roll, `3000w + 811`: 811 = 8 * 101 + 3, so always 3 modulo 8.
+ * A later entry keeps the rule with another odd constant (1 modulo 8 is taken by the chest and 3 by the scrap heap:
+ * use 5 or 7 modulo 8).
  */
 import { globalScene } from "#app/global-scene";
 import { GameModes } from "#enums/game-modes";
@@ -31,6 +33,9 @@ export const SPECIAL_SPAWN_ROLL_RANGE = 1000;
 
 /** "Mysterious Chest?": 77 in 1000 on its waves */
 export const DARK_CHEST_SPAWN_CHANCE = 77;
+
+/** Local fork (2026-11-19): "고철 속 보물": 81 in 1000 on its waves (the idea doc: "809·1809… 웨이브에서 8.1%") */
+export const SCRAP_TREASURE_SPAWN_CHANCE = 81;
 
 /** One special spawn */
 export interface SpecialEncounterSpawn {
@@ -90,6 +95,38 @@ function darkChestPartyAllows(): boolean {
   return globalScene.getPokemonAllowedInBattle().length >= 2;
 }
 
+/**
+ * Local fork (2026-11-19): seed offset of the "고철 속 보물" roll on `waveIndex`: always 3 modulo 8 (see the top of
+ * this file)
+ */
+export function getScrapTreasureSeedOffset(waveIndex: number): number {
+  return waveIndex * 3000 + 811;
+}
+
+/**
+ * Local fork (2026-11-19): the chance (0 to 1) that `waveIndex` is a "고철 속 보물" wave: 81/1000 on waves 809, 1809,
+ * 2809, ... of Endless and Spliced Endless (Melmetal is No. 809), 0 elsewhere.
+ */
+export function getScrapTreasureWaveChance(waveIndex: number): number {
+  if (!isEndlessRun() || waveIndex % 1000 !== 809) {
+    return 0;
+  }
+  return SCRAP_TREASURE_SPAWN_CHANCE / SPECIAL_SPAWN_ROLL_RANGE;
+}
+
+/** Local fork (2026-11-19): whether the roll makes `waveIndex` a "고철 속 보물" wave (the wave stays in its biome) */
+export function isScrapTreasureWave(waveIndex: number): boolean {
+  return rollSpecialSpawn(getScrapTreasureWaveChance(waveIndex), getScrapTreasureSeedOffset(waveIndex));
+}
+
+/**
+ * Local fork (2026-11-19): the encounter's own party requirement (3 Pokémon able to battle, as the official Trash to
+ * Treasure; its collapse knocks one out). Without it the wave stays an ordinary wave.
+ */
+function scrapTreasurePartyAllows(): boolean {
+  return globalScene.getPokemonAllowedInBattle().length >= 3;
+}
+
 /** In priority order: the first entry whose wave it is decides the wave */
 export const SPECIAL_ENCOUNTER_SPAWNS: readonly SpecialEncounterSpawn[] = [
   // "GTS?": the wave before an Eternatus (249, 499, ...), moved into the End by its own rule in dark-gts-spawn.ts
@@ -98,6 +135,11 @@ export const SPECIAL_ENCOUNTER_SPAWNS: readonly SpecialEncounterSpawn[] = [
   {
     type: MysteryEncounterType.DARK_MYSTERIOUS_CHEST,
     isForcedOn: waveIndex => isDarkChestWave(waveIndex) && darkChestPartyAllows(),
+  },
+  // Local fork (2026-11-19): "고철 속 보물": waves 809, 1809, 2809, ..., in whatever biome the run is in
+  {
+    type: MysteryEncounterType.SCRAP_TREASURE,
+    isForcedOn: waveIndex => isScrapTreasureWave(waveIndex) && scrapTreasurePartyAllows(),
   },
 ];
 

@@ -46,4 +46,6 @@ export enum MysteryEncounterType {
   DARK_STRONG_STUFF,
   /** Local fork (2026-11-18): GREAT-tier "우두머리!" (Alpha!): fight a forced alpha of the biome's wild pool or run away; appended last so saved ids stay put */
   ALPHA_ENCOUNTER,
+  /** Local fork (2026-11-19): ROGUE-tier "고철 속 보물" (Treasure in the Scrap): G-Max Melmetal boss or a dig for a vest; appended last so saved ids stay put */
+  SCRAP_TREASURE,
 }

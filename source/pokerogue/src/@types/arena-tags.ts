@@ -23,7 +23,8 @@ export type TurnProtectArenaTagType =
   | ArenaTagType.CRAFTY_SHIELD;
 
 /** Subset of {@linkcode ArenaTagType}s that create Trick Room-like effects which are removed upon overlap. */
-export type RoomArenaTagType = ArenaTagType.TRICK_ROOM;
+// Local fork (2026-11-19): Wonder Room (1.2.0 D6) is a room too
+export type RoomArenaTagType = ArenaTagType.TRICK_ROOM | ArenaTagType.WONDER_ROOM;
 
 /** Subset of {@linkcode ArenaTagType}s that are **not** able to persist across turns, and should therefore not be serialized in {@linkcode SessionSaveData}. */
 export type NonSerializableArenaTagType = ArenaTagType.NONE | TurnProtectArenaTagType | ArenaTagType.ION_DELUGE;

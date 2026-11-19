@@ -863,3 +863,33 @@ and [everyone else](https://github.com/pagefaultgames/pokerogue/graphs/contribut
   Rocks, Stone Pillar, Straight Beam, Thrash, Tornado, Wood) with PokéRogue's existing battle-anim sheets, backgrounds
   and sounds (mostly Pokémon Reborn's PRAS ones, credited above). Terms: CFRU's README, non-commercial use with credit
   (`LICENSES/LicenseRef-CFRU.txt`).
+- Local fork (2026-11-19), Max Swords Dance battle animation (`assets/battle-anims/max-swords-dance.json`, not a CFRU
+  one): PokéRogue's Swords Dance animation (Pokémon Reborn's PRAS animation, credited above under "Move Animations")
+  with its swords drawn 1.5 times as large, the same frames, timing and sounds. Its sheet
+  (`assets/images/battle_anims/PRAS- Swords Dance (Max).png`) is the sword of `PRAS- Swords Dance + Signal Beam.png`
+  with its two colours swapped for Dynamax red and magenta; the drawing is the Pokémon Reborn Team's. Terms: Pokémon
+  Reborn's "credit what you borrow" (`assets/LICENSES/LicenseRef-POKEMON-REBORN.txt`).
+- Local fork (2026-11-02), the custom Mega Evolution sprites of Mega Charizard Z, Mega Baxcalibur Z, Mega Melmetal and
+  Mega Gallade Z (`assets/images/pokemon/6-mega-z`, `998-mega-z`, `809-mega`, `475-mega-z`, their `back/`, `shiny/` and
+  `back/shiny/` copies and their party icons) are recoloured and edited from sprites of the
+  [Generation 9 Pack](https://eeveeexpo.com/resources/1101) for Pokémon Essentials (Caruban et al.) and scaled down to
+  PokéRogue's size. The shapes are the original artists' work:
+  - Battle sprites. Gen 6: all contributors of the Smogon X/Y Sprite Project. Gen 7: all contributors of the Smogon
+    Sun/Moon Sprite Project. Gen 9: KingOfThe-X-Roads, Mak, Caruban, jinxed, leParagon, Sopita_Yorita, Azria,
+    Mashirosakura, JordanosArt, Abnayami, OldSoulja, Katten, Divaruta 666, Clara, Skyflyer, AshnixsLaw, ace_stryfe.
+    Legends Z-A: Caruban, ace_stryfe, KingOfThe-X-Roads, camiloveso, Mak.
+  - Icons. Gen 1-6: Alaguesia, harveydentmd. Gen 7: Marin, MapleBranchWing, DS Styled Gen 7+ Repository contributors.
+    Gen 9: ezerart, JordanosArt, Axel Loquendo, CarmaNekko, Divaruta 666, Okyo, JLauz735, ClaraDragon. Legends Z-A:
+    ezerart, camiloveso, Caruban. Shiny icons: StarrWolf, Pokemon Shattered Light Team.
+  - Mega Melmetal's 3-star shiny (`assets/images/pokemon/variant/809-mega_3`, `variant/back/809-mega_3` and its frame in
+    `pokemon_icons_7v`) was made for this fork: a palette swap of the Mega Melmetal sprite above, in colours chosen by
+    the fork's author; the pixels and their shapes are that sprite's.
+  - Mega Archaludon has no sprite of its own yet and shows PokéRogue's Archaludon. Of the custom Mega Stone icons, four
+    are PokéRogue's own stones recoloured (above); the Melmetalite icon was drawn by the fork's author.
+- Local fork, an idea credit: the fork's own passives (`src/data/balance/custom-passives.ts`, offered in the starter
+  select beside PokéRogue's own) come from the passive sheet of the author's Pokémon Essentials project, whose second
+  (passive) ability per species follows the idea of YOUNG's Korean fan game "Pokémon: Another Red". No code or art of
+  that game is used; the code here was written from scratch.
+- Local fork (2026-11-03), the offline Windows app of this fork (the `offline-app` wrapper outside this folder, shipped
+  in the same source zip): it runs on [Electron](https://www.electronjs.org/) (MIT) and is packed with
+  [electron-builder](https://www.electron.build/) (MIT).

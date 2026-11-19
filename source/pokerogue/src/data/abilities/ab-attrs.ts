@@ -11,7 +11,6 @@ import { allAbilities, allMoves } from "#data/data-lists";
 import { SpeciesFormChangeAbilityTrigger, SpeciesFormChangeWeatherTrigger } from "#data/form-change-triggers";
 import { getPokeballName } from "#data/pokeball";
 import { awardItemfinderMark } from "#data/pokemon-marks"; // Local fork (2026-11-18): Pickup's Itemfinder Mark
-import type { PokemonSpecies } from "#data/pokemon-species";
 import { getStatusEffectDescriptor, getStatusEffectHealText } from "#data/status-effect";
 import { TerrainType } from "#data/terrain";
 import { isWeatherSuppressed, type Weather } from "#data/weather";
@@ -49,6 +48,8 @@ import { clearAmuletBlocksDrop } from "#modifiers/battle-held-items";
 // Local fork (2026-11-14): custom moves. Mystical Rock (`FieldEffectModifier`) extends the Garden
 import { BerryModifier, FieldEffectModifier, HitHealModifier, PokemonHeldItemModifier } from "#modifiers/modifier";
 import { BerryModifierType } from "#modifiers/modifier-type";
+// Local fork (2026-11-19), E2 review: Pursuit (custom-pursuit.ts imports nothing back from the ability modules)
+import { isPursuitSwitcher } from "#moves/custom-pursuit";
 import { getMoveTargets } from "#moves/move-utils";
 import { PokemonMove } from "#moves/pokemon-move";
 // Local fork (2026-11-16): Z / Max moves (Lightning Rod / Storm Drain draw them; pure data module)
@@ -5809,62 +5810,177 @@ export class PreSummonAbAttr extends AbAttr {
   }
 }
 
-/** @sealed */
+/**
+ * Local fork (2026-11-19): the allies an Illusion (일루전) holder can disguise itself as (C10, the user: "c10 일루전의 효과를
+ * 탈 + 랜덤 아군 변신으로 해두기"): every non-fainted member of its own party other than itself, the player's party or,
+ * for an enemy, its own trainer's Pokémon (the same trainer slot when two trainers fight together). A wild enemy has
+ * none. As in the main series, a Terastallized Ogerpon or Terapagos cannot be copied, nor can either of them by a
+ * Terastallized holder.
+ * @param pokemon - The Illusion holder
+ * @returns The allies it can take the look of; empty when it keeps its own look
+ */
+function getIllusionAllies(pokemon: Pokemon): Pokemon[] {
+  let party: Pokemon[];
+  if (pokemon.isPlayer()) {
+    party = globalScene.getPlayerParty();
+  } else if (pokemon.isEnemy() && pokemon.hasTrainer()) {
+    const { trainerSlot } = pokemon;
+    party = globalScene.getEnemyParty().filter(p => p.trainerSlot === trainerSlot);
+  } else {
+    return [];
+  }
+  return party.filter(
+    p =>
+      p !== pokemon
+      && p.isAllowedInBattle()
+      && !(
+        (p.species.speciesId === SpeciesId.OGERPON || p.species.speciesId === SpeciesId.TERAPAGOS)
+        && (p.isTerastallized || pokemon.isTerastallized)
+      ),
+  );
+}
+
+/**
+ * Local fork (2026-11-19): end an Illusion holder's illusion through a hit (C10). Like Mimikyu's busted Disguise, the
+ * illusion is then spent for the rest of the battle ({@linkcode PokemonBattleData.illusionUsed}).
+ * @param pokemon - The Illusion holder
+ */
+function spendIllusion(pokemon: Pokemon): void {
+  pokemon.battleData.illusionUsed = true;
+  pokemon.breakIllusion();
+}
+
+/**
+ * Local fork (2026-11-19): Illusion = Disguise's effect + disguised as a random ally (C10, the user: "c10 일루전의 효과를
+ * 탈 + 랜덤 아군 변신으로 해두기"). On entering battle the holder takes the look of a random ally
+ * ({@linkcode getIllusionAllies}), picked with the battle's seeded RNG: its sprite, name, gender, Poké Ball and icon
+ * (in the holder's own shininess, see `Pokemon.setIllusion`). With no such ally (a wild holder, the last Pokémon
+ * standing) it keeps its own look, and so does a holder whose illusion was already spent this battle.
+ * Upstream copied the last Pokémon in the party (or a random species for a wild holder) and never got it working.
+ * @sealed
+ */
 export class IllusionPreSummonAbAttr extends PreSummonAbAttr {
-  /**
-   * Apply a new illusion when summoning Zoroark if the illusion is available
-   *
-   * @param pokemon - The Pokémon with the Illusion ability.
-   */
-  override apply({ pokemon }: AbAttrBaseParams): void {
-    const party: Pokemon[] = (pokemon.isPlayer() ? globalScene.getPlayerParty() : globalScene.getEnemyParty()).filter(
-      p => p.isAllowedInBattle(),
-    );
-    let illusionPokemon: Pokemon | PokemonSpecies;
-    if (pokemon.hasTrainer()) {
-      illusionPokemon = party.filter(p => p !== pokemon).at(-1) || pokemon;
-    } else {
-      illusionPokemon = globalScene.arena.randomSpecies(globalScene.currentBattle.waveIndex, pokemon.level);
+  override apply({ pokemon, simulated }: AbAttrBaseParams): void {
+    if (simulated) {
+      return;
     }
-    pokemon.setIllusion(illusionPokemon);
+    const allies = getIllusionAllies(pokemon);
+    pokemon.setIllusion(allies[pokemon.randBattleSeedInt(allies.length)]);
   }
 
-  /** @returns Whether the illusion can be applied. */
+  /**
+   * @returns Whether the holder has no illusion yet, has not spent it this battle and has an ally to copy.
+   * Local fork (2026-11-19), review fix: never for a fainted holder (Illusion bypasses fainting for its faint reset) nor
+   * for the Pokémon a switch is taking off the field: `SummonPhase.start` also applies `PreSummonAbAttr` to the
+   * Pokémon in the slot, which in a `SwitchSummonPhase` (or its `ReturnPhase`) is the one leaving (the one coming in
+   * gets it in `switchAndSummon`). Either used to roll a new illusion on its way out ("Come back, <ally>!" with the
+   * ally's sprite).
+   */
   override canApply({ pokemon }: AbAttrBaseParams): boolean {
-    if (pokemon.hasTrainer()) {
-      const party: Pokemon[] = (pokemon.isPlayer() ? globalScene.getPlayerParty() : globalScene.getEnemyParty()).filter(
-        p => p.isAllowedInBattle(),
-      );
-      const lastPokemon: Pokemon = party.filter(p => p !== pokemon).at(-1) || pokemon;
-      const speciesId = lastPokemon.species.speciesId;
-
-      // If the last conscious Pokémon in the party is a Terastallized Ogerpon or Terapagos, Illusion will not activate.
-      // Illusion will also not activate if the Pokémon with Illusion is Terastallized and the last Pokémon in the party is Ogerpon or Terapagos.
-      if (
-        lastPokemon === pokemon
-        || ((speciesId === SpeciesId.OGERPON || speciesId === SpeciesId.TERAPAGOS)
-          && (lastPokemon.isTerastallized || pokemon.isTerastallized))
-      ) {
-        return false;
-      }
-    }
-    return pokemon.summonData.illusion != null;
+    const phase = globalScene.phaseManager.getCurrentPhase();
+    const leavingField = pokemon.isOnField() && (phase?.is("SwitchSummonPhase") || phase?.is("ReturnPhase"));
+    return (
+      pokemon.summonData.illusion == null
+      && !pokemon.battleData.illusionUsed
+      && !pokemon.isFainted()
+      && !leavingField
+      && getIllusionAllies(pokemon).length > 0
+    );
   }
 }
 
-/** @sealed */
+/**
+ * Local fork (2026-11-19): Illusion's Disguise half (C10). The same as {@linkcode FormBlockDamageAbAttr} does for
+ * Disguise (`FormBlockDamageAbAttr, 0, "abilityTriggers:disguiseAvoidedDamage", 0.125`): while the illusion is up, the
+ * first hit that would deal damage (not one that hits a substitute) deals none and costs the holder 1/8 of its max HP;
+ * then the illusion wears off and is spent for this battle. As with Disguise (an ignorable ability), a hit that ignores
+ * abilities (Mold Breaker, Sunsteel Strike...) is not blocked. Illusion itself is not ignorable, so that such a hit still
+ * breaks the illusion through {@linkcode PostDefendIllusionBreakAbAttr}, and losing the ability during such a move still
+ * ends it; the check is made here instead.
+ * @sealed
+ */
+export class IllusionBlockDamageAbAttr extends ReceivedMoveDamageMultiplierAbAttr {
+  /** The share of maximum HP the holder loses when the illusion blocks a hit */
+  private readonly recoil: number;
+
+  constructor(recoil: number) {
+    super(() => true, 0);
+    this.recoil = recoil;
+  }
+
+  override canApply({ pokemon, opponent, move, damage }: PreDefendModifyDamageAbAttrParams): boolean {
+    const { arena } = globalScene;
+    const abilityIgnored = arena.ignoreAbilities && arena.ignoringEffectSource !== pokemon.getBattlerIndex();
+    return (
+      damage.value > 0
+      && pokemon.summonData.illusion != null
+      && !abilityIgnored
+      && !move.hitsSubstitute(opponent, pokemon)
+    );
+  }
+
+  override apply({ pokemon, simulated, damage }: PreDefendModifyDamageAbAttrParams): void {
+    if (simulated) {
+      return;
+    }
+
+    damage.value = 0;
+    if (this.recoil > 0) {
+      pokemon.damageAndUpdate(toDmgValue(pokemon.getMaxHp() * this.recoil), {
+        result: HitResult.INDIRECT,
+        ignoreSegments: true,
+        ignoreFaintPhase: true,
+      });
+    }
+
+    spendIllusion(pokemon);
+  }
+
+  override getTriggerMessage({ pokemon }: PreDefendModifyDamageAbAttrParams, _abilityName: string): string {
+    // The holder's true name: the message tells who was behind the illusion
+    return i18next.t("abilityTriggers:illusionBreak", { pokemonName: getPokemonNameWithAffix(pokemon, false) });
+  }
+}
+
+/**
+ * Ends the holder's illusion when it loses or has its ability suppressed (Gastro Acid, Neutralizing Gas, Skill Swap...).
+ * Local fork (2026-11-19): only with an illusion up, and with the illusion-break message (C10). The illusion is not
+ * spent: the holder's next entry this battle can disguise it again.
+ * @sealed
+ */
 export class IllusionBreakAbAttr extends AbAttr {
   declare private readonly _: never;
-  // TODO: Consider adding a `canApply` method that checks if the pokemon has an active illusion
-  override apply({ pokemon }: AbAttrBaseParams): void {
-    pokemon.breakIllusion();
+
+  override canApply({ pokemon }: AbAttrBaseParams): boolean {
+    return pokemon.summonData.illusion != null;
+  }
+
+  override apply({ pokemon, simulated }: AbAttrBaseParams): void {
+    if (!simulated) {
+      pokemon.breakIllusion();
+    }
+  }
+
+  override getTriggerMessage({ pokemon }: AbAttrBaseParams, _abilityName: string): string {
+    return i18next.t("abilityTriggers:illusionBreak", { pokemonName: getPokemonNameWithAffix(pokemon, false) });
   }
 }
 
-/** @sealed */
+/**
+ * Ends the holder's illusion when a move damages it.
+ * Local fork (2026-11-19): with {@linkcode IllusionBlockDamageAbAttr} this only acts on a hit the block let through (one
+ * that ignores abilities); such a hit also spends the illusion for this battle and shows the illusion-break message (C10).
+ * @sealed
+ */
 export class PostDefendIllusionBreakAbAttr extends PostDefendAbAttr {
-  override apply({ pokemon }: PostMoveInteractionAbAttrParams): void {
-    pokemon.breakIllusion();
+  override apply({ pokemon, simulated }: PostMoveInteractionAbAttrParams): void {
+    if (!simulated) {
+      spendIllusion(pokemon);
+    }
+  }
+
+  override getTriggerMessage({ pokemon }: PostMoveInteractionAbAttrParams, _abilityName: string): string {
+    return i18next.t("abilityTriggers:illusionBreak", { pokemonName: getPokemonNameWithAffix(pokemon, false) });
   }
 
   override canApply({ pokemon, hitResult }: PostMoveInteractionAbAttrParams): boolean {
@@ -5893,6 +6009,27 @@ export class IllusionPostBattleAbAttr extends PostBattleAbAttr {
    */
   override apply({ pokemon }: PostBattleAbAttrParams): void {
     pokemon.breakIllusion();
+  }
+}
+
+/**
+ * Local fork (2026-11-19): a fainted Illusion holder gets its illusion back for its next entry this battle (C10), as a
+ * fainted Mimikyu gets its Disguise back (`PostFaintFormChangeAbAttr`).
+ * @sealed
+ */
+export class IllusionPostFaintAbAttr extends PostFaintAbAttr {
+  constructor() {
+    super(false);
+  }
+
+  override canApply({ pokemon }: PostFaintAbAttrParams): boolean {
+    return pokemon.battleData.illusionUsed;
+  }
+
+  override apply({ pokemon, simulated }: PostFaintAbAttrParams): void {
+    if (!simulated) {
+      pokemon.battleData.illusionUsed = false;
+    }
   }
 }
 
@@ -6369,6 +6506,11 @@ export class PostDamageForceSwitchAbAttr extends PostDamageAbAttr {
       return false;
     }
 
+    // Local fork (2026-11-19), E2 review: nor when a Pursuit hits the Pokémon as it switches out (it is already leaving)
+    if (isPursuitSwitcher(pokemon)) {
+      return false;
+    }
+
     // Dragon Tail and Circle Throw switch out Pokémon before the Ability activates.
     const forbiddenDefendingMoves = [MoveId.DRAGON_TAIL, MoveId.CIRCLE_THROW];
     if (source) {
@@ -6514,7 +6656,10 @@ export const AbilityAttrs = Object.freeze({
   IgnoreTypeImmunityAbAttr,
   IgnoreTypeStatusEffectImmunityAbAttr,
   IllusionBreakAbAttr,
+  // Local fork (2026-11-19): Illusion = Disguise's effect + a random ally's look (C10)
+  IllusionBlockDamageAbAttr,
   IllusionPostBattleAbAttr,
+  IllusionPostFaintAbAttr,
   IllusionPreSummonAbAttr,
   IncreasePpUsedAbAttr,
   InfiltratorAbAttr,

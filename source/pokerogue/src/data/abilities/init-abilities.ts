@@ -54,6 +54,10 @@ import {
   IgnoreProtectOnContactAbAttr,
   IgnoreTypeImmunityAbAttr,
   IgnoreTypeStatusEffectImmunityAbAttr,
+  IllusionBlockDamageAbAttr,
+  IllusionBreakAbAttr,
+  IllusionPostFaintAbAttr,
+  IllusionPreSummonAbAttr,
   IncreasePpUsedAbAttr,
   InfiltratorAbAttr,
   IntimidateImmunityAbAttr,
@@ -94,6 +98,7 @@ import {
   PostDefendContactApplyTagChanceAbAttr,
   PostDefendContactDamageAbAttr,
   PostDefendHpGatedStatStageChangeAbAttr,
+  PostDefendIllusionBreakAbAttr,
   PostDefendMoveDisableAbAttr,
   PostDefendPerishSongAbAttr,
   PostDefendStatStageChangeAbAttr,
@@ -194,6 +199,8 @@ import { customAbilities1114D } from "#abilities/custom-abilities-1114-d";
 import { customAbilities1114E } from "#abilities/custom-abilities-1114-e";
 // Local fork (2026-11-14): custom moves. Gardener and Turnabout
 import { customAbilities1114F } from "#abilities/custom-abilities-1114-f";
+// Local fork (2026-11-19): 1.2.0 D12. Archmage, Wicked Scheme and Grit
+import { customAbilities1119D12 } from "#abilities/custom-abilities-1119-d12";
 import {
   anyTypeMoveConversionCondition,
   beastBoostHighestStatCalc,
@@ -1038,19 +1045,20 @@ export function initAbilities() {
         }
       })
       .build(),
+    // Local fork (2026-11-19): Illusion = Disguise's effect + disguised as a random ally (C10, the user: "c10 일루전의
+    // 효과를 탈 + 랜덤 아군 변신으로 해두기"). It enters with a random ally's look; the first damaging hit is blocked at
+    // the cost of 1/8 of its max HP (Disguise's numbers), then the illusion wears off, spent until the battle ends or
+    // the holder faints (Disguise's rule). Switching out or losing the ability ends it sooner without spending it.
+    // Like Disguise it does nothing on a fusion; no flyout, so the entry does not give the holder away.
     new AbBuilder(AbilityId.ILLUSION, 5) //
-      // // The Pokemon generate an illusion if it's available
-      // .attr(IllusionPreSummonAbAttr, false)
-      // .attr(IllusionBreakAbAttr)
-      // // The Pokemon loses its illusion when damaged by a move
-      // .attr(PostDefendIllusionBreakAbAttr, true)
-      // // Disable Illusion in fusions
-      // .attr(NoFusionAbilityAbAttr)
-      // // Illusion is available again after a battle
-      // .conditionalAttr((pokemon) => pokemon.isAllowedInBattle(), IllusionPostBattleAbAttr, false)
+      .attr(NoFusionAbilityAbAttr)
+      .attr(IllusionPreSummonAbAttr, false)
+      .attr(IllusionBlockDamageAbAttr, 0.125)
+      .attr(PostDefendIllusionBreakAbAttr, false)
+      .attr(IllusionBreakAbAttr, false)
+      .attr(IllusionPostFaintAbAttr)
       .uncopiable()
-      // .bypassFaint()
-      .unimplemented() // TODO: reimplement Illusion properly
+      .bypassFaint()
       .build(),
     new AbBuilder(AbilityId.IMPOSTER, 5) //
       .attr(PostSummonTransformAbAttr)
@@ -1239,7 +1247,8 @@ export function initAbilities() {
       .unimplemented()
       .build(),
     new AbBuilder(AbilityId.TOUGH_CLAWS, 6) //
-      .attr(MovePowerBoostAbAttr, (_user, _target, move) => move.hasFlag(MoveFlags.MAKES_CONTACT), 1.3)
+      // Local fork (2026-11-19): `hasContactFlag`, so Shell Side Arm gets it when physical for this use
+      .attr(MovePowerBoostAbAttr, (user, target, move) => move.hasContactFlag(user, target), 1.3)
       .build(),
     new AbBuilder(AbilityId.PIXILATE, 6) //
       .attr(MoveTypeChangeAbAttr, PokemonType.FAIRY, normalTypeMoveConversionCondition)
@@ -1834,7 +1843,8 @@ export function initAbilities() {
         (user, target, move) =>
           !!target
           && target.findTags(t => t instanceof ProtectedTag).length > 0
-          && move.doesFlagEffectApply({ flag: MoveFlags.MAKES_CONTACT, user }),
+          // Local fork (2026-11-19): the target only finds Shell Side Arm's category for this use (no substitute check)
+          && move.doesFlagEffectApply({ flag: MoveFlags.MAKES_CONTACT, user, categoryTarget: target }),
       )
       .build(),
     new AbBuilder(AbilityId.CURIOUS_MEDICINE, 8) //
@@ -2202,7 +2212,8 @@ export function initAbilities() {
         (user, target, move) =>
           !!target
           && target.findTags(t => t instanceof ProtectedTag).length > 0
-          && move.doesFlagEffectApply({ flag: MoveFlags.MAKES_CONTACT, user }),
+          // Local fork (2026-11-19): the target only finds Shell Side Arm's category for this use (no substitute check)
+          && move.doesFlagEffectApply({ flag: MoveFlags.MAKES_CONTACT, user, categoryTarget: target }),
       )
       .build(),
     new AbBuilder(AbilityId.DRAGONIZE, 9) //
@@ -2373,6 +2384,9 @@ export function initAbilities() {
     ...customAbilities1114E(),
     // Local fork (2026-11-14): custom moves. Gardener (정원사) and Turnabout (전세역전)
     ...customAbilities1114F(),
+    // Local fork (2026-11-19): 1.2.0 D12, the passive sheet's extra abilities. Archmage (대마도사), Wicked Scheme (흑심)
+    // and Grit (투혼)
+    ...customAbilities1119D12(),
     // #endregion Custom abilities
   );
   // Local fork (2026-11-14): passive rebalance. `allAbilities` is indexed by `AbilityId`, so an entry

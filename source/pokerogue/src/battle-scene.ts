@@ -36,6 +36,7 @@ import { initCommonAnims, initMoveAnim, loadCommonAnimAssets, loadMoveAnimAssets
 import { getDailyMysteryEncounter } from "#data/daily-run";
 import { allMoves, biomeDepths, modifierTypes } from "#data/data-lists";
 import { classicFinalBossDialogue } from "#data/dialogue";
+import { isEndlessRaidWave } from "#data/endless-raid";
 import { getTrainerBattleFormTier, newEnemyBattleFormItem } from "#data/enemy-battle-forms"; // Local fork (2026-11-10)
 import type { SpeciesFormChangeTrigger } from "#data/form-change-triggers";
 import {
@@ -141,7 +142,6 @@ import { initGameSpeed } from "#system/game-speed";
 import type { PokemonData } from "#system/pokemon-data";
 import type { Voucher } from "#system/voucher";
 import { vouchers } from "#system/voucher";
-import { isEndlessRaidWave } from "#data/endless-raid";
 import { drawEndlessFinalTrainerType, isEndlessFinalTrainerWave } from "#trainers/endless-final-trainer";
 import { trainerConfigs } from "#trainers/trainer-config";
 import type { Constructor } from "#types/common";

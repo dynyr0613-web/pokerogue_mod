@@ -715,5 +715,11 @@ export enum AbilityId {
   // TURNABOUT); registered by `initAbilities` from custom-abilities-1114-f.ts
   GARDENER,
   TURNABOUT,
+  // Local fork (2026-11-19): 1.2.0 D12, the passive sheet's extra abilities ("추가 조정 특성"; the user: "d12 실행").
+  // Archmage (대마도사, Essentials ARCHMAGE), Wicked Scheme (흑심, WICKEDSCHEME) and Grit (투혼, GRIT), which the sheet
+  // gives to species but the fork did not have yet; registered by `initAbilities` from custom-abilities-1119-d12.ts
+  ARCHMAGE,
+  WICKED_SCHEME,
+  GRIT,
   // #endregion Custom abilities
 }

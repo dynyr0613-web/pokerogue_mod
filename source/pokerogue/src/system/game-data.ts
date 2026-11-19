@@ -12,6 +12,7 @@ import { isIos } from "#app/touch-controls";
 import { Tutorial } from "#app/tutorial";
 import { speciesEggMoves } from "#balance/egg-moves";
 import { bypassLogin, isBeta, isDev, systemSaveShortKeyMap } from "#constants/app-constants";
+import { EDITION_VERSION, isNewerEditionVersion } from "#constants/edition-version";
 import { MAX_STARTER_CANDY_COUNT } from "#constants/game-constants";
 import { registerAlpha, syncAlphaLineBoosts } from "#data/alpha-pokemon";
 import { EntryHazardTag } from "#data/arena-tag";
@@ -101,6 +102,25 @@ const ErrorMessages = {
   GAME_OUT_OF_DATE: i18next.t("gameData:gameOutOfDate"),
 } as const;
 
+/**
+ * Local fork (2026-11-19): the `editionVersion` of a system or session save picked in Import Data when it comes from a
+ * newer edition, so that the import is refused (A3; the user: "a3는 경고 후 열지 못하도록"); `undefined` otherwise,
+ * also for a file that is not JSON (Import Data reports that one as corrupt)
+ * @param dataType - The kind of data being imported
+ * @param dataStr - The file's content, decrypted
+ */
+export function getNewerImportEditionVersion(dataType: GameDataType, dataStr: string): string | undefined {
+  if (dataType !== GameDataType.SYSTEM && dataType !== GameDataType.SESSION) {
+    return;
+  }
+  try {
+    const edition: unknown = JSON.parse(dataStr)?.editionVersion;
+    return isNewerEditionVersion(edition) ? String(edition) : undefined;
+  } catch {
+    return;
+  }
+}
+
 export class GameData {
   public trainerId: number;
   public secretId: number;
@@ -130,6 +150,38 @@ export class GameData {
   public unlockPity: number[];
 
   public appliedMigrators: AppliedMigrators = {};
+
+  /**
+   * Local fork (2026-11-19): the `editionVersion` of a save from a newer edition that was refused since the page
+   * loaded. Once it is set, nothing is written to or deleted from the system and session saves any more, so the newer
+   * save cannot be saved over (the user: "a3는 경고 후 열지 못하도록"). Static so that a new `GameData` keeps it.
+   */
+  public static refusedEditionVersion: string | undefined;
+
+  /** Local fork (2026-11-19): whether a newer edition's save was refused, see {@linkcode refusedEditionVersion} */
+  public get blockedByNewerEdition(): boolean {
+    return GameData.refusedEditionVersion !== undefined;
+  }
+
+  /**
+   * Local fork (2026-11-19): refuse a save written by a newer edition: show the warning in a modal that cannot be
+   * closed (like the base game's "out of date" alert) and block every later save write.
+   * @param saveEditionVersion - The save's `editionVersion`
+   * @returns `false`, for the caller to return
+   */
+  private async refuseNewerEditionSave(saveEditionVersion: unknown): Promise<false> {
+    const saveVersion = String(saveEditionVersion);
+    GameData.refusedEditionVersion = saveVersion;
+    console.warn(`Refused a save from a newer edition (${saveVersion}); this build is ${EDITION_VERSION}`);
+    const message = i18next.t("gameData:newerEditionSave", { version: saveVersion });
+    await globalScene.ui.setMode(UiMode.ALERT_MODAL, message);
+    globalScene.time.delayedCall(fixedInt(1000), () => {
+      if (globalScene.ui.mode !== UiMode.ALERT_MODAL) {
+        globalScene.ui.setMode(UiMode.ALERT_MODAL, message);
+      }
+    });
+    return false;
+  }
 
   /**
    * @param fromRaw - (Default `false`) Whether to skip initialization of fields that are normally
@@ -184,6 +236,8 @@ export class GameData {
       voucherCounts: this.voucherCounts,
       eggs: this.eggs.map(e => new EggData(e)),
       gameVersion: globalScene.game.config.gameVersion,
+      // Local fork (2026-11-19): the edition that wrote the save (A3)
+      editionVersion: EDITION_VERSION,
       timestamp: Date.now(),
       eggPity: this.eggPity.slice(0),
       unlockPity: this.unlockPity.slice(0),
@@ -281,6 +335,10 @@ export class GameData {
   }
 
   public async saveSystem(): Promise<boolean> {
+    // Local fork (2026-11-19): never save over a newer edition's save that was refused (A3)
+    if (this.blockedByNewerEdition) {
+      return false;
+    }
     const data = this.getSystemSaveData();
 
     if (!this.validateSystemData(data)) {
@@ -472,6 +530,13 @@ export class GameData {
         } catch (err) {
           console.debug("Attempt to log system data failed:", err);
         }
+      }
+
+      // Local fork (2026-11-19): a save written by a newer edition is refused before anything is stored, in every
+      // build mode, and later saves are blocked so this build cannot save over it (A3; the user: "a3는 경고 후 열지
+      // 못하도록"). The base game's version check below cannot see it: `gameVersion` is the same in every edition.
+      if (isNewerEditionVersion(systemData.editionVersion)) {
+        return await this.refuseNewerEditionSave(systemData.editionVersion);
       }
 
       localStorage.setItem(`data_${loggedInUser?.username}`, encrypt(systemDataStr, bypassLogin));
@@ -822,6 +887,8 @@ export class GameData {
           ? new TrainerData(globalScene.currentBattle.trainer)
           : null,
       gameVersion: globalScene.game.config.gameVersion,
+      // Local fork (2026-11-19): the edition that wrote the session (A3)
+      editionVersion: EDITION_VERSION,
       timestamp: Date.now(),
       challenges: globalScene.gameMode.challenges.map(c => new ChallengeData(c)),
       mysteryEncounterType: globalScene.currentBattle.mysteryEncounter?.encounterType ?? -1,
@@ -872,8 +939,12 @@ export class GameData {
     if (newName === "") {
       return true;
     }
+    // Local fork (2026-11-19): renaming rewrites the session, so not after a refusal nor for a newer edition's one (A3)
+    if (this.blockedByNewerEdition) {
+      return false;
+    }
     const sessionData = await this.getSession(slotId);
-    if (!sessionData) {
+    if (!sessionData || isNewerEditionVersion(sessionData.editionVersion)) {
       return false;
     }
 
@@ -914,6 +985,10 @@ export class GameData {
     const sessionData = await this.getSession(slotIndex);
     if (!sessionData) {
       return false;
+    }
+    // Local fork (2026-11-19): a session written by a newer edition is not loaded: warning, and no save after it (A3)
+    if (isNewerEditionVersion(sessionData.editionVersion)) {
+      return await this.refuseNewerEditionSave(sessionData.editionVersion);
     }
     await this.initSessionFromData(sessionData);
     return true;
@@ -1067,6 +1142,10 @@ export class GameData {
    * @returns A Promise that resolves with whether the session deletion succeeded
    */
   async deleteSession(slotId: number): Promise<boolean> {
+    // Local fork (2026-11-19): no save is touched after a newer edition's save was refused (A3)
+    if (this.blockedByNewerEdition) {
+      return false;
+    }
     if (bypassLogin) {
       localStorage.removeItem(getSessionDataLocalStorageKey(slotId));
       return true;
@@ -1125,6 +1204,10 @@ export class GameData {
    * To delete an unfinished run instead, use {@linkcode deleteSession}
    */
   async tryClearSession(slotId: number): Promise<[success: boolean, newClear: boolean]> {
+    // Local fork (2026-11-19): no save is touched after a newer edition's save was refused (A3)
+    if (this.blockedByNewerEdition) {
+      return [false, false];
+    }
     const [success] = await updateUserInfo();
     if (!success) {
       return [false, false];
@@ -1246,6 +1329,10 @@ export class GameData {
     useCachedSession = false,
     useCachedSystem = false,
   ): Promise<boolean> {
+    // Local fork (2026-11-19): never save over a newer edition's save that was refused (A3)
+    if (this.blockedByNewerEdition) {
+      return false;
+    }
     if (!skipVerification) {
       const [success] = await updateUserInfo();
       if (!success) {
@@ -1456,6 +1543,9 @@ export class GameData {
             dataStr = AES.decrypt(saveData, saveKey).toString(enc.Utf8);
           }
 
+          // Local fork (2026-11-19): a system or session save from a newer edition is not imported (A3)
+          const newerEdition = getNewerImportEditionVersion(dataType, dataStr);
+
           try {
             switch (dataType) {
               case GameDataType.SYSTEM: {
@@ -1492,6 +1582,9 @@ export class GameData {
           const displayError = (error: string) =>
             globalScene.ui.showText(error, null, () => globalScene.ui.showText("", 0), fixedInt(1500));
 
+          if (newerEdition !== undefined) {
+            return displayError(i18next.t("gameData:newerEditionSave", { version: newerEdition }));
+          }
           if (!valid) {
             return displayError(i18next.t("menuUiHandler:importCorrupt", { dataName }));
           }

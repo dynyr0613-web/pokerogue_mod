@@ -112,6 +112,9 @@ export async function runSelectMysteryEncounterOption(
   }
 }
 
+/** Local fork (2026-11-19): A6. How long {@linkcode handleSecondaryOptionSelect} waits for each menu to open */
+const SECONDARY_SELECT_WAIT_MS = 5000;
+
 async function handleSecondaryOptionSelect(game: GameManager, pokemonNo: number, optionNo?: number) {
   // Handle secondary option selections
   const partyUiHandler = game.scene.ui.handlers[UiMode.PARTY] as PartyUiHandler;
@@ -120,7 +123,8 @@ async function handleSecondaryOptionSelect(game: GameManager, pokemonNo: number,
   const encounterUiHandler = game.scene.ui.getHandler<MysteryEncounterUiHandler>();
   encounterUiHandler.processInput(Button.ACTION);
 
-  await vi.waitFor(() => expect(partyUiHandler.show).toHaveBeenCalled());
+  // Local fork (2026-11-19): A6. The default 1 s wait is tight with 8 test workers busy; it returns as soon as it holds
+  await vi.waitFor(() => expect(partyUiHandler.show).toHaveBeenCalled(), { timeout: SECONDARY_SELECT_WAIT_MS });
 
   for (let i = 1; i < pokemonNo; i++) {
     partyUiHandler.processInput(Button.DOWN);
@@ -136,7 +140,9 @@ async function handleSecondaryOptionSelect(game: GameManager, pokemonNo: number,
     // Wait for Summary menu to close and second options to spawn
     const secondOptionUiHandler = game.scene.ui.handlers[UiMode.OPTION_SELECT] as OptionSelectUiHandler;
     vi.spyOn(secondOptionUiHandler, "show");
-    await vi.waitFor(() => expect(secondOptionUiHandler.show).toHaveBeenCalled());
+    await vi.waitFor(() => expect(secondOptionUiHandler.show).toHaveBeenCalled(), {
+      timeout: SECONDARY_SELECT_WAIT_MS,
+    });
 
     // Navigate down to the correct option
     for (let i = 1; i < optionNo!; i++) {

@@ -35,11 +35,13 @@ describe("Moves - Whirlwind", () => {
       .enemySpecies(SpeciesId.PIDGEY);
   });
 
+  // Local fork (2026-11-19): Sky Drop is no longer partial (the user: "e2 구현"). The Pokémon it carries cannot move at
+  // all, so its Whirlwind never gets to miss: it is cancelled (`MoveId.NONE` in its history) and the user stays aloft.
   it.each([
-    { move: MoveId.FLY, name: "Fly" },
-    { move: MoveId.BOUNCE, name: "Bounce" },
-    { move: MoveId.SKY_DROP, name: "Sky Drop" },
-  ])("should not hit a flying target: $name (=$move)", async ({ move }) => {
+    { move: MoveId.FLY, name: "Fly", enemyMove: MoveId.WHIRLWIND, enemyResult: MoveResult.MISS },
+    { move: MoveId.BOUNCE, name: "Bounce", enemyMove: MoveId.WHIRLWIND, enemyResult: MoveResult.MISS },
+    { move: MoveId.SKY_DROP, name: "Sky Drop", enemyMove: MoveId.NONE, enemyResult: MoveResult.FAIL },
+  ])("should not hit a flying target: $name (=$move)", async ({ move, enemyMove, enemyResult }) => {
     game.override.moveset([move]);
     // Must have a pokemon in the back so that the move misses instead of fails.
     await game.classicMode.startBattle(SpeciesId.STARAPTOR, SpeciesId.MAGIKARP);
@@ -52,7 +54,7 @@ describe("Moves - Whirlwind", () => {
     await game.phaseInterceptor.to("BerryPhase", false);
 
     expect(staraptor).toHaveBattlerTag(BattlerTagType.FLYING);
-    expect(game.field.getEnemyPokemon()).toHaveUsedMove({ move: MoveId.WHIRLWIND, result: MoveResult.MISS });
+    expect(game.field.getEnemyPokemon()).toHaveUsedMove({ move: enemyMove, result: enemyResult });
   });
 
   it("should force switches randomly", async () => {

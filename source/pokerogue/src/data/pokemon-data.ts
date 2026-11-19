@@ -301,11 +301,18 @@ export class PokemonBattleData {
    * @see {@link https://bulbapedia.bulbagarden.net/wiki/Harvest_(Ability)}
    */
   public berriesEaten: BerryType[] = [];
+  /**
+   * Local fork (2026-11-19): whether this Pokémon's Illusion (일루전) was spent this battle by a hit; it then enters
+   * with its own look until the battle ends or it faints, as Mimikyu's busted Disguise stays busted (C10, the user:
+   * "c10 일루전의 효과를 탈 + 랜덤 아군 변신으로 해두기"). Saved with the rest, like the busted Disguise form.
+   */
+  public illusionUsed = false;
 
   constructor(source?: PokemonBattleData | Partial<PokemonBattleData>) {
     if (source != null) {
       this.hasEatenBerry = source.hasEatenBerry ?? false;
       this.berriesEaten = source.berriesEaten ?? [];
+      this.illusionUsed = source.illusionUsed ?? false;
     }
   }
 }
@@ -398,6 +405,13 @@ export class PokemonTurnData {
    * would otherwise run once more and could disagree with the damage step).
    */
   public lastHitCategory: { sourceId: number; move: MoveId; category: MoveCategory } | undefined;
+  /**
+   * Local fork (2026-11-19): the category Shell Side Arm was given in this Pokémon's current move use, by target id.
+   * `MoveEffectPhase` opens it when a use starts (kept for every hit of that use); `Pokemon.getMoveCategory` fills and
+   * reads it, so an exact physical/special tie is rolled once and the damage step, Tough Claws and every contact check
+   * (Rough Skin, Iron Barbs, protection moves, Aftermath …) agree on whether the move made contact.
+   */
+  public moveUseCategories: { move: MoveId; byTarget: Map<number, MoveCategory> } | undefined;
 
   // #endregion Move usage-related properties
 

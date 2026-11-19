@@ -13,6 +13,7 @@ import { SwitchType } from "#enums/switch-type";
 import { TrainerSlot } from "#enums/trainer-slot";
 import type { Pokemon } from "#field/pokemon";
 import { SwitchEffectTransferModifier } from "#modifiers/modifier";
+import { clearPursuitIntercepts, queuePursuitBeforeSwitch } from "#moves/custom-pursuit"; // Local fork (2026-11-19)
 import { SummonPhase } from "#phases/summon-phase";
 import type { MoveAttrString } from "#types/move-types";
 import { inSpeedOrder } from "#utils/speed-order-generator";
@@ -33,22 +34,65 @@ export class SwitchSummonPhase extends SummonPhase {
   private lastPokemon: Pokemon;
 
   /**
+   * Local fork (2026-11-19): Pursuit (따라가때리기) (the user: "e2 구현"). `"check"` for a switch chosen as the turn
+   * command (`TurnStartPhase`), which a foe's waiting Pursuit catches first; `"resume"` for that switch put back in the
+   * queue behind the Pursuit; `"none"` for every other switch.
+   */
+  private readonly pursuitStage: "check" | "resume" | "none";
+  /** Local fork (2026-11-19): set when this phase ends without switching (see {@linkcode start}), to skip {@linkcode onEnd} */
+  private switchSkipped = false;
+
+  /**
    * Constructor for creating a new SwitchSummonPhase
    * @param switchType - The type of switch behavior
    * @param fieldIndex - Position on the battle field
    * @param slotIndex - The index of pokemon (in party of 6) to switch into
    * @param doReturn - Whether to render "comeback" dialogue
    * @param player - Whether the switch came from the player or enemy; default `true`
+   * @param pursuitStage - Local fork (2026-11-19): see {@linkcode SwitchSummonPhase.pursuitStage}; default `"none"`
    */
-  constructor(switchType: SwitchType, fieldIndex: number, slotIndex: number, doReturn: boolean, player = true) {
+  constructor(
+    switchType: SwitchType,
+    fieldIndex: number,
+    slotIndex: number,
+    doReturn: boolean,
+    player = true,
+    pursuitStage: "check" | "resume" | "none" = "none",
+  ) {
     super(fieldIndex, player);
 
     this.switchType = switchType;
     this.slotIndex = slotIndex;
     this.doReturn = doReturn;
+    this.pursuitStage = pursuitStage;
   }
 
   start(): void {
+    // Local fork (2026-11-19): Pursuit (따라가때리기). A foe that chose Pursuit this turn and has not moved yet hits the
+    // Pokémon before it leaves (custom-pursuit.ts): its move goes first and this switch comes back right after it
+    if (this.pursuitStage === "check" && queuePursuitBeforeSwitch(this.getPokemon())) {
+      globalScene.phaseManager.unshiftNew(
+        "SwitchSummonPhase",
+        this.switchType,
+        this.fieldIndex,
+        this.slotIndex,
+        this.doReturn,
+        this.player,
+        "resume",
+      );
+      this.switchSkipped = true;
+      this.end();
+      return;
+    }
+    if (this.pursuitStage === "resume") {
+      clearPursuitIntercepts();
+      // Knocked out by the Pursuit: it does not switch, and is replaced like any fainted Pokémon (FaintPhase)
+      if (!this.getPokemon()?.isActive(true)) {
+        this.switchSkipped = true;
+        this.end();
+        return;
+      }
+    }
     super.start();
   }
 
@@ -205,7 +249,14 @@ export class SwitchSummonPhase extends SummonPhase {
           switchedInPokemon.setAlpha(0.5);
         }
       } else {
+        // Local fork (2026-11-19): keep the Illusion set on entry (`PreSummonAbAttr` above) through this reset; it used
+        // to be wiped right after the send-out text named the copied ally (C10)
+        const { illusion } = switchedInPokemon.summonData;
         switchedInPokemon.fieldSetup(true);
+        if (illusion) {
+          switchedInPokemon.summonData.illusion = illusion;
+          switchedInPokemon.updateInfo();
+        }
       }
       // Local fork (2026-11-08): a wild encounter reserve eases in like a wild Pokémon (no trainer throws a ball)
       if (this.isWildReserve()) {
@@ -229,6 +280,10 @@ export class SwitchSummonPhase extends SummonPhase {
   }
 
   onEnd(): void {
+    // Local fork (2026-11-19): Pursuit. Nothing was switched (see start), so there is nothing to wrap up
+    if (this.switchSkipped) {
+      return;
+    }
     super.onEnd();
 
     const pokemon = this.getPokemon();

@@ -279,11 +279,14 @@ describe("Custom - Foul Play reads the target's plain Attack (08 명세 1번)", 
     }
   });
 
-  it("never reads more than the target's real Attack: a special ace whose Soul Dews pushed Attack to 1 gives 1", async () => {
+  // Local fork (2026-11-19): ten Soul Dews pushed a lowered Attack to 1 until A4; it is now x0.9 x 0.9^10, about 31%
+  // (the user: "마음의물방울은 하락 성격만 곱연산으로 처리하도록"), and Foul Play still reads that real Attack, not the plain x0.9
+  it("never reads more than the target's real Attack: a special ace whose Soul Dews lowered Attack gives that Attack", async () => {
     game.override.startingLevel(5000);
     await game.classicMode.startBattle(SpeciesId.LATIOS);
     const ace = game.field.getPlayerPokemon();
     ace.setNature(Nature.MODEST);
+    const plain = ace.getStat(Stat.ATK);
     const soulDew = modifierTypes
       .SOUL_DEW()
       .withIdFromFunc(modifierTypes.SOUL_DEW)
@@ -291,8 +294,10 @@ describe("Custom - Foul Play reads the target's plain Attack (08 명세 1번)", 
     soulDew.stackCount = 10;
     game.scene.addModifier(soulDew, true, false, false, true);
     ace.calculateStats();
-    expect(ace.getStat(Stat.ATK)).toBe(1);
-    expect(ace.getFoulPlayStat(Stat.ATK)).toBe(1);
+    const real = ace.getStat(Stat.ATK);
+    expect(real).toBeGreaterThan(1);
+    expect(real).toBeLessThan(plain / 2);
+    expect(ace.getFoulPlayStat(Stat.ATK)).toBe(real);
   });
 
   it("leaves out Gorilla Tactics' x1.5 Attack, which upstream keeps as an in-battle stat override", async () => {

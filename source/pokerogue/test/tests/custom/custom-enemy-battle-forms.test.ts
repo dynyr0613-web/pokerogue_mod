@@ -481,7 +481,7 @@ describe("Custom enemy battle forms - Mega / G-Max / Primal enemies and their ca
       return signature ? [SpeciesId[signature.species], ...signature.forms.map(f => f.formKey)] : null;
     };
     expect([1, 200, 1000].map(wave => formOf(TrainerType.KORRINA, wave))).toEqual(
-      Array(3).fill(["LUCARIO", SpeciesFormKey.MEGA]),
+      new Array(3).fill(["LUCARIO", SpeciesFormKey.MEGA]),
     );
     expect([1, 200, 201, 1000].map(wave => formOf(TrainerType.RAIHAN, wave))).toEqual([
       ["DURALUDON", SpeciesFormKey.GIGANTAMAX],

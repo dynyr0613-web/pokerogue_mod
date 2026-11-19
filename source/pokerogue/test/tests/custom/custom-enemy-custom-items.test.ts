@@ -1,9 +1,9 @@
 import { getGameMode } from "#app/game-mode";
 import { CHOICE_ITEM_TYPE_IDS } from "#data/battler-tags";
 import { modifierTypes } from "#data/data-lists";
-import { GameModes } from "#enums/game-modes";
 import { AbilityId } from "#enums/ability-id";
 import { BattleType } from "#enums/battle-type";
+import { GameModes } from "#enums/game-modes";
 import { ModifierTier } from "#enums/modifier-tier";
 import { MoveId } from "#enums/move-id";
 import { PokemonType } from "#enums/pokemon-type";
@@ -430,7 +430,7 @@ describe("Custom held items - on enemy trainers and wild bosses", () => {
       expect(dice).toHaveBeenCalledTimes(16);
 
       // A Choice item it already holds counts too, and the vessel items stay offered after the cap
-      game.scene.addEnemyModifier(newEnemyCustomItem("CHOICE_ARMOR", enemy), true);
+      void game.scene.addEnemyModifier(newEnemyCustomItem("CHOICE_ARMOR", enemy), true);
       expect(forkItemsOf(enemy).map(m => m.type.id)).toEqual(["CHOICE_ARMOR"]);
       const offered = (wave: number, picked: PokemonHeldItemModifier[] = []) =>
         idsOf(getEnemyCustomItemCandidates(enemy, wave, false, picked));

@@ -37,15 +37,18 @@ import { RngHelper } from "#test/helpers/rng-helper";
 import { SettingsHelper } from "#test/helpers/settings-helper";
 import { MockFetch } from "#test/mocks/mock-fetch";
 import { generateStarters } from "#test/utils/game-manager-utils";
+import { getEnumStr } from "#test/utils/string-utils";
 import type { PhaseString } from "#types/phase-types";
 import type { BallUiHandler } from "#ui/ball-ui-handler";
 import type { BattleMessageUiHandler } from "#ui/battle-message-ui-handler";
 import type { CommandUiHandler } from "#ui/command-ui-handler";
-import type { AwaitableUiHandler } from "#ui/handlers/awaitable-ui-handler";
+import { AwaitableUiHandler } from "#ui/handlers/awaitable-ui-handler";
+import { MessageUiHandler } from "#ui/message-ui-handler";
 import type { ModifierSelectUiHandler } from "#ui/modifier-select-ui-handler";
 import type { PartyUiHandler } from "#ui/party-ui-handler";
 import type { StarterSelectUiHandler } from "#ui/starter-select-ui-handler";
 import type { TargetSelectUiHandler } from "#ui/target-select-ui-handler";
+import type { UiHandler } from "#ui/ui-handler";
 import fs from "node:fs";
 import { AES, enc } from "crypto-js";
 import type { NonEmptyTuple } from "type-fest";
@@ -125,11 +128,86 @@ export class GameManager {
 
     this.scene.reset(false, true);
     (this.scene.ui.handlers[UiMode.STARTER_SELECT] as StarterSelectUiHandler).clearStarterPreferences();
+    this.clearStaleUiHandlers();
 
     this.gameWrapper.scene = this.scene;
 
     this.scene.phaseManager.toTitleScreen(true);
     this.scene.phaseManager.shiftPhase();
+  }
+
+  /**
+   * Local fork (2026-11-19): A6, random failures in full runs. Tests share one scene per worker (`isolate: false`), and
+   * {@linkcode resetScene} keeps its UI, which the real game rebuilds on every return to the title
+   * (`BattleScene.reset(true)` frees the UI handlers). A test that ended on a screen opened with `setModeWithoutClear`
+   * (Party -> Summary, reward screen -> Party, ...) left the screen underneath it active, and
+   * `PartyUiHandler.show` / `ModifierSelectUiHandler.show` return early while active: the next tests in that worker got
+   * the old Party screen (its mode, callback and open options menu) or the old reward options. That hung switch tests
+   * until the 20 s timeout (Fake Out, Light Thief, Sand Spit, Fairy Lock, Parting Shot), threw "handleCommand is not a
+   * function" (Fun And Games!), skipped the Delibird-y option menu, and showed 3 old options in the TM shop (5) or after
+   * Emergency Exit (0). Clear every handler left active behind the current mode (the title screen's `setMode` clears
+   * the current one), close a Party options menu its `clear` kept open, and drop the mode chain.
+   * The input state no `clear` resets goes back to a new handler's too: a message still typing on the shared clock
+   * (it would call the old test's callback), a pending or awaited prompt (`PartyUiHandler.processInput` ignores
+   * every button while `pendingPrompt` or `blockInput` is set, and an awaited prompt takes the next button for the
+   * old callback). A Party message with a prompt cut off by the end of a test left `pendingPrompt` set for good.
+   */
+  private clearStaleUiHandlers(): void {
+    const ui = this.scene.ui;
+    const stale: string[] = [];
+    ui.handlers.forEach((handler, mode) => {
+      if (handler) {
+        stale.push(...this.resetUiHandlerState(handler, mode, mode !== ui.mode));
+      }
+    });
+    const partyHandler = ui.handlers[UiMode.PARTY] as PartyUiHandler;
+    if (partyHandler["optionsMode"]) {
+      stale.push("PARTY options menu");
+      partyHandler.clearOptions();
+    }
+    if (partyHandler["blockInput"]) {
+      stale.push("PARTY blocked input");
+      partyHandler["blockInput"] = false;
+    }
+    ui.resetModeChain();
+    if (stale.length > 0) {
+      console.log(`GameManager: cleared UI left active by the previous test: ${stale.join(", ")}`);
+    }
+  }
+
+  /**
+   * Local fork (2026-11-19): A6. Part of {@linkcode clearStaleUiHandlers} for one handler.
+   * @param handler - The handler to reset
+   * @param mode - Its {@linkcode UiMode}
+   * @param clearIfActive - Whether to clear it if it is still active (`false` for the current mode's handler)
+   * @returns What was left over, for the log
+   */
+  private resetUiHandlerState(handler: UiHandler, mode: UiMode, clearIfActive: boolean): string[] {
+    const name = getEnumStr(UiMode, mode);
+    const stale: string[] = [];
+    if (clearIfActive && handler.active) {
+      handler.clear();
+      // `EvolutionSceneUiHandler.clear` never resets `active`; only report the handlers it closed
+      if (!handler.active) {
+        stale.push(name);
+      }
+    }
+    if (handler instanceof MessageUiHandler) {
+      for (const timer of ["textTimer", "textCallbackTimer"] as const) {
+        handler[timer]?.remove();
+        handler[timer] = null;
+      }
+      if (handler.pendingPrompt) {
+        stale.push(`${name} pending prompt`);
+        handler.pendingPrompt = false;
+      }
+    }
+    if (handler instanceof AwaitableUiHandler && (handler["awaitingActionInput"] || handler["onActionInput"])) {
+      stale.push(`${name} awaited input`);
+      handler["awaitingActionInput"] = false;
+      handler["onActionInput"] = null;
+    }
+    return stale;
   }
 
   /**

@@ -98,5 +98,12 @@
   "grudgeOnAdd": "{{pokemonNameWithAffix}} wants its target to bear a grudge!",
   "grudgeLapse": "{{pokemonNameWithAffix}} lost all of {{moveName}}’s PP due to the grudge!",
   "magicCoatOnAdd": "{{pokemonNameWithAffix}} shrouded itself with Magic Coat!",
-  "supremeOverlordOnAdd": "{{pokemonNameWithAffix}} gained strength from the fallen!"
+  "supremeOverlordOnAdd": "{{pokemonNameWithAffix}} gained strength from the fallen!",
+  "uproarOnAdd": "{{pokemonNameWithAffix}} caused an uproar!",
+  "uproarLapse": "{{pokemonNameWithAffix}} is making an uproar!",
+  "uproarOnRemove": "{{pokemonNameWithAffix}} calmed down.",
+  "uproarWake": "The uproar woke up {{pokemonNameWithAffix}}!",
+  "uproarPreventSleep": "But the uproar kept {{pokemonNameWithAffix}} awake!",
+  "skyDropCannotMove": "{{pokemonNameWithAffix}} is held up\nin the sky and can't move!",
+  "skyDropFreed": "{{pokemonNameWithAffix}} was freed\nfrom the Sky Drop!"
 }

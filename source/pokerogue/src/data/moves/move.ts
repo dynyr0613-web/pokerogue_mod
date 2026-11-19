@@ -26,13 +26,17 @@ import {
   EncoreTag,
   GulpMissileTag,
   HelpingHandTag,
+  ProtectedTag, // Local fork (2026-11-19): Sky Drop
+  RolloutTag, // Local fork (2026-11-19): Rollout / Ice Ball
   SemiInvulnerableTag,
   ShellTrapTag,
+  SkyDropCarrierTag, // Local fork (2026-11-19): Sky Drop
   StockpilingTag,
   SubstituteTag,
   type SupremeOverlordTag,
   TrappedTag,
   TypeBoostTag,
+  UproarTag, // Local fork (2026-11-19): Uproar
 } from "#data/battler-tags";
 import { getBerryEffectFunc } from "#data/berry";
 import { allAbilities, allMoves } from "#data/data-lists";
@@ -93,7 +97,9 @@ import {
   PokemonMultiHitModifier,
   PreserveBerryModifier,
 } from "#modifiers/modifier";
+import { BerryModifierType } from "#modifiers/modifier-type"; // Local fork (2026-11-19): Recycle (1.2.0 D6)
 import { applyMoveAttrs } from "#moves/apply-attrs";
+import { isPursuitIntercept } from "#moves/custom-pursuit"; // Local fork (2026-11-19): Pursuit
 import {
   invalidAssistMoves,
   invalidCopycatMoves,
@@ -179,6 +185,14 @@ type GetRemoveArenaTagSideFunc = (user: Pokemon, target: Pokemon) => ArenaTagSid
  */
 export type MoveConditionFunc = (user: Pokemon, target: Pokemon, move: Move) => boolean;
 export type UserMoveConditionFunc = (user: Pokemon, move: Move) => boolean;
+
+/**
+ * Local fork (2026-11-19): how many Shell Side Arm category forecasts are running (`ShellSideArmCategoryAttr.apply`).
+ * While one runs, {@linkcode Move.hasContactFlag} counts Shell Side Arm as non-contact: the forecast compares the bare
+ * physical and special damage (no Tough Claws, no Master Punching Glove), and asking for the category inside it would
+ * run the forecast again without end.
+ */
+let shellSideArmForecasts = 0;
 
 export abstract class Move implements Localizable {
   public id: MoveId;
@@ -429,6 +443,26 @@ export abstract class Move implements Localizable {
   hasFlag(flag: MoveFlags): boolean {
     // Flags are internally represented as bitmasks, so we check by taking the bitwise AND.
     return (this.flags & flag) !== MoveFlags.NONE;
+  }
+
+  /**
+   * Local fork (2026-11-19): whether this move has the contact flag when `user` uses it on `target`: its
+   * {@linkcode MoveFlags.MAKES_CONTACT} flag, except Shell Side Arm (셸암즈), which makes contact only when it is physical
+   * for this use (`Pokemon.getMoveCategory` remembers the category a use decided, so an exact tie is rolled once).
+   * Like {@linkcode hasFlag}, nothing else is considered (Long Reach, substitutes, gloves: see {@linkcode doesFlagEffectApply}).
+   * Without a user or target, with the user as its own target (moveset generation passes the Pokemon as both), or
+   * inside Shell Side Arm's own forecast, Shell Side Arm counts as non-contact, as before.
+   * @param user - The Pokemon using the move
+   * @param target - The Pokemon the move is used on
+   */
+  hasContactFlag(user?: Pokemon | null, target?: Pokemon | null): boolean {
+    if (!this.hasAttr("ShellSideArmCategoryAttr")) {
+      return this.hasFlag(MoveFlags.MAKES_CONTACT);
+    }
+    if (user == null || target == null || user === target || shellSideArmForecasts > 0) {
+      return false;
+    }
+    return user.getMoveCategory(target, this) === MoveCategory.PHYSICAL;
   }
 
   /**
@@ -922,6 +956,9 @@ export abstract class Move implements Localizable {
    *   user's Punching Glove / Master Punching Glove hides the contact from (`hidesContactFromTarget`,
    *   contact-gloves.ts). Leave it `false` for effects that work for the user (Tough Claws, Poison Touch, Unseen Fist).
    *   The user: "단단한발톱의 보너스는 받는데 킬가르도가 쓰는 킹실드의 공격 랭크하락 효과는 안받도록 코드를 잘 짜봐요"
+   * @param categoryTarget - Local fork (2026-11-19), for {@linkcode MoveFlags.MAKES_CONTACT} only: the Pokemon the move is
+   *   used on, for callers that leave `target` out on purpose (no substitute check: Unseen Fist, the Master Punching
+   *   Glove). It only finds Shell Side Arm's category for this use ({@linkcode hasContactFlag}); `target` wins if given.
    * @returns boolean
    * @see {@linkcode hasFlag}
    */
@@ -931,13 +968,17 @@ export abstract class Move implements Localizable {
     target,
     isFollowUp = false,
     targetSide = false,
+    categoryTarget,
   }: {
     flag: MoveFlags;
     user: Pokemon;
     target?: Pokemon | undefined;
     isFollowUp?: boolean | undefined;
     targetSide?: boolean | undefined;
+    categoryTarget?: Pokemon | null | undefined;
   }): boolean {
+    // Local fork (2026-11-19): the Pokemon whose Shell Side Arm category counts (MAKES_CONTACT only)
+    const contactTarget = target ?? categoryTarget;
     // special cases below, eg: if the move flag is MAKES_CONTACT, and the user pokemon has an ability that ignores contact (like "Long Reach"), then overrides and move does not make contact
     switch (flag) {
       case MoveFlags.MAKES_CONTACT:
@@ -945,10 +986,11 @@ export abstract class Move implements Localizable {
           return false;
         }
         // Local fork (2026-11-11): the user's glove keeps the contact from the target's side only
-        if (targetSide && hidesContactFromTarget(user, this)) {
+        if (targetSide && hidesContactFromTarget(user, this, contactTarget)) {
           return false;
         }
-        break;
+        // Local fork (2026-11-19): Shell Side Arm makes contact only when it is physical for this use
+        return this.hasContactFlag(user, contactTarget);
       case MoveFlags.IGNORE_ABILITIES:
         if (user.hasAbilityWithAttr("MoveAbilityBypassAbAttr")) {
           const abilityEffectsIgnored = new BooleanHolder(false);
@@ -963,12 +1005,13 @@ export abstract class Move implements Localizable {
       case MoveFlags.IGNORE_PROTECT:
         if (
           user.hasAbilityWithAttr("IgnoreProtectOnContactAbAttr")
-          && this.doesFlagEffectApply({ flag: MoveFlags.MAKES_CONTACT, user })
+          // Local fork (2026-11-19): the target only finds Shell Side Arm's category (no substitute check, as before)
+          && this.doesFlagEffectApply({ flag: MoveFlags.MAKES_CONTACT, user, categoryTarget: target })
         ) {
           return true;
         }
         // Local fork (2026-11-11): the Master Punching Glove's Unseen Fist ("보이지않는주먹 효과(포챔스 기준)")
-        if (masterGloveIgnoresProtect(user, this)) {
+        if (masterGloveIgnoresProtect(user, this, target)) {
           return true;
         }
         break;
@@ -1218,7 +1261,8 @@ export abstract class Move implements Localizable {
 
     // Local fork (2026-11-11): Punching Glove x1.1 on punching moves / Master Punching Glove x1.2 on contact moves, as
     // power next to the type-boosting items (the user: "주먹류 기술 데미지 1.1배", "1.2배 위력")
-    applyContactGlovePower(source, this, power);
+    // Local fork (2026-11-19): the target too, so the Master glove covers Shell Side Arm when it is physical
+    applyContactGlovePower(source, this, power, target);
 
     // Local fork (2026-11-11): Metronome (메트로놈; the user: "최대 3개, 증가치는 10/15/20%로"): +10/15/20% per consecutive
     // use of this move for 1/2/3 held, at most 5 steps, as power next to the gloves
@@ -3469,6 +3513,135 @@ export class RemoveHeldItemAttr extends MoveEffectAttr {
 }
 
 /**
+ * Local fork (2026-11-19): Corrosive Gas (부식가스, 1.2.0 D6; the user: "d6 실행"). Knock Off's item removal
+ * ({@linkcode RemoveHeldItemAttr}) on every Pokémon around the user, without damage: each loses one random transferable
+ * held item (one of its stack, as with Knock Off) with the move's own message, and does not get it back. As Knock Off
+ * does in this game, it never takes anything from a Pokémon in the player's party, whoever uses it (no effect on them),
+ * and Sticky Hold keeps the item. The move fails when no Pokémon around the user could lose an item (the main series'
+ * rule). The enemy AI scores it -20 while no opponent of the user could lose one, so an enemy never strips its own
+ * partner with it.
+ */
+export class CorrosiveGasAttr extends RemoveHeldItemAttr {
+  /** Whether `pokemon` could lose an item to Corrosive Gas (Sticky Hold aside, which shows itself when the gas comes) */
+  public static canCorrode(pokemon: Pokemon | undefined): boolean {
+    return !!pokemon?.isActive(true) && !pokemon.isPlayer() && pokemon.getHeldItems().some(i => i.isTransferable);
+  }
+
+  override apply(user: Pokemon, target: Pokemon, _move: Move, _args: any[]): boolean {
+    if (!CorrosiveGasAttr.canCorrode(target)) {
+      return false;
+    }
+
+    const cancelled = new BooleanHolder(false);
+    applyAbAttrs("BlockItemTheftAbAttr", { pokemon: target, cancelled });
+    if (cancelled.value) {
+      return false;
+    }
+
+    const heldItems = this.getTargetHeldItems(target).filter(i => i.isTransferable);
+    const removedItem = heldItems[user.randBattleSeedInt(heldItems.length)];
+    target.loseHeldItem(removedItem);
+    globalScene.updateModifiers(target.isPlayer());
+    globalScene.phaseManager.queueMessage(
+      i18next.t("moveTriggers:corrosiveGasItem", {
+        pokemonName: getPokemonNameWithAffix(user),
+        targetName: getPokemonNameWithAffix(target),
+        itemName: removedItem.type.name,
+      }),
+    );
+    return true;
+  }
+
+  override getCondition(): MoveConditionFunc {
+    return user => globalScene.getField(true).some(p => p !== user && CorrosiveGasAttr.canCorrode(p));
+  }
+
+  override getUserBenefitScore(user: Pokemon, _target: Pokemon, _move: Move): number {
+    return user.getOpponents().some(p => CorrosiveGasAttr.canCorrode(p)) ? 0 : -20;
+  }
+
+  override getTargetBenefitScore(_user: Pokemon, target: Pokemon, _move: Move): number {
+    return CorrosiveGasAttr.canCorrode(target) ? -5 : 0;
+  }
+}
+
+/**
+ * Local fork (2026-11-19): Recycle (리사이클, 1.2.0 D6; the user: "d6 실행"). Gives the user back the last berry it ate
+ * this battle and has not got back yet, from the list Harvest reads (`PokemonBattleData.berriesEaten`): both take from it,
+ * so one eaten berry comes back at most once. A berry whose stack is at its cap is passed over for the one eaten before
+ * it. The berry is a held item like any other afterwards (Harvest's rule), eaten again in the turn-end berry phase when
+ * its condition is met. In this game "consumed" means eaten berries only: the White Herb and the Reviver Seed, the other
+ * held items that get used up, are not given back (the Seed would revive its holder twice), and an item taken by Knock
+ * Off, Incinerate, Bug Bite, Pluck or Corrosive Gas was never eaten by its holder. Fails when there is nothing to give back.
+ */
+export class RecycleAttr extends MoveEffectAttr {
+  constructor() {
+    super(true);
+  }
+
+  /** The index in `pokemon`'s eaten berries of the one Recycle gives back, or `-1` when there is none */
+  public static getRecycleIndex(pokemon: Pokemon): number {
+    const eaten = pokemon.battleData.berriesEaten;
+    const capped = new Set(
+      globalScene
+        .getModifiers(BerryModifier, pokemon.isPlayer())
+        .filter(bm => bm.pokemonId === pokemon.id && bm.getCountUnderMax() < 1)
+        .map(bm => bm.berryType),
+    );
+    for (let i = eaten.length - 1; i >= 0; i--) {
+      if (!capped.has(eaten[i])) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  override apply(user: Pokemon, target: Pokemon, move: Move, args?: any[]): boolean {
+    if (!super.apply(user, target, move, args)) {
+      return false;
+    }
+    const index = RecycleAttr.getRecycleIndex(user);
+    if (index < 0) {
+      return false;
+    }
+
+    const [berryType] = user.battleData.berriesEaten.splice(index, 1);
+    const berryModifierType = new BerryModifierType(berryType);
+    const berryModifier = globalScene.findModifier(
+      m => m instanceof BerryModifier && m.berryType === berryType && m.pokemonId === user.id,
+      user.isPlayer(),
+    ) as BerryModifier | undefined;
+    if (berryModifier) {
+      berryModifier.stackCount++;
+    } else {
+      const newBerry = new BerryModifier(berryModifierType, user.id, berryType, 1);
+      if (user.isPlayer()) {
+        globalScene.addModifier(newBerry);
+      } else {
+        globalScene.addEnemyModifier(newBerry);
+      }
+    }
+    globalScene.updateModifiers(user.isPlayer());
+
+    globalScene.phaseManager.queueMessage(
+      i18next.t("moveTriggers:recycledItem", {
+        pokemonName: getPokemonNameWithAffix(user),
+        itemName: berryModifierType.name,
+      }),
+    );
+    return true;
+  }
+
+  override getCondition(): MoveConditionFunc {
+    return user => RecycleAttr.getRecycleIndex(user) >= 0;
+  }
+
+  override getUserBenefitScore(_user: Pokemon, _target: Pokemon, _move: Move): number {
+    return 5;
+  }
+}
+
+/**
  * Attribute that causes targets of the move to eat a berry. Used for Teatime, Stuff Cheeks
  */
 export class EatBerryAttr extends MoveEffectAttr {
@@ -4888,6 +5061,45 @@ export class ConsecutiveUseMultiBasePowerAttr extends ConsecutiveUsePowerMultipl
   }
 }
 
+/**
+ * Local fork (2026-11-19): Rollout (구르기) / Ice Ball (아이스볼) (the user: "e2 구현"). Power x2 for each earlier hit of
+ * the current chain (`RolloutTag`, 30 → 60 → 120 → 240 → 480), and x2 more once the user has used Defense Curl
+ * (웅크리기) since it came out (main series: the Defense Curl effect lasts until the user leaves the field). This replaces
+ * `ConsecutiveUseDoublePowerAttr`, which counted Defense Curl as one hit of the chain.
+ */
+export class RolloutPowerAttr extends VariablePowerAttr {
+  override apply(user: Pokemon, _target: Pokemon, move: Move, args: any[]): boolean {
+    const power = args[0] as NumberHolder;
+    const tag = user.getTag(BattlerTagType.ROLLOUT);
+    const hit = tag?.sourceMove === move.id ? tag.getHitNumber() : 1;
+    power.value *= 2 ** (hit - 1);
+    if (RolloutPowerAttr.hasUsedDefenseCurl(user)) {
+      power.value *= 2;
+    }
+    return true;
+  }
+
+  /**
+   * @returns Whether `user` used Defense Curl successfully since it came out (its move history is per summon); a Max
+   * Guard made from Defense Curl does not count
+   */
+  public static hasUsedDefenseCurl(user: Pokemon): boolean {
+    return user
+      .getMoveHistory()
+      .some(
+        m => m.move === MoveId.DEFENSE_CURL && m.result === MoveResult.SUCCESS && m.derivedMoveId !== MoveId.MAX_GUARD,
+      );
+  }
+}
+
+/**
+ * Local fork (2026-11-19): the weight-based moves (Low Kick, Grass Knot: {@linkcode WeightPowerAttr}; Heavy Slam, Heat
+ * Crash: {@linkcode CompareWeightPowerAttr}) fail against a Dynamaxed target (`Pokemon.isDynamaxed`: a G-Max / E-Max
+ * form or the Dynamax state), as in the main series; a move condition, so the enemy AI scores them as failing (the
+ * user: "다이맥스 ... 체중기술 실패 ... 거다이맥스에도 반영이 아직 안되어있다면 거다이맥스에도 넣고")
+ */
+const failAgainstDynamaxedTarget: MoveConditionFunc = (_user, target) => !target.isDynamaxed();
+
 export class WeightPowerAttr extends VariablePowerAttr {
   apply(_user: Pokemon, target: Pokemon, _move: Move, args: any[]): boolean {
     const power = args[0] as NumberHolder;
@@ -4905,6 +5117,11 @@ export class WeightPowerAttr extends VariablePowerAttr {
     power.value = (w + 1) * 20;
 
     return true;
+  }
+
+  // Local fork (2026-11-19): fails against a Dynamaxed target (failAgainstDynamaxedTarget)
+  override getCondition(): MoveConditionFunc {
+    return failAgainstDynamaxedTarget;
   }
 }
 
@@ -5028,6 +5245,11 @@ export class CompareWeightPowerAttr extends VariablePowerAttr {
     }
 
     return true;
+  }
+
+  // Local fork (2026-11-19): fails against a Dynamaxed target (failAgainstDynamaxedTarget)
+  override getCondition(): MoveConditionFunc {
+    return failAgainstDynamaxedTarget;
   }
 }
 
@@ -5745,31 +5967,44 @@ export class PhotonGeyserCategoryAttr extends VariableMoveCategoryAttr {
 
 /**
  * Attribute used for tera moves that change category based on the user's Atk and SpAtk stats
- * Note: Currently, `getEffectiveStat` does not ignore all abilities that affect stats except those
- * with the attribute of `StatMultiplierAbAttr`
+ *
+ * Local fork (2026-11-19): Tera Starstorm (테라클러스터) is no longer partial and upstream's TODO here is done (the user:
+ * "e2 구현"). As in the main series, a Terastallized user compares its Attack and Sp. Atk with their stat stages (X items
+ * included) and nothing else: no abilities (Huge Power, Protosynthesis / Quark Drive, Slow Start, the Ruin abilities
+ * ...), held items or field effects. Upstream used `getEffectiveStat`, which still applied several of those. Tera
+ * Starstorm (`terapagosOnly`) changes only for Terapagos, i.e. its Stellar Form, as in the main series.
  */
-// TODO: Remove the `.partial()` tag from Tera Blast and Tera Starstorm when the above issue is resolved
 export class TeraMoveCategoryAttr extends VariableMoveCategoryAttr {
+  /** Whether only Terapagos turns the move physical (Tera Starstorm) */
+  private readonly terapagosOnly: boolean;
+
+  constructor(terapagosOnly = false) {
+    super();
+    this.terapagosOnly = terapagosOnly;
+  }
+
   apply(user: Pokemon, target: Pokemon, move: Move, args: any[]): boolean {
     const category = args[0] as NumberHolder;
-    const effectiveStatParams: GetEffectiveStatParams = {
-      opponent: target,
-      move,
-      ignoreAbility: true,
-      ignoreOppAbility: true,
-      ignoreAllyAbility: true,
-      ignoreHeldItems: true,
-    };
-    if (
-      user.isTerastallized
-      && user.getEffectiveStat(Stat.ATK, effectiveStatParams) > user.getEffectiveStat(Stat.SPATK, effectiveStatParams)
-    ) {
+    if (!user.isTerastallized || (this.terapagosOnly && !user.hasSpecies(SpeciesId.TERAPAGOS))) {
+      return false;
+    }
+    if (getTeraCategoryStat(user, Stat.ATK, target, move) > getTeraCategoryStat(user, Stat.SPATK, target, move)) {
       category.value = MoveCategory.PHYSICAL;
       return true;
     }
 
     return false;
   }
+}
+
+/**
+ * Local fork (2026-11-19): the stat {@linkcode TeraMoveCategoryAttr} compares: the in-battle stat (Power Trick, Power
+ * Split ... count) times its stat stage multiplier (with X items), ignoring the target's Unaware like upstream did
+ */
+function getTeraCategoryStat(user: Pokemon, stat: Stat.ATK | Stat.SPATK, target: Pokemon, move: Move): number {
+  return Math.floor(
+    user.getStat(stat, false) * user.getStatStageMultiplier(stat, target, move, true, false, true, false),
+  );
 }
 
 /**
@@ -5804,28 +6039,37 @@ export class ShellSideArmCategoryAttr extends VariableMoveCategoryAttr {
 
     // Local fork (2026-11-11), after review: `categoryForecast` leaves Muscle Band / Wise Glasses out of the forecast
     // (the main series compares the bare stats), and keeps the forecast from working the category out again
-    const predictedPhysDmg = target.getBaseDamage({
-      source: user,
-      move,
-      moveCategory: MoveCategory.PHYSICAL,
-      ignoreAbility: true,
-      ignoreSourceAbility: true,
-      ignoreAllyAbility: true,
-      ignoreSourceAllyAbility: true,
-      simulated: true,
-      categoryForecast: true,
-    });
-    const predictedSpecDmg = target.getBaseDamage({
-      source: user,
-      move,
-      moveCategory: MoveCategory.SPECIAL,
-      ignoreAbility: true,
-      ignoreSourceAbility: true,
-      ignoreAllyAbility: true,
-      ignoreSourceAllyAbility: true,
-      simulated: true,
-      categoryForecast: true,
-    });
+    // Local fork (2026-11-19): while the forecast runs, Shell Side Arm counts as non-contact (`Move.hasContactFlag`), so
+    // Tough Claws and the Master Punching Glove stay out of it and asking for contact does not start the forecast again
+    let predictedPhysDmg: number;
+    let predictedSpecDmg: number;
+    shellSideArmForecasts++;
+    try {
+      predictedPhysDmg = target.getBaseDamage({
+        source: user,
+        move,
+        moveCategory: MoveCategory.PHYSICAL,
+        ignoreAbility: true,
+        ignoreSourceAbility: true,
+        ignoreAllyAbility: true,
+        ignoreSourceAllyAbility: true,
+        simulated: true,
+        categoryForecast: true,
+      });
+      predictedSpecDmg = target.getBaseDamage({
+        source: user,
+        move,
+        moveCategory: MoveCategory.SPECIAL,
+        ignoreAbility: true,
+        ignoreSourceAbility: true,
+        ignoreAllyAbility: true,
+        ignoreSourceAllyAbility: true,
+        simulated: true,
+        categoryForecast: true,
+      });
+    } finally {
+      shellSideArmForecasts--;
+    }
 
     if (predictedPhysDmg > predictedSpecDmg) {
       category.value = MoveCategory.PHYSICAL;
@@ -6270,6 +6514,26 @@ export class TeraBlastTypeAttr extends VariableMoveTypeAttr {
 }
 
 /**
+ * Local fork (2026-11-19): whether `user`'s Tera Starstorm (테라클러스터) hits all opponents: Terapagos in its Stellar
+ * Form, i.e. already Terastallized or Terastallizing this turn (the player's Tera command, or an enemy trainer's
+ * Terastallization, which is decided right after the enemy picks its move and targets) (the user: "e2 구현"). Upstream
+ * read the Tera command by field index, so an enemy Terapagos looked at the player's slot instead of its own.
+ */
+function isTeraStarstormSpread(user: Pokemon): boolean {
+  if (!user.hasSpecies(SpeciesId.TERAPAGOS)) {
+    return false;
+  }
+  if (user.isTerastallized) {
+    return true;
+  }
+  const battle = globalScene.currentBattle;
+  if (battle.preTurnCommands[user.getBattlerIndex()]?.command === Command.TERA) {
+    return true;
+  }
+  return user.isEnemy() && !!battle.trainer?.shouldTera(user);
+}
+
+/**
  * Attribute used for Tera Starstorm that changes the move type to Stellar
  */
 export class TeraStarstormTypeAttr extends VariableMoveTypeAttr {
@@ -6542,6 +6806,26 @@ export class HitsSameTypeAttr extends MoveTypeChartOverrideAttr {
 }
 
 /**
+ * Local fork (2026-11-19): Sky Drop (프리폴) is no longer partial (the user: "e2 구현"). A Flying-type target takes no
+ * damage from the drop ("It doesn't affect ..."), as in the main series; it is still carried on the first turn.
+ */
+export class SkyDropFlyingImmunityAttr extends MoveTypeChartOverrideAttr {
+  public override apply(
+    _user: Pokemon,
+    _target: Pokemon,
+    _move: Move,
+    args: [multiplier: NumberHolder, types: readonly PokemonType[], moveType: PokemonType],
+  ): boolean {
+    const [multiplier, targetTypes] = args;
+    if (!targetTypes.includes(PokemonType.FLYING)) {
+      return false;
+    }
+    multiplier.value = 0;
+    return true;
+  }
+}
+
+/**
  * Attribute used by {@link https://bulbapedia.bulbagarden.net/wiki/Flying_Press_(move) | Flying Press}
  * to add the Flying type to its type effectiveness multiplier.
  */
@@ -6667,6 +6951,12 @@ const crashDamageFunc: UserMoveConditionFunc = (user: Pokemon, _move: Move) => {
 
 export class TypelessAttr extends MoveAttr {}
 /**
+ * Local fork (2026-11-19): Dragon Darts (드래곤애로) is no longer partial (the user: "e2 구현"). Marks a multi-strike move
+ * with smart targeting: in a double battle, aimed at an opponent whose ally is on the field, one strike goes to each of
+ * them, or every strike to one of them when the other cannot be hit (`MoveEffectPhase.getSmartTargetPair`).
+ */
+export class SmartTargetAttr extends MoveAttr {}
+/**
  * Attribute used for moves which ignore redirection effects, and always target their original target, i.e. Snipe Shot
  * Bypasses Storm Drain, Follow Me, Ally Switch, and the like.
  */
@@ -6707,6 +6997,100 @@ export class SemiInvulnerableAttr extends MoveEffectAttr {
     }
 
     return user.addTag(this.tagType, 1, move.id, user.id);
+  }
+}
+
+/**
+ * Local fork (2026-11-19): Sky Drop (프리폴) is no longer partial (the user: "e2 구현"). Its charging turn carries the
+ * target into the sky with the user (`BattlerTagType.SKY_DROP`, sourced from the user, after `SemiInvulnerableAttr` gave
+ * the user its flight): the target cannot act or be switched out until the user drops it on the next turn (`SkyDropTag`).
+ * Only used as a `chargeAttr`.
+ */
+export class SkyDropLiftAttr extends MoveEffectAttr {
+  override apply(user: Pokemon, target: Pokemon, move: Move, args?: any[]): boolean {
+    if (!super.apply(user, target, move, args)) {
+      return false;
+    }
+
+    return target.addTag(BattlerTagType.SKY_DROP, 1, move.id, user.id);
+  }
+}
+
+/** Local fork (2026-11-19): why Sky Drop fails, see {@linkcode getSkyDropFailure} */
+type SkyDropFailure = "fail" | "heavy" | "miss" | "protected";
+
+/**
+ * Local fork (2026-11-19): Sky Drop's own failure checks (the user: "e2 구현"). Its charging turn has no hit check in
+ * this engine, so the ones that apply to that turn in the main series are made here, before the target is lifted: it
+ * fails against a substitute, the user's own ally, a Dynamaxed target or a target of 200 kg or more ("too heavy"), misses
+ * a semi-invulnerable target (unless No Guard or Lock-On let the user reach it) and is stopped by a protecting one;
+ * there is no accuracy roll that turn. On the second turn (the user in its Sky Drop flight) it fails unless its target
+ * is the Pokémon the user carries.
+ * @returns The reason the move fails, or `undefined` if it does not
+ */
+function getSkyDropFailure(user: Pokemon, target: Pokemon | undefined): SkyDropFailure | undefined {
+  if (!target) {
+    return "fail";
+  }
+  if (user.getTag(BattlerTagType.FLYING) instanceof SkyDropCarrierTag) {
+    return target.getTag(BattlerTagType.SKY_DROP)?.sourceId === user.id ? undefined : "fail";
+  }
+  // A Dynamaxed target cannot be carried either (this fork's choice: Sky Drop is not in the Dynamax games), like the
+  // weight-based moves that fail against it
+  if (target === user || !user.isOpponent(target) || target.getTag(BattlerTagType.SUBSTITUTE) || target.isDynamaxed()) {
+    return "fail";
+  }
+  if (target.getWeight() >= 200) {
+    return "heavy";
+  }
+  const hiddenByCommander =
+    globalScene.currentBattle.double
+    && target.getAlly()?.getTag(BattlerTagType.COMMANDED)?.getSourcePokemon() === target;
+  if ((target.getTag(SemiInvulnerableTag) && !canSkyDropReachSemiInvulnerable(user, target)) || hiddenByCommander) {
+    return "miss";
+  }
+  if (target.getTag(ProtectedTag)) {
+    return "protected";
+  }
+}
+
+/**
+ * Local fork (2026-11-19): whether Sky Drop's user reaches a semi-invulnerable target anyway: No Guard on either side,
+ * or the user's Lock-On / Mind Reader on it (`MoveEffectPhase.checkBypassAccAndInvuln`'s rules)
+ */
+function canSkyDropReachSemiInvulnerable(user: Pokemon, target: Pokemon): boolean {
+  if (user.hasAbilityWithAttr("AlwaysHitAbAttr") || target.hasAbilityWithAttr("AlwaysHitAbAttr")) {
+    return true;
+  }
+  return (
+    !!user.getTag(BattlerTagType.IGNORE_ACCURACY)
+    && !!user
+      .getLastXMoves(-1)
+      .find(m => m.move === MoveId.LOCK_ON || m.move === MoveId.MIND_READER)
+      ?.targets?.includes(target.getBattlerIndex())
+  );
+}
+
+/**
+ * Local fork (2026-11-19): Sky Drop's failure checks ({@linkcode getSkyDropFailure}) as a move condition, with the
+ * main series' text for each: too heavy to lift, the target avoided the attack, the target protected itself.
+ */
+export class SkyDropConditionAttr extends MoveAttr {
+  override getCondition(): MoveConditionFunc {
+    return (user, target) => getSkyDropFailure(user, target) === undefined;
+  }
+
+  override getFailedText(user: Pokemon, target: Pokemon): string | undefined {
+    switch (getSkyDropFailure(user, target)) {
+      case "heavy":
+        return i18next.t("moveTriggers:skyDropTooHeavy", { targetName: getPokemonNameWithAffix(target) });
+      case "miss":
+        return i18next.t("battle:attackMissed", { pokemonNameWithAffix: getPokemonNameWithAffix(target) });
+      case "protected":
+        return i18next.t("battlerTags:protectedLapse", { pokemonNameWithAffix: getPokemonNameWithAffix(target) });
+      default:
+        return;
+    }
   }
 }
 
@@ -6790,6 +7174,10 @@ export class AddBattlerTagAttr extends MoveEffectAttr {
         return -2;
       case BattlerTagType.MINIMIZED:
       case BattlerTagType.ALWAYS_GET_HIT:
+      // Local fork (2026-11-19), E2 review: the Uproar / Rollout / Ice Ball locks score nothing, as before they existed
+      // (and no "missing a score" warning each time the AI looks at the move)
+      case BattlerTagType.UPROAR:
+      case BattlerTagType.ROLLOUT:
         return 0;
       case BattlerTagType.INGRAIN:
       case BattlerTagType.IGNORE_ACCURACY:
@@ -6809,6 +7197,11 @@ export class AddBattlerTagAttr extends MoveEffectAttr {
   }
 
   getTargetBenefitScore(user: Pokemon, target: Pokemon, move: Move): number {
+    // Local fork (2026-11-19): a Dynamaxed Pokémon never flinches (FlinchedTag.canAdd), so the AI counts nothing for it
+    // (the user: "다이맥스 강제 교체와 풀죽음 ... 넣도록 하죠")
+    if (this.tagType === BattlerTagType.FLINCHED && (this.selfTarget ? user : target).isDynamaxed()) {
+      return 0;
+    }
     let moveChance = this.getMoveChance(user, target, move, this.selfTarget, false);
     if (moveChance < 0) {
       moveChance = 100;
@@ -7634,7 +8027,8 @@ export class ForceSwitchOutAttr extends MoveEffectAttr {
   getFailedText(_user: Pokemon, target: Pokemon, _move: Move): string | undefined {
     const cancelled = new BooleanHolder(false);
     applyAbAttrs("ForceSwitchOutImmunityAbAttr", { pokemon: target, cancelled });
-    if (cancelled.value) {
+    // Local fork (2026-11-19): a Dynamaxed target cannot be forced out either (getSwitchOutCondition), same message
+    if (cancelled.value || (!this.selfSwitch && target.isDynamaxed())) {
       return i18next.t("moveTriggers:cannotBeSwitchedOut", { pokemonName: getPokemonNameWithAffix(target) });
     }
   }
@@ -7654,6 +8048,14 @@ export class ForceSwitchOutAttr extends MoveEffectAttr {
       }
 
       if (!this.selfSwitch) {
+        // Local fork (2026-11-19): a Dynamaxed target (`Pokemon.isDynamaxed`: a G-Max / E-Max form or the Dynamax
+        // state, player and enemy alike) cannot be forced out, as in the main series: Roar / Whirlwind fail (a move
+        // condition, so the enemy AI scores them as failing), Dragon Tail / Circle Throw still deal their damage (the
+        // user: "다이맥스 강제 교체 ... 면역 ... 거다이맥스에도 반영이 아직 안되어있다면 거다이맥스에도 넣고")
+        if (target.isDynamaxed()) {
+          return false;
+        }
+
         if (move.hitsSubstitute(user, target)) {
           return false;
         }
@@ -8721,10 +9123,11 @@ export class AbilityChangeAttr extends MoveEffectAttr {
     }
 
     const moveTarget = this.selfTarget ? user : target;
-    const pokemonName = getPokemonNameWithAffix(moveTarget);
-
+    // Local fork (2026-11-19): the name is read after the illusion breaks, so both messages name the holder itself (C10)
     globalScene.triggerPokemonFormChange(moveTarget, SpeciesFormChangeRevertWeatherFormTrigger);
-    if (moveTarget.breakIllusion()) {
+    const illusionBroken = moveTarget.breakIllusion();
+    const pokemonName = getPokemonNameWithAffix(moveTarget);
+    if (illusionBroken) {
       globalScene.phaseManager.queueMessage(i18next.t("abilityTriggers:illusionBreak", { pokemonName }));
     }
     globalScene.phaseManager.queueMessage(
@@ -9112,6 +9515,19 @@ export class DestinyBondAttr extends MoveEffectAttr {
     user.addTag(BattlerTagType.DESTINY_BOND, undefined, move.id, user.id);
     return true;
   }
+
+  /**
+   * Local fork (2026-11-19): a Dynamaxed attacker is never taken down (DestinyBondTag), so the enemy AI scores Destiny
+   * Bond as failing while every opponent on the field is Dynamaxed (the user: "... 길동무 면역을 넣도록 하죠"); the move
+   * itself still works as in the main series
+   */
+  override getUserBenefitScore(user: Pokemon, target: Pokemon, move: Move): number {
+    const opponents = user.getOpponents();
+    if (opponents.length > 0 && opponents.every(p => p.isDynamaxed())) {
+      return -20;
+    }
+    return super.getUserBenefitScore(user, target, move);
+  }
 }
 
 /** Attribute to apply a battler tag to the target if they have had their stats boosted this turn */
@@ -9306,9 +9722,13 @@ const swallowHealFunc = (user: Pokemon): number => {
 
 /**
  * Attribute used for Conversion 2, to convert the user's type to a random type that resists the target's last used move.
+ *
+ * Local fork (2026-11-19): Conversion 2 (텍스처2) is no longer partial and upstream's two TODOs here are done (the user:
+ * "e2 구현"). It reads the type the target's last move was actually used as (`TurnMove.moveType`: Weather Ball in rain,
+ * Hidden Power, Normalize / Pixilate, Electrify, Ion Deluge ...), as in the main series, and it fails as a move
+ * condition ("But it failed!") when no type qualifies: that move was typeless (Struggle) or Stellar, or the user already
+ * has every type resisting it. Types immune to the move count as resisting it, as before.
  */
-// TODO: If a move has its type changed (e.g. Hidden Power), it should check the new type.
-// TODO: Does not fail when it should
 export class ResistLastMoveTypeAttr extends MoveEffectAttr {
   constructor() {
     super(true);
@@ -9328,16 +9748,7 @@ export class ResistLastMoveTypeAttr extends MoveEffectAttr {
     }
 
     // TODO: Confirm how this interacts with status-induced failures and called moves
-    const targetMove = target.getLastXMoves(1)[0]; // target's most recent move
-    if (!targetMove) {
-      return false;
-    }
-
-    const moveData = allMoves[targetMove.move];
-    if (moveData.type === PokemonType.STELLAR || moveData.type === PokemonType.UNKNOWN) {
-      return false;
-    }
-    const validTypes = this.getTypeResistances(user, moveData.type);
+    const validTypes = getConversion2Types(user, target);
     if (validTypes.length === 0) {
       return false;
     }
@@ -9354,35 +9765,35 @@ export class ResistLastMoveTypeAttr extends MoveEffectAttr {
     return true;
   }
 
-  /**
-   * Retrieve the types resisting a given type. Used by Conversion 2
-   * @param moveType - The type of the move having been used
-   * @returns An array containing all types that resist the given move's type
-   * and are not currently shared by the user
-   */
-  private getTypeResistances(user: Pokemon, moveType: PokemonType): PokemonType[] {
-    const resistances: PokemonType[] = [];
-    const userTypes = user.getTypes({ returnOriginalTypesIfStellar: true });
-
-    for (const type of getEnumValues(PokemonType)) {
-      if (userTypes.includes(type)) {
-        continue;
-      }
-      const multiplier = getTypeDamageMultiplier(moveType, type);
-      if (multiplier < 1) {
-        resistances.push(type);
-      }
-    }
-
-    return resistances;
-  }
-
   getCondition(): MoveConditionFunc {
     // TODO: Does this count dancer?
-    return (user, target) => {
-      return !user.isTerastallized && target.getLastXMoves(-1).some(tm => tm.move !== MoveId.NONE);
-    };
+    return (user, target) => !user.isTerastallized && getConversion2Types(user, target).length > 0;
   }
+}
+
+/**
+ * Local fork (2026-11-19): the types Conversion 2 can turn `user` into: every type resisting (or immune to) the type
+ * `target`'s last move was used as, that `user` does not already have. An `Interrupted` placeholder (`MoveId.NONE`) in
+ * the history is skipped.
+ * @returns The candidate types, in type order (empty if the move fails)
+ */
+function getConversion2Types(user: Pokemon, target: Pokemon): PokemonType[] {
+  const targetMove = target.getLastXMoves(-1).find(tm => tm.move !== MoveId.NONE);
+  if (!targetMove) {
+    return [];
+  }
+  const recordedMove = allMoves[targetMove.derivedMoveId ?? targetMove.move];
+  const moveType = recordedMove.hasAttr("TypelessAttr")
+    ? PokemonType.UNKNOWN
+    : (targetMove.moveType ?? recordedMove.type);
+  if (moveType === PokemonType.STELLAR || moveType === PokemonType.UNKNOWN) {
+    return [];
+  }
+
+  const userTypes = user.getTypes({ returnOriginalTypesIfStellar: true });
+  return getEnumValues(PokemonType).filter(
+    type => !userTypes.includes(type) && getTypeDamageMultiplier(moveType, type) < 1,
+  );
 }
 
 /**
@@ -10073,6 +10484,8 @@ const MoveAttrs = Object.freeze({
   PsychoShiftEffectAttr,
   StealHeldItemChanceAttr,
   RemoveHeldItemAttr,
+  CorrosiveGasAttr, // Local fork (2026-11-19): Corrosive Gas (1.2.0 D6)
+  RecycleAttr, // Local fork (2026-11-19): Recycle (1.2.0 D6)
   EatBerryAttr,
   StealEatBerryAttr,
   HealStatusEffectAttr,
@@ -10109,6 +10522,7 @@ const MoveAttrs = Object.freeze({
   ConsecutiveUsePowerMultiplierAttr,
   ConsecutiveUseDoublePowerAttr,
   ConsecutiveUseMultiBasePowerAttr,
+  RolloutPowerAttr, // Local fork (2026-11-19): Rollout / Ice Ball
   WeightPowerAttr,
   ElectroBallPowerAttr,
   GyroBallPowerAttr,
@@ -10176,8 +10590,12 @@ const MoveAttrs = Object.freeze({
   MissEffectAttr,
   NoEffectAttr,
   TypelessAttr,
+  SmartTargetAttr, // Local fork (2026-11-19): Dragon Darts
   BypassRedirectAttr,
   SemiInvulnerableAttr,
+  SkyDropLiftAttr, // Local fork (2026-11-19): Sky Drop
+  SkyDropConditionAttr, // Local fork (2026-11-19): Sky Drop
+  SkyDropFlyingImmunityAttr, // Local fork (2026-11-19): Sky Drop
   LeechSeedAttr,
   FallDownAttr,
   GulpMissileTagAttr,
@@ -10794,10 +11212,10 @@ export function initMoves() {
       .target(MoveTarget.CURSE),
     new AttackMove(MoveId.FLAIL, PokemonType.NORMAL, MoveCategory.PHYSICAL, -1, 100, 15, -1, 0, 2) //
       .attr(LowHpPowerAttr),
+    // Local fork (2026-11-19): no longer partial; reads the type the target's last move was used as (the user: "e2 구현")
     new StatusMove(MoveId.CONVERSION_2, PokemonType.NORMAL, -1, 30, -1, 0, 2)
       .attr(ResistLastMoveTypeAttr)
-      .ignoresSubstitute()
-      .partial(), // Checks the move's original typing and not if its type is changed through some other means
+      .ignoresSubstitute(),
     new AttackMove(MoveId.AEROBLAST, PokemonType.FLYING, MoveCategory.SPECIAL, 100, 95, 5, -1, 0, 2)
       .windMove()
       .attr(HighCritAttr),
@@ -10905,9 +11323,10 @@ export function initMoves() {
     new StatusMove(MoveId.CHARM, PokemonType.FAIRY, 100, 20, -1, 0, 2)
       .attr(StatStageChangeAttr, [Stat.ATK], -2)
       .reflectable(),
+    // Local fork (2026-11-19): a 5-turn lock, power x2 per hit and x2 after Defense Curl (the user: "e2 구현")
     new AttackMove(MoveId.ROLLOUT, PokemonType.ROCK, MoveCategory.PHYSICAL, 30, 90, 20, -1, 0, 2)
-      .partial() // Does not lock the user, also does not increase damage properly
-      .attr(ConsecutiveUseDoublePowerAttr, 5, true, true, MoveId.DEFENSE_CURL),
+      .attr(RolloutPowerAttr)
+      .attr(AddBattlerTagAttr, BattlerTagType.ROLLOUT, true, false, RolloutTag.CHAIN_LENGTH),
     new AttackMove(MoveId.FALSE_SWIPE, PokemonType.NORMAL, MoveCategory.PHYSICAL, 40, 100, 40, -1, 0, 2) //
       .attr(SurviveDamageAttr),
     new StatusMove(MoveId.SWAGGER, PokemonType.NORMAL, 85, 15, -1, 0, 2)
@@ -10986,8 +11405,10 @@ export function initMoves() {
       .reflectable()
       // TODO: Verify if Encore's duration decreases during status based move failures
       .edgeCase(),
+    // Local fork (2026-11-19): hits a foe that switches out this turn before it leaves, at double power (custom-pursuit.ts;
+    // the user: "e2 구현")
     new AttackMove(MoveId.PURSUIT, PokemonType.DARK, MoveCategory.PHYSICAL, 40, 100, 20, -1, 0, 2) //
-      .partial(), // No effect implemented
+      .attr(MovePowerMultiplierAttr, (user, target) => (isPursuitIntercept(user, target) ? 2 : 1)),
     new AttackMove(MoveId.RAPID_SPIN, PokemonType.NORMAL, MoveCategory.PHYSICAL, 50, 100, 40, 100, 0, 2)
       .attr(StatStageChangeAttr, [Stat.SPD], 1, true)
       .attr(
@@ -11076,12 +11497,12 @@ export function initMoves() {
     new AttackMove(MoveId.FAKE_OUT, PokemonType.NORMAL, MoveCategory.PHYSICAL, 40, 100, 10, 100, 3, 3)
       .attr(FlinchAttr)
       .condition(new FirstMoveCondition(), 3),
+    // Local fork (2026-11-19): a 3-turn lock; while it lasts no Pokémon can fall asleep, and sleeping ones wake up
+    // (`UproarTag`; the user: "e2 구현")
     new AttackMove(MoveId.UPROAR, PokemonType.NORMAL, MoveCategory.SPECIAL, 90, 100, 10, -1, 0, 3)
       .soundBased()
       .target(MoveTarget.RANDOM_NEAR_ENEMY)
-      // Does not lock the user, does not stop Pokemon from sleeping
-      // Likely can make use of a MoveLockTag and an ArenaTag
-      .partial(),
+      .attr(AddBattlerTagAttr, BattlerTagType.UPROAR, true, false, UproarTag.DURATION),
     new SelfStatusMove(MoveId.STOCKPILE, PokemonType.NORMAL, -1, 20, -1, 0, 3)
       .attr(AddBattlerTagAttr, BattlerTagType.STOCKPILING, true)
       .condition(user => (user.getTag(BattlerTagType.STOCKPILING)?.stockpiledCount ?? 0) < 3, 3),
@@ -11187,8 +11608,9 @@ export function initMoves() {
       .condition(failIfLastCondition, 3)
       // Should reflect moves that would otherwise fail
       .edgeCase(),
+    // Local fork (2026-11-19): Recycle gives back the last berry the user ate this battle (1.2.0 D6; the user: "d6 실행")
     new SelfStatusMove(MoveId.RECYCLE, PokemonType.NORMAL, -1, 10, -1, 0, 3) //
-      .unimplemented(),
+      .attr(RecycleAttr),
     new AttackMove(MoveId.REVENGE, PokemonType.FIGHTING, MoveCategory.PHYSICAL, 60, 100, 10, -1, -4, 3) //
       .attr(TurnDamagedDoublePowerAttr),
     new AttackMove(MoveId.BRICK_BREAK, PokemonType.FIGHTING, MoveCategory.PHYSICAL, 75, 100, 15, -1, 0, 3) //
@@ -11276,9 +11698,10 @@ export function initMoves() {
       .ignoresProtect()
       .attr(AddArenaTagAttr, ArenaTagType.MUD_SPORT, 5)
       .target(MoveTarget.BOTH_SIDES),
+    // Local fork (2026-11-19): a 5-turn lock, power x2 per hit and x2 after Defense Curl (the user: "e2 구현")
     new AttackMove(MoveId.ICE_BALL, PokemonType.ICE, MoveCategory.PHYSICAL, 30, 90, 20, -1, 0, 3)
-      .partial() // Does not lock the user properly, does not increase damage correctly
-      .attr(ConsecutiveUseDoublePowerAttr, 5, true, true, MoveId.DEFENSE_CURL)
+      .attr(RolloutPowerAttr)
+      .attr(AddBattlerTagAttr, BattlerTagType.ROLLOUT, true, false, RolloutTag.CHAIN_LENGTH)
       .ballBombMove(),
     new AttackMove(MoveId.NEEDLE_ARM, PokemonType.GRASS, MoveCategory.PHYSICAL, 60, 100, 15, 30, 0, 3) //
       .attr(FlinchAttr),
@@ -11806,10 +12229,12 @@ export function initMoves() {
       .attr(AverageStatsAttr, [Stat.ATK, Stat.SPATK], "moveTriggers:sharedPower"),
     // TODO: Enable / remove once balance reaches a consensus on imprison interaction during the final boss fight
     // .condition(failAgainstFinalBossCondition, 2)
+    // Local fork (2026-11-19): Wonder Room, Trick Room's pattern: 5 turns, ended by using it again (1.2.0 D6; the user:
+    // "d6 실행")
     new StatusMove(MoveId.WONDER_ROOM, PokemonType.PSYCHIC, -1, 10, -1, 0, 5)
+      .attr(AddArenaTagAttr, ArenaTagType.WONDER_ROOM, 5)
       .ignoresProtect()
-      .target(MoveTarget.BOTH_SIDES)
-      .unimplemented(),
+      .target(MoveTarget.BOTH_SIDES),
     new AttackMove(MoveId.PSYSHOCK, PokemonType.PSYCHIC, MoveCategory.SPECIAL, 80, 100, 10, -1, 0, 5) //
       .attr(DefDefAttr),
     new AttackMove(MoveId.VENOSHOCK, PokemonType.POISON, MoveCategory.SPECIAL, 65, 100, 10, -1, 0, 5) //
@@ -11939,19 +12364,19 @@ export function initMoves() {
       .attr(MovePowerMultiplierAttr, (_user, target, _move) =>
         target.status || target.hasAbility(AbilityId.COMATOSE) ? 2 : 1,
       ),
+    // Local fork (2026-11-19): no longer partial (the user: "e2 구현"). Cf https://bulbapedia.bulbagarden.net/wiki/Sky_Drop_(move)
+    // and https://www.smogon.com/dex/sv/moves/sky-drop/. The first turn carries the target up with the user
+    // (`SkyDropLiftAttr`; the target cannot act or switch and loses Follow Me / Rage Powder, `SkyDropTag`), failing on a
+    // substitute, an ally, 200 kg or more, a semi-invulnerable or protected target (`SkyDropConditionAttr`); the second
+    // drops it, doing no damage to Flying types. Neither turn is redirected (Follow Me, Lightning Rod ...).
     new ChargingAttackMove(MoveId.SKY_DROP, PokemonType.FLYING, MoveCategory.PHYSICAL, 60, 100, 10, -1, 0, 5)
       .chargeText(i18next.t("moveTriggers:tookTargetIntoSky", { pokemonName: "{USER}", targetName: "{TARGET}" }))
       .chargeAttr(SemiInvulnerableAttr, BattlerTagType.FLYING)
-      .affectedByGravity()
-      .condition((_user, target, _move) => !target.getTag(BattlerTagType.SUBSTITUTE))
-      /*
-       * Cf https://bulbapedia.bulbagarden.net/wiki/Sky_Drop_(move) and https://www.smogon.com/dex/sv/moves/sky-drop/:
-       * Should immobilize and give target semi-invulnerability
-       * Flying types should take no damage
-       * Should fail on targets above a certain weight threshold
-       * Should remove all redirection effects on successful takeoff (Rage Poweder, etc.)
-       */
-      .partial(),
+      .chargeAttr(SkyDropLiftAttr)
+      .attr(SkyDropConditionAttr)
+      .attr(SkyDropFlyingImmunityAttr)
+      .attr(BypassRedirectAttr)
+      .affectedByGravity(),
     new SelfStatusMove(MoveId.SHIFT_GEAR, PokemonType.STEEL, -1, 10, -1, 0, 5)
       .attr(StatStageChangeAttr, [Stat.ATK], 1, true)
       .attr(StatStageChangeAttr, [Stat.SPD], 2, true),
@@ -12992,10 +13417,11 @@ export function initMoves() {
       .attr(ChangeTypeAttr, PokemonType.PSYCHIC)
       .powderMove()
       .reflectable(),
+    // Local fork (2026-11-19): no longer partial; smart targeting in double battles (the user: "e2 구현")
     new AttackMove(MoveId.DRAGON_DARTS, PokemonType.DRAGON, MoveCategory.PHYSICAL, 50, 100, 10, -1, 0, 8)
       .attr(MultiHitAttr, MultiHitType.TWO)
-      .makesContact(false)
-      .partial(), // smart targetting is unimplemented
+      .attr(SmartTargetAttr)
+      .makesContact(false),
     new StatusMove(MoveId.TEATIME, PokemonType.NORMAL, -1, 10, -1, 0, 8)
       .attr(EatBerryAttr, false)
       .target(MoveTarget.ALL),
@@ -13091,9 +13517,14 @@ export function initMoves() {
       .attr(StatusEffectAttr, StatusEffect.BURN)
       .ballBombMove()
       .makesContact(false),
+    // Local fork (2026-11-19): Behemoth Blade / Bash deal double damage to a Dynamaxed target (`Pokemon.isDynamaxed`: a
+    // G-Max / E-Max form or the Dynamax state), as in the main series; Dynamax Cannon keeps its own rule (the user:
+    // "거수참/탄 두배 ... 거다이맥스에도 반영이 아직 안되어있다면 거다이맥스에도 넣고")
     new AttackMove(MoveId.BEHEMOTH_BLADE, PokemonType.STEEL, MoveCategory.PHYSICAL, 100, 100, 5, -1, 0, 8) //
+      .attr(MovePowerMultiplierAttr, (_user, target) => (target.isDynamaxed() ? 2 : 1))
       .slicingMove(),
-    new AttackMove(MoveId.BEHEMOTH_BASH, PokemonType.STEEL, MoveCategory.PHYSICAL, 100, 100, 5, -1, 0, 8),
+    new AttackMove(MoveId.BEHEMOTH_BASH, PokemonType.STEEL, MoveCategory.PHYSICAL, 100, 100, 5, -1, 0, 8) //
+      .attr(MovePowerMultiplierAttr, (_user, target) => (target.isDynamaxed() ? 2 : 1)),
     new AttackMove(MoveId.AURA_WHEEL, PokemonType.ELECTRIC, MoveCategory.PHYSICAL, 110, 100, 10, 100, 0, 8)
       .attr(StatStageChangeAttr, [Stat.SPD], 1, true)
       .makesContact(false)
@@ -13160,8 +13591,8 @@ export function initMoves() {
       .chargeAttr(StatStageChangeAttr, [Stat.SPATK], 1, true),
     new AttackMove(MoveId.SHELL_SIDE_ARM, PokemonType.POISON, MoveCategory.SPECIAL, 90, 100, 10, 20, 0, 8)
       .attr(ShellSideArmCategoryAttr)
-      .attr(StatusEffectAttr, StatusEffect.POISON)
-      .partial(), // Physical version of the move does not make contact
+      // Local fork (2026-11-19): no longer partial; it makes contact when physical (`Move.hasContactFlag`)
+      .attr(StatusEffectAttr, StatusEffect.POISON),
     new AttackMove(MoveId.MISTY_EXPLOSION, PokemonType.FAIRY, MoveCategory.SPECIAL, 100, 100, 5, -1, 0, 8)
       .attr(SacrificialAttr)
       .target(MoveTarget.ALL_NEAR_OTHERS)
@@ -13196,10 +13627,12 @@ export function initMoves() {
       .condition(failIfNoTargetHeldItemsCondition, 3)
       .attr(PreMoveMessageAttr, attackedByItemMessageFunc)
       .makesContact(false),
+    // Local fork (2026-11-19): Corrosive Gas, Knock Off's item removal on everyone around the user, never on the
+    // player's party (1.2.0 D6; the user: "d6 실행")
     new StatusMove(MoveId.CORROSIVE_GAS, PokemonType.POISON, 100, 40, -1, 0, 8)
+      .attr(CorrosiveGasAttr)
       .target(MoveTarget.ALL_NEAR_OTHERS)
-      .reflectable()
-      .unimplemented(),
+      .reflectable(),
     new StatusMove(MoveId.COACHING, PokemonType.FIGHTING, -1, 10, -1, 0, 8)
       .attr(StatStageChangeAttr, [Stat.ATK, Stat.DEF], 1)
       .target(MoveTarget.NEAR_ALLY)
@@ -13553,17 +13986,14 @@ export function initMoves() {
       .chargeText(i18next.t("moveTriggers:absorbedElectricity", { pokemonName: "{USER}" }))
       .chargeAttr(StatStageChangeAttr, [Stat.SPATK], 1, true)
       .chargeAttr(WeatherInstantChargeAttr, [WeatherType.RAIN, WeatherType.HEAVY_RAIN]),
+    // Local fork (2026-11-19): no longer partial; the category follows the main series' rule (`TeraMoveCategoryAttr`,
+    // Terapagos only) and an enemy Terapagos spreads it on the turn it Terastallizes too (the user: "e2 구현")
     new AttackMove(MoveId.TERA_STARSTORM, PokemonType.NORMAL, MoveCategory.SPECIAL, 120, 100, 5, -1, 0, 9)
-      .attr(TeraMoveCategoryAttr)
+      .attr(TeraMoveCategoryAttr, true)
       .attr(TeraStarstormTypeAttr)
       .attr(VariableTargetAttr, (user, _target, _move) =>
-        user.hasSpecies(SpeciesId.TERAPAGOS)
-        && (user.isTerastallized
-          || globalScene.currentBattle.preTurnCommands[user.getFieldIndex()]?.command === Command.TERA)
-          ? MoveTarget.ALL_NEAR_ENEMIES
-          : MoveTarget.NEAR_OTHER,
-      )
-      .partial(), // Does not ignore abilities that affect stats, relevant in determining the move's category (cf `TeraMoveCategoryAttr`)
+        isTeraStarstormSpread(user) ? MoveTarget.ALL_NEAR_ENEMIES : MoveTarget.NEAR_OTHER,
+      ),
     new AttackMove(MoveId.FICKLE_BEAM, PokemonType.DRAGON, MoveCategory.SPECIAL, 80, 100, 5, -1, 0, 9)
       .attr(PreMoveMessageAttr, doublePowerChanceMessageFunc(30))
       .attr(DoublePowerChanceAttr, 30),

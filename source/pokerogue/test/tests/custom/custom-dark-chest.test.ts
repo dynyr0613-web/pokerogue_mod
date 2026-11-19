@@ -650,9 +650,11 @@ describe("Custom mystery encounter - Mysterious Chest? (DARK_MYSTERIOUS_CHEST)",
       game.override.mysteryEncounterChance(0);
       await game.classicMode.startBattle(SpeciesId.LAPRAS, SpeciesId.GENGAR);
       setMode(GameModes.ENDLESS);
+      // Local fork (2026-11-19): "고철 속 보물" (809, 1809, ...) joined after the chest (custom-scrap-treasure.test.ts)
       expect(SPECIAL_ENCOUNTER_SPAWNS.map(s => s.type)).toEqual([
         MysteryEncounterType.DARK_GLOBAL_TRADE_SYSTEM,
         MysteryEncounterType.DARK_MYSTERIOUS_CHEST,
+        MysteryEncounterType.SCRAP_TREASURE,
       ]);
       scene.setSeed(findSeed(true));
       const gts = vi.spyOn(DarkGtsSpawn, "isDarkGtsEndWave").mockImplementation(wave => wave === 249 || wave === 777);

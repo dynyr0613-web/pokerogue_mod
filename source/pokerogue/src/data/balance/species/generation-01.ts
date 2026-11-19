@@ -259,7 +259,7 @@ export function initGenerationOne(): SpeciesDataMapConfig {
           height: 24,
           weight: 999.9,
           ability1: AbilityId.EFFECT_SPORE,
-          ability2: AbilityId.NONE,
+          ability2: AbilityId.THICK_FAT, // Local fork (2026-11-19): D12 extra ability, was NONE
           abilityHidden: AbilityId.EFFECT_SPORE,
           baseTotal: 625,
           baseHp: 120,
@@ -2559,7 +2559,7 @@ export function initGenerationOne(): SpeciesDataMapConfig {
           height: 21,
           weight: 999.9,
           ability1: AbilityId.LIGHTNING_ROD,
-          ability2: AbilityId.NONE,
+          ability2: AbilityId.QUARK_DRIVE, // Local fork (2026-11-19): D12 extra ability, was NONE
           abilityHidden: AbilityId.LIGHTNING_ROD,
           baseTotal: 530,
           baseHp: 125,
@@ -4192,7 +4192,7 @@ export function initGenerationOne(): SpeciesDataMapConfig {
       height: 0.8,
       weight: 7.5,
       ability1: AbilityId.INNER_FOCUS,
-      ability2: AbilityId.NONE,
+      ability2: AbilityId.STRONG_JAW, // Local fork (2026-11-19): D12 extra ability, was NONE
       abilityHidden: AbilityId.INFILTRATOR,
       baseTotal: 245,
       baseHp: 40,
@@ -4302,7 +4302,7 @@ export function initGenerationOne(): SpeciesDataMapConfig {
       height: 1.6,
       weight: 55,
       ability1: AbilityId.INNER_FOCUS,
-      ability2: AbilityId.NONE,
+      ability2: AbilityId.STRONG_JAW, // Local fork (2026-11-19): D12 extra ability, was NONE
       abilityHidden: AbilityId.INFILTRATOR,
       baseTotal: 455,
       baseHp: 75,
@@ -5140,7 +5140,7 @@ export function initGenerationOne(): SpeciesDataMapConfig {
           height: 33,
           weight: 999.9,
           ability1: AbilityId.TECHNICIAN,
-          ability2: AbilityId.TECHNICIAN,
+          ability2: AbilityId.PICKPOCKET, // Local fork (2026-11-19): D12 extra ability, was TECHNICIAN
           abilityHidden: AbilityId.TECHNICIAN,
           baseTotal: 540,
           baseHp: 115,
@@ -6443,7 +6443,7 @@ export function initGenerationOne(): SpeciesDataMapConfig {
           height: 1.2,
           weight: 48,
           ability1: AbilityId.TRACE,
-          ability2: AbilityId.TRACE,
+          ability2: AbilityId.ARCHMAGE, // Local fork (2026-11-19): D12 extra ability, was TRACE
           abilityHidden: AbilityId.TRACE,
           baseTotal: 600,
           baseHp: 55,
@@ -7966,7 +7966,7 @@ export function initGenerationOne(): SpeciesDataMapConfig {
       height: 0.3,
       weight: 6,
       ability1: AbilityId.MAGNET_PULL,
-      ability2: AbilityId.STURDY,
+      ability2: AbilityId.TRANSISTOR, // Local fork (2026-11-19): D12 extra ability, was STURDY
       abilityHidden: AbilityId.ANALYTIC,
       baseTotal: 325,
       baseHp: 25,
@@ -8078,7 +8078,7 @@ export function initGenerationOne(): SpeciesDataMapConfig {
       height: 1,
       weight: 60,
       ability1: AbilityId.MAGNET_PULL,
-      ability2: AbilityId.STURDY,
+      ability2: AbilityId.TRANSISTOR, // Local fork (2026-11-19): D12 extra ability, was STURDY
       abilityHidden: AbilityId.ANALYTIC,
       baseTotal: 465,
       baseHp: 50,
@@ -9226,7 +9226,7 @@ export function initGenerationOne(): SpeciesDataMapConfig {
           height: 1.4,
           weight: 40.5,
           ability1: AbilityId.SHADOW_TAG,
-          ability2: AbilityId.NONE,
+          ability2: AbilityId.WICKED_SCHEME, // Local fork (2026-11-19): D12 extra ability, was NONE
           abilityHidden: AbilityId.NONE,
           baseTotal: 600,
           baseHp: 60,
@@ -14015,7 +14015,7 @@ export function initGenerationOne(): SpeciesDataMapConfig {
       height: 0.8,
       weight: 36.5,
       ability1: AbilityId.TRACE,
-      ability2: AbilityId.DOWNLOAD,
+      ability2: AbilityId.SPACE_WARP, // Local fork (2026-11-19): D12 extra ability, was DOWNLOAD
       abilityHidden: AbilityId.ANALYTIC,
       baseTotal: 395,
       baseHp: 65,
@@ -15584,7 +15584,7 @@ export function initGenerationOne(): SpeciesDataMapConfig {
           height: 2.3,
           weight: 127,
           ability1: AbilityId.STEADFAST,
-          ability2: AbilityId.NONE,
+          ability2: AbilityId.ADAPTABILITY, // Local fork (2026-11-19): D12 extra ability, was NONE
           abilityHidden: AbilityId.STEADFAST,
           baseTotal: 780,
           baseHp: 106,
@@ -15605,7 +15605,7 @@ export function initGenerationOne(): SpeciesDataMapConfig {
           height: 1.5,
           weight: 33,
           ability1: AbilityId.INSOMNIA,
-          ability2: AbilityId.NONE,
+          ability2: AbilityId.ADAPTABILITY, // Local fork (2026-11-19): D12 extra ability, was NONE
           abilityHidden: AbilityId.INSOMNIA,
           baseTotal: 780,
           baseHp: 106,

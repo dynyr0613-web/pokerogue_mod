@@ -54,4 +54,9 @@ export enum ArenaTagType {
   G_MAX_VOLCALITH = "G_MAX_VOLCALITH",
   /** Local fork (2026-11-16): G-Max Steelsurge (거다이강철진): a Steel-type Stealth Rock */
   G_MAX_STEELSURGE = "G_MAX_STEELSURGE",
+  /**
+   * Local fork (2026-11-19): Wonder Room (원더룸, 1.2.0 D6; the user: "d6 실행"): for 5 turns every Pokémon's Defense and
+   * Sp. Def are swapped. Appended at the end; a string enum, so saves keep it by name.
+   */
+  WONDER_ROOM = "WONDER_ROOM",
 }

@@ -49,8 +49,9 @@ SOURCES = {
     "MINI_MARK": "markmini",
     "PARTNER_MARK": "markpartner",
     "MIGHTIEST_MARK": "markmightiest",
-    # This fork's own marks: PokéRogue's Shiny Charm item icon, scaled 1.5x and recoloured yellow, mint and red for
-    # the three shiny tiers (mark-icons/ribbonmarkshiny*.png)
+    # This fork's own marks: PokéRogue's Shiny Charm item icon, not scaled but grown 15% (19x22 -> 22x25, three rows
+    # and three columns drawn twice) and recoloured yellow, mint and red for the three shiny tiers
+    # (mark-icons/ribbonmarkshiny*.png, made by make_shiny_mark_icons.py; 2026-11-19: this comment said "scaled 1.5x")
     "SHINY_MARK": "markshinyyellow",
     "RARE_SHINY_MARK": "markshinymint",
     "EPIC_SHINY_MARK": "markshinyred",

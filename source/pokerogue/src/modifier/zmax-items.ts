@@ -157,7 +157,12 @@ export const Z_TYPE_CRYSTAL_TYPES: readonly PokemonType[] = Object.freeze([
   PokemonType.FAIRY,
 ]);
 
-/** Local fork (2026-11-16): the item atlas frame of each type crystal (placeholder recolours, tools/port_zmax_1116) */
+/**
+ * Local fork (2026-11-16): the item atlas frame of each type crystal. 2026-11-19: since 2026-11-18 the frames are
+ * PokéSprite's 32x32 bag icons (`z-crystals/<name>-z--bag.png`, installed by tools/port/install_pokesprite_icons.py);
+ * the placeholder recolours this comment named (tools/port_zmax_1116) and the Mega Showdown icons after them are no
+ * longer used.
+ */
 export const Z_TYPE_CRYSTAL_ICONS: Readonly<Partial<Record<PokemonType, string>>> = Object.freeze({
   [PokemonType.NORMAL]: "normalium_z",
   [PokemonType.FIGHTING]: "fightinium_z",

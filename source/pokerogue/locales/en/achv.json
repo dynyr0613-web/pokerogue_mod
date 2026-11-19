@@ -484,6 +484,96 @@
     "name_female": "Legendary Collector",
     "description": "Collect all {{amount}} Legendary Pokémon but Eternatus."
   },
+  "typeCollectorNormal": {
+    "name": "Normal-type Collector",
+    "name_female": "Normal-type Collector",
+    "description": "Collect all {{amount}} Normal-type Pokémon, regional forms included."
+  },
+  "typeCollectorFighting": {
+    "name": "Fighting-type Collector",
+    "name_female": "Fighting-type Collector",
+    "description": "Collect all {{amount}} Fighting-type Pokémon, regional forms included."
+  },
+  "typeCollectorFlying": {
+    "name": "Flying-type Collector",
+    "name_female": "Flying-type Collector",
+    "description": "Collect all {{amount}} Flying-type Pokémon, regional forms included."
+  },
+  "typeCollectorPoison": {
+    "name": "Poison-type Collector",
+    "name_female": "Poison-type Collector",
+    "description": "Collect all {{amount}} Poison-type Pokémon but Eternatus, regional forms included."
+  },
+  "typeCollectorGround": {
+    "name": "Ground-type Collector",
+    "name_female": "Ground-type Collector",
+    "description": "Collect all {{amount}} Ground-type Pokémon, regional forms included."
+  },
+  "typeCollectorRock": {
+    "name": "Rock-type Collector",
+    "name_female": "Rock-type Collector",
+    "description": "Collect all {{amount}} Rock-type Pokémon, regional forms included."
+  },
+  "typeCollectorBug": {
+    "name": "Bug-type Collector",
+    "name_female": "Bug-type Collector",
+    "description": "Collect all {{amount}} Bug-type Pokémon, regional forms included."
+  },
+  "typeCollectorGhost": {
+    "name": "Ghost-type Collector",
+    "name_female": "Ghost-type Collector",
+    "description": "Collect all {{amount}} Ghost-type Pokémon, regional forms included."
+  },
+  "typeCollectorSteel": {
+    "name": "Steel-type Collector",
+    "name_female": "Steel-type Collector",
+    "description": "Collect all {{amount}} Steel-type Pokémon, regional forms included."
+  },
+  "typeCollectorFire": {
+    "name": "Fire-type Collector",
+    "name_female": "Fire-type Collector",
+    "description": "Collect all {{amount}} Fire-type Pokémon, regional forms included."
+  },
+  "typeCollectorWater": {
+    "name": "Water-type Collector",
+    "name_female": "Water-type Collector",
+    "description": "Collect all {{amount}} Water-type Pokémon, regional forms included."
+  },
+  "typeCollectorGrass": {
+    "name": "Grass-type Collector",
+    "name_female": "Grass-type Collector",
+    "description": "Collect all {{amount}} Grass-type Pokémon, regional forms included."
+  },
+  "typeCollectorElectric": {
+    "name": "Electric-type Collector",
+    "name_female": "Electric-type Collector",
+    "description": "Collect all {{amount}} Electric-type Pokémon, regional forms included."
+  },
+  "typeCollectorPsychic": {
+    "name": "Psychic-type Collector",
+    "name_female": "Psychic-type Collector",
+    "description": "Collect all {{amount}} Psychic-type Pokémon, regional forms included."
+  },
+  "typeCollectorIce": {
+    "name": "Ice-type Collector",
+    "name_female": "Ice-type Collector",
+    "description": "Collect all {{amount}} Ice-type Pokémon, regional forms included."
+  },
+  "typeCollectorDragon": {
+    "name": "Dragon-type Collector",
+    "name_female": "Dragon-type Collector",
+    "description": "Collect all {{amount}} Dragon-type Pokémon but Eternatus, regional forms included."
+  },
+  "typeCollectorDark": {
+    "name": "Dark-type Collector",
+    "name_female": "Dark-type Collector",
+    "description": "Collect all {{amount}} Dark-type Pokémon, regional forms included."
+  },
+  "typeCollectorFairy": {
+    "name": "Fairy-type Collector",
+    "name_female": "Fairy-type Collector",
+    "description": "Collect all {{amount}} Fairy-type Pokémon, regional forms included."
+  },
   "theEnd": {
     "name": "The End",
     "name_female": "The End",

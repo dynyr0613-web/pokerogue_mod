@@ -197,7 +197,8 @@ describe("Local fork - Destiny Mark by luck, Itemfinder Mark out of 완주, Pok�
       lifeAndDeath: "생명과 죽음",
       ruinousBeasts: "재앙의 네 짐승",
     });
-    expect(dexCollectionAchvs).toHaveLength(19);
+    // Local fork (2026-11-19): and the 18 type collections (custom-type-collection-achievements-1119.test.ts)
+    expect(dexCollectionAchvs).toHaveLength(19 + 18);
     for (const achv of dexCollectionAchvs) {
       for (const [lang, texts] of [
         ["ko", ko],

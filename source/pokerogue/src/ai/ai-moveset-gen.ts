@@ -411,6 +411,7 @@ function filterMovePool(
     if (
       weight <= 0
       || move.isUnimplemented // Forbid unimplemented moves
+      || isCorrosiveGasForEnemy(pokemon, move) // Local fork (2026-11-19): 1.2.0 D6
       || isZMaxOnlyMove(moveId) // Local fork (2026-11-16): Z / Max / G-Max ids only exist as converted slots
       || move.hasAttr("SacrificialAttrOnHit") // No one gets Memento or Final Gambit
       || (isBoss && (move.hasAttr("SacrificialAttr") || move.hasAttr("HpSplitAttr"))) // Bosses never get self ko moves or Pain Split
@@ -854,6 +855,18 @@ function overridesOrIgnoresWeather(pokemon: Pokemon): boolean {
  */
 function isGardenMoveForGardener(pokemon: Pokemon, moveId: MoveId): boolean {
   return moveId === MoveId.GARDENING && pokemon.hasAbilityWithAttr("PostSummonAddGardenAbAttr");
+}
+
+/**
+ * Local fork (2026-11-19): 1.2.0 D6 (the user: "d6 실행"). Corrosive Gas (부식가스) never takes the player's items
+ * (Knock Off's rule in this game), so an enemy could only strip its own partner with it: it stays out of enemy movesets,
+ * as while it was unimplemented. Movesets generated for the player's side keep it.
+ * @param pokemon - The Pokémon whose move pool is filtered
+ * @param move - The move under examination
+ * @returns Whether the move is Corrosive Gas and the Pokémon is not the player's
+ */
+function isCorrosiveGasForEnemy(pokemon: Pokemon, move: Move): boolean {
+  return move.hasAttr("CorrosiveGasAttr") && !pokemon.isPlayer();
 }
 
 /**

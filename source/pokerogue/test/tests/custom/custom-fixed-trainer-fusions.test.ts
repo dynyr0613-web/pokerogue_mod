@@ -402,8 +402,11 @@ describe("Custom - fixed trainer fusions past wave 200", () => {
     expect(h.getTypes(), label).toEqual(fusedTypes(headForm, tailForm));
     expect(h.getAbility().id, label).toBe(tailForm.getAbility(h.fusionAbilityIndex));
     if (isBattleFormKey(entry.tailForm) && entry.tailForm !== SpeciesFormKey.GIGANTAMAX) {
-      // A Mega / Primal tail has one ability, whatever the slot
-      expect(h.getAbility().id, label).toBe(tailForm.getAbility(0));
+      // A Mega / Primal tail has one ability, whatever the slot.
+      // Local fork (2026-11-19): except slot 1, where 1.2.0 D12 put the passive sheet's extra ability on some Megas
+      // (here Mega Mewtwo Y, Camerupt, Sharpedo, Gallade and Alakazam; the user: "d12 실행"). Slots 0 and 2 (the
+      // hidden one) both hold the Mega's own ability, so `% 2` maps them to slot 0.
+      expect(h.getAbility().id, label).toBe(tailForm.getAbility(h.fusionAbilityIndex % 2));
     }
     // Stats of the fused forms, at full HP
     if (!inBattle) {

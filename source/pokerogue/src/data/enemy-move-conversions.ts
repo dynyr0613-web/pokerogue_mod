@@ -22,6 +22,9 @@
  *   sprites and move animations load, so the derived move's animation loads with the Pokémon.
  * - Never in a mystery-encounter battle, for the Classic final boss or the Daily final boss (`getBattleFormRollWave`),
  *   or while `ENEMY_MOVESET_OVERRIDE` is set (the override rebuilds the enemy moveset each time it is read).
+ * - Local fork (2026-11-19): the final Endless trainer (wave 5850, `isEndlessFinalTrainerBattle`) rolls nothing: its
+ *   ace's damaging slots all become Max moves and exactly one other member gets one Z-Move
+ *   ({@linkcode applyEndlessFinalMoveConversions}).
  * - Seeds: the rolls run through `executeWithSeedOffset` on their own offsets ({@linkcode getMoveConversionSeedOffset}),
  *   which restores the running RNG afterwards, so every other draw of the wave is as before.
  * - A reloaded wave keeps its slots (`PokemonMove.transform` is saved with the moveset) and rolls nothing again.
@@ -41,6 +44,7 @@ import {
   getTrainerBattleFormTier,
   type TrainerBattleFormTier,
 } from "#data/enemy-battle-forms";
+import { getEndlessFinalAce } from "#data/enemy-dynamax";
 import { BattleType } from "#enums/battle-type";
 import { MoveCategory } from "#enums/move-category";
 import { MoveId } from "#enums/move-id";
@@ -48,6 +52,7 @@ import type { EnemyPokemon, Pokemon } from "#field/pokemon";
 import { getConversionResult, isExclusiveZEligibleSpecies, type MoveTransform } from "#moves/move-transform";
 import type { PokemonMove } from "#moves/pokemon-move";
 import { EXCLUSIVE_Z } from "#moves/zmax-data";
+import { isEndlessFinalTrainerBattle } from "#trainers/endless-final-trainer";
 import { coerceArray } from "#utils/array";
 import { randSeedInt } from "#utils/common";
 
@@ -212,12 +217,22 @@ export function getEnemyMoveConversionOptions(
  * Local fork (2026-11-18): converts one slot of `pokemon` (no chance roll): Max or Z at
  * {@linkcode ENEMY_MOVE_CONVERSIONS}.maxMovePercent (the other side when one has no slot), then a random slot of that
  * side. Draws from {@linkcode enemyMoveConversionDice}, so game code calls it inside a seeded offset.
+ * Local fork (2026-11-19): `forcedSide` skips the Max-or-Z draw (the final Endless trainer's Z-Move,
+ * {@linkcode applyEndlessFinalMoveConversions}); `null` when that side has no slot.
  * @returns The option applied, or `null` when no slot can take a conversion
  */
-export function convertEnemyMoveSlot(pokemon: Pokemon): EnemyMoveConversionOption | null {
+export function convertEnemyMoveSlot(
+  pokemon: Pokemon,
+  forcedSide?: EnemyMoveConversionSide,
+): EnemyMoveConversionOption | null {
   const options = getEnemyMoveConversionOptions(pokemon);
   let side: EnemyMoveConversionSide;
-  if (options.max.length > 0 && options.z.length > 0) {
+  if (forcedSide != null) {
+    if (options[forcedSide].length === 0) {
+      return null;
+    }
+    side = forcedSide;
+  } else if (options.max.length > 0 && options.z.length > 0) {
     side = enemyMoveConversionDice.roll(100) < ENEMY_MOVE_CONVERSIONS.maxMovePercent ? "max" : "z";
   } else if (options.max.length > 0) {
     side = "max";
@@ -276,6 +291,57 @@ function getMoveConversionSeedOffset(index: number): number {
 }
 
 /**
+ * Local fork (2026-11-19): turns every plain damaging slot of `pokemon` into its Max side, what a 다이사탕 gives it
+ * (the G-Max move where the species rule picks it); status slots and converted slots stay as they are
+ * @returns How many slots were converted
+ */
+function convertDamagingSlotsToMax(pokemon: Pokemon): number {
+  let count = 0;
+  for (const slot of pokemon.moveset) {
+    if (!slot || slot.transform || slot.getMove().category === MoveCategory.STATUS) {
+      continue;
+    }
+    const max = getMaxSide(pokemon, slot);
+    if (!max) {
+      continue;
+    }
+    slot.transform = { kind: max.kind, moveId: max.moveId };
+    console.log(`[enemy-move-conversions] ${pokemon.name}'s ${MoveId[slot.moveId]} becomes ${MoveId[max.moveId]}`);
+    count++;
+  }
+  return count;
+}
+
+/**
+ * Local fork (2026-11-19): the final Endless trainer's fixed conversions, instead of the rolls (the user: "5850웨이브 적
+ * 트레이너가 다이맥스와 다이맥스 기술은 사용하고, z기술은 에이스가 아닌 포켓몬이 한마리 확정으로 가지고 있도록 하죠"):
+ * - its ace (`getEndlessFinalAce`, enemy-dynamax.ts, which then always gives it the Dynamax state): every damaging slot
+ *   becomes a Max move ({@linkcode convertDamagingSlotsToMax}; a G-Max move where the 다이사탕 rule picks one), status
+ *   slots stay;
+ * - exactly one other member, drawn from {@linkcode enemyMoveConversionDice} among the ones with a slot that can take a
+ *   Z-Move: one slot becomes a Z-Move ({@linkcode convertEnemyMoveSlot} with the Z side forced).
+ * Called by {@linkcode rollTrainerMoveConversions}, on its seed offset.
+ * @param party - The enemy party (`currentBattle.enemyParty`)
+ * @returns The Pokémon that got a converted slot (the ace first)
+ */
+export function applyEndlessFinalMoveConversions(party: readonly EnemyPokemon[]): EnemyPokemon[] {
+  const members = party.filter(p => !!p);
+  const ace = getEndlessFinalAce(members);
+  const converted: EnemyPokemon[] = [];
+  if (ace && convertDamagingSlotsToMax(ace) > 0) {
+    converted.push(ace);
+  }
+  const zPool = members.filter(p => p !== ace && getEnemyMoveConversionOptions(p).z.length > 0);
+  if (zPool.length > 0) {
+    const holder = zPool[enemyMoveConversionDice.roll(zPool.length)];
+    if (convertEnemyMoveSlot(holder, "z")) {
+      converted.push(holder);
+    }
+  }
+  return converted;
+}
+
+/**
  * Local fork (2026-11-18): rolls, for each Pokémon of the enemy trainer's party in order, whether it comes with a
  * converted slot, until the party's cap ({@linkcode getTrainerMoveConversionCap}); called by encounter-phase.ts after
  * the trainer's battle form, fixed fusion and boss bars, before the party loads its sprites.
@@ -287,6 +353,14 @@ export function rollTrainerMoveConversions(party: readonly EnemyPokemon[]): Enem
   const trainer = globalScene.currentBattle?.trainer;
   const converted: EnemyPokemon[] = [];
   if (wave == null || !trainer) {
+    return converted;
+  }
+  // Local fork (2026-11-19): the final Endless trainer rolls nothing: fixed conversions (Max moves for its ace, one
+  // Z-Move for another member), on the same seed offset
+  if (isEndlessFinalTrainerBattle()) {
+    globalScene.executeWithSeedOffset(() => {
+      converted.push(...applyEndlessFinalMoveConversions(party));
+    }, getMoveConversionSeedOffset(0));
     return converted;
   }
   const { battleType } = globalScene.currentBattle;

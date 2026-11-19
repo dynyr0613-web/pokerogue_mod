@@ -27,8 +27,18 @@ const namespace = "mysteryEncounters/darkGlobalTradeSystem";
 
 /** One held-item reward of the "GTS?" */
 export interface DarkGtsReward {
-  /** Key of `modifierTypes` */
-  readonly id: "MINI_BLACK_HOLE" | "MYSTERY_ENCOUNTER_MACHO_BRACE" | "PRISM" | "MULTI_LENS" | "GOLDEN_EGG";
+  /**
+   * Key of `modifierTypes`. Local fork (2026-11-19): the two vests too, for the "고철 속 보물" dig
+   * (scrap-treasure-encounter.ts), which hands its vest out with these helpers
+   */
+  readonly id:
+    | "MINI_BLACK_HOLE"
+    | "MYSTERY_ENCOUNTER_MACHO_BRACE"
+    | "PRISM"
+    | "MULTI_LENS"
+    | "GOLDEN_EGG"
+    | "ASSAULT_VEST"
+    | "BULLETPROOF_VEST";
   /** How many the receiver gets (fewer if its stack can't take them all) */
   readonly count: number;
 }

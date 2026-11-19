@@ -28,12 +28,31 @@ def git_files(repo: Path) -> list[str]:
     return [f for f in out.split("\0") if f]
 
 
+def move_old_source_zips(keep: Path) -> None:
+    """2026-11-19 (1.2.0): the AGPL source only needs the newest zip, but every older dated zip in docs/source used
+    to ship too (six, about 50 MB, by 1.1.0). Older pokerogue-local-source-*.zip files are moved (never deleted) to
+    offline-app/old_source_zips/, which is not packaged; a name already there gets a -2, -3 ... suffix."""
+    old_dir = APP / "old_source_zips"
+    for path in sorted(keep.parent.glob("pokerogue-local-source-*.zip")):
+        if path.name == keep.name:
+            continue
+        old_dir.mkdir(exist_ok=True)
+        dest = old_dir / path.name
+        n = 2
+        while dest.exists():
+            dest = old_dir / f"{path.stem}-{n}{path.suffix}"
+            n += 1
+        shutil.move(str(path), str(dest))
+        print(f"old source zip moved: {path.name} -> {dest.relative_to(APP).as_posix()}")
+
+
 def make_source_zip() -> Path:
     """AGPL-3.0 corresponding source: the fork's code (with all local changes), the locale files,
     the build-time scripts under tools/port and this wrapper. Game art and audio are shipped in their
     original form inside the installed game folder."""
     target = DOCS / "source" / f"pokerogue-local-source-{date.today():%Y%m%d}.zip"
     target.parent.mkdir(parents=True, exist_ok=True)
+    move_old_source_zips(target)
     skip_top = {"assets", "locales", "dist", "node_modules", "saves_import"}
     count = 0
     with zipfile.ZipFile(target, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as zf:
@@ -60,7 +79,8 @@ def make_source_zip() -> Path:
                 if path.is_file() and path.suffix in {".py", ".md"}:
                     zf.write(path, f"tools/port/{sub}/{path.name}")
                     count += 1
-        for name in ("main.js", "package.json", "prepare.py"):
+        # 2026-11-19: save-backup.js (the startup save backup main.js requires) is part of the wrapper too
+        for name in ("main.js", "save-backup.js", "package.json", "prepare.py"):
             zf.write(APP / name, f"offline-app/{name}")
             count += 1
         zf.writestr(

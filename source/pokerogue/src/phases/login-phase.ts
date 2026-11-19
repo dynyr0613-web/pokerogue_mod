@@ -52,6 +52,11 @@ export class LoginPhase extends Phase {
     }
 
     await gameData.loadSystem();
+    // Local fork (2026-11-19): a save from a newer edition was refused: stay on its warning, the game does not go on
+    // to the title screen (A3; the user: "a3는 경고 후 열지 못하도록")
+    if (gameData.blockedByNewerEdition) {
+      return;
+    }
     if (success || bypassLogin) {
       await this.end();
       return;

@@ -184,8 +184,9 @@ describe("Z / Max move conversion (2026-11-16)", () => {
 
     // Local fork (2026-11-18): Z and exclusive Z moves play their own animations now (Essentials' PRAS ones), Guardian
     // of Alola included; custom-zmax-anims.test.ts checks the rest
-    // Local fork (2026-11-19): Max moves and Max Guard play their own CFRU animations now
-    it("plays the own animation of Max moves, Max Guard and Z moves (Swords Dance's for 다이검무)", () => {
+    // Local fork (2026-11-19): Max moves and Max Guard play their own CFRU animations now, and 다이검무 / Z다이검무 its
+    // own recoloured x1.5 Swords Dance (item E1)
+    it("plays the own animation of Max moves, Max Guard, 다이검무 and Z moves", () => {
       expect(getAnimMoveId(slot(MoveId.EMBER, { kind: "max", moveId: MoveId.MAX_FLARE }).getMove())).toBe(
         MoveId.MAX_FLARE,
       );
@@ -194,7 +195,7 @@ describe("Z / Max move conversion (2026-11-16)", () => {
       );
       expect(
         getAnimMoveId(slot(MoveId.SWORDS_DANCE, { kind: "zMax", moveId: MoveId.MAX_SWORDS_DANCE }).getMove()),
-      ).toBe(MoveId.SWORDS_DANCE);
+      ).toBe(MoveId.MAX_SWORDS_DANCE);
       expect(
         getAnimMoveId(slot(MoveId.THUNDERBOLT, { kind: "zExclusive", moveId: MoveId.CATASTROPIKA }).getMove()),
       ).toBe(MoveId.CATASTROPIKA);

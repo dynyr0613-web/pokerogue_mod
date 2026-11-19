@@ -36,3 +36,5 @@ ignore:
    - .devcontainer
    - "LICENSES"
    - .idea
+   - saves_import # local fork: the user's own imported saves, never committed
+   - tools/port/__pycache__

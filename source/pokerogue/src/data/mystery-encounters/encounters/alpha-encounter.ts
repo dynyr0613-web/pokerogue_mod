@@ -138,8 +138,10 @@ function setOrdinaryWildRewards(): void {
 }
 
 /**
- * 우두머리! (Alpha!), local fork (the user, 2026-11-18). The description, query, tooltips and messages are placeholders
- * until the user writes them ("미스터리 조우 설명은 나중에 넣는걸로").
+ * 우두머리! (Alpha!), local fork (the user, 2026-11-18). The title and the two option labels are the user's, and so is
+ * the description since 2026-11-18 evening ("무리의 우두머리가 자신의 무리를 지키기 위해 당신 앞을 막아섰습니다! …").
+ * The query, tooltips, intro and option messages are still placeholders the user may replace (2026-11-19: this comment
+ * still called the description a placeholder).
  * The intro shows the Pokémon as a black silhouette (the user: "검은색 실루엣이 보이도록 하죠"), and no text names it
  * before the battle.
  * 1. 우두머리와 싸운다 (Fight the alpha): a wild battle against one Pokémon of the biome's wild pool, picked and levelled

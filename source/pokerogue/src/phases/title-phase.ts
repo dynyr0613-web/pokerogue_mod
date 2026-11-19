@@ -206,7 +206,9 @@ export class TitlePhase extends Phase {
       if (success) {
         this.loaded = true;
         globalScene.ui.showText(i18next.t("menu:sessionSuccess"), null, () => this.end());
-      } else {
+      } else if (!globalScene.gameData.blockedByNewerEdition) {
+        // Local fork (2026-11-19): no new run after a newer edition's session was refused: the game stays on its
+        // warning (A3)
         this.end();
       }
     } catch (err) {

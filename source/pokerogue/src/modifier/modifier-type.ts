@@ -1534,6 +1534,11 @@ export class FormChangeItemModifierType extends PokemonModifierType implements G
   }
 
   getDescription(): string {
+    // Local fork (2026-11-19): Max Mushrooms have their own text. Since 11-18 they give any Pokémon the Dynamax state
+    // (pokemon-forms-dynamax.ts), so the vanilla "Causes certain Pokémon to change form." no longer fits
+    if (this.formChangeItem === FormChangeItem.MAX_MUSHROOMS) {
+      return i18next.t("modifierType:ModifierType.FormChangeItemModifierType.maxMushroomsDescription");
+    }
     return i18next.t("modifierType:ModifierType.FormChangeItemModifierType.description");
   }
 
