@@ -287,6 +287,14 @@ export class EncounterPhase extends BattlePhase {
       }
     }
 
+    // Local fork (2026-11-20): Illusion (일루전) holders pick the ally they look like for this whole battle, fainted or not
+    // (the user: "일루전은 전투 시작할 때 모방할 아군을 지정해서 아군들이 죽어도 모방하도록"), once both parties are made
+    // and before the wild lead's entry and the wave-start save, so a reloaded wave keeps the pick. A holder that
+    // already has one for this battle keeps it (ab-attrs.ts, `IllusionBattleStartAbAttr`).
+    for (const pokemon of [...globalScene.getPlayerParty(), ...globalScene.getEnemyParty()]) {
+      applyAbAttrs("IllusionBattleStartAbAttr", { pokemon });
+    }
+
     Promise.all(loadEnemyAssets).then(() => {
       battle.enemyParty.every((enemyPokemon, e) => {
         if (battle.isBattleMysteryEncounter()) {

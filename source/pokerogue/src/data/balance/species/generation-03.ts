@@ -269,8 +269,8 @@ export function initGenerationThree(): SpeciesDataMapConfig {
           height: 1.9,
           weight: 55.2,
           ability1: AbilityId.LIGHTNING_ROD,
-          ability2: AbilityId.MEGA_SOL, // Local fork (2026-11-19): D12 extra ability, was NONE
-          abilityHidden: AbilityId.LIGHTNING_ROD,
+          ability2: AbilityId.NONE,
+          abilityHidden: AbilityId.MEGA_SOL, // Local fork (2026-11-20): D12 extra ability in the hidden slot (the user: "숨겨진 칸으로"), was LIGHTNING_ROD
           baseTotal: 630,
           baseHp: 70,
           baseAtk: 110,
@@ -6602,8 +6602,8 @@ export function initGenerationThree(): SpeciesDataMapConfig {
           height: 2.5,
           weight: 130.3,
           ability1: AbilityId.STRONG_JAW,
-          ability2: AbilityId.GORILLA_TACTICS, // Local fork (2026-11-19): D12 extra ability, was NONE
-          abilityHidden: AbilityId.STRONG_JAW,
+          ability2: AbilityId.NONE,
+          abilityHidden: AbilityId.GORILLA_TACTICS, // Local fork (2026-11-20): D12 extra ability in the hidden slot (the user: "숨겨진 칸으로"), was STRONG_JAW
           baseTotal: 560,
           baseHp: 70,
           baseAtk: 140,
@@ -13221,8 +13221,8 @@ export function initGenerationThree(): SpeciesDataMapConfig {
           height: 1.8,
           weight: 52,
           ability1: AbilityId.LEVITATE,
-          ability2: AbilityId.SPEED_BOOST, // Local fork (2026-11-19): D12 extra ability, was NONE
-          abilityHidden: AbilityId.NONE,
+          ability2: AbilityId.NONE,
+          abilityHidden: AbilityId.SPEED_BOOST, // Local fork (2026-11-20): D12 extra ability in the hidden slot (the user: "숨겨진 칸으로"), was NONE
           baseTotal: 700,
           baseHp: 80,
           baseAtk: 100,
@@ -13437,8 +13437,8 @@ export function initGenerationThree(): SpeciesDataMapConfig {
           height: 2.3,
           weight: 70,
           ability1: AbilityId.LEVITATE,
-          ability2: AbilityId.SPEED_BOOST, // Local fork (2026-11-19): D12 extra ability, was NONE
-          abilityHidden: AbilityId.NONE,
+          ability2: AbilityId.NONE,
+          abilityHidden: AbilityId.SPEED_BOOST, // Local fork (2026-11-20): D12 extra ability in the hidden slot (the user: "숨겨진 칸으로"), was NONE
           baseTotal: 700,
           baseHp: 80,
           baseAtk: 130,

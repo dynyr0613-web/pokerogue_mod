@@ -1,0 +1,1 @@
+import{n as e,t}from"./loading-scene-NyFqR6j_.js";e();export{t as LoadingScene};

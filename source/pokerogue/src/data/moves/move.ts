@@ -549,6 +549,9 @@ export abstract class Move implements Localizable {
     const bypassed = new BooleanHolder(false);
     // TODO: Allow this to be simulated
     applyAbAttrs("InfiltratorAbAttr", { pokemon: user, bypassed });
+    // Local fork (2026-11-20): Stalwart's moves ignore the target's Substitute too (Pokémon Champions 1.3.0; the user:
+    // "포켓몬 챔피언스 기준 굳건한정신 특성 업데이트"), as ability or passive
+    applyAbAttrs("IgnoreSubstituteAbAttr", { pokemon: user, bypassed });
 
     return !bypassed.value && !this.hasFlag(MoveFlags.SOUND_BASED) && !this.hasFlag(MoveFlags.IGNORE_SUBSTITUTE);
   }

@@ -1,18 +1,18 @@
 {
-  "intro": "An alpha Pokémon appeared!",
+  "intro": "A large shadow blocks your path!",
   "title": "Alpha!",
   "description": "The leader of a herd has stepped in front of you to protect its herd! Will you leave, or will you fight?",
   "query": "What will you do?",
   "option": {
     "1": {
       "label": "Fight the alpha",
-      "tooltip": "(+) Battle the alpha Pokémon",
-      "selected": "You face the alpha Pokémon!"
+      "tooltip": "(-) Battle a powerful Pokémon\n(+) Catchable alpha Pokémon",
+      "selected": "You bravely stand up to the alpha guarding its herd!"
     },
     "2": {
       "label": "Run away",
-      "tooltip": "(-) Leave without a battle",
-      "selected": "You quietly slipped past the alpha Pokémon."
+      "tooltip": "(-) No rewards",
+      "selected": "Careful not to provoke the alpha, you quietly leave."
     }
   }
 }

@@ -593,7 +593,7 @@
   },
   "illusion": {
     "name": "Illusion",
-    "description": "The Pokémon enters battle disguised as a random ally in its party. Once per battle, the illusion can protect it from an attack at the cost of losing 1/8 of its max HP; then the illusion wears off."
+    "description": "At the start of each battle, the Pokémon picks another member of its party and enters disguised as it, even if that ally has fainted. Once per battle, the illusion can protect it from an attack at the cost of losing 1/8 of its max HP; then the illusion wears off."
   },
   "imposter": {
     "name": "Imposter",
@@ -965,7 +965,7 @@
   },
   "stalwart": {
     "name": "Stalwart",
-    "description": "The Pokémon ignores the effects of Abilities and moves that draw in moves."
+    "description": "The Pokémon ignores the effects of Abilities and moves that draw in moves, and its moves ignore the target's substitute."
   },
   "steamEngine": {
     "name": "Steam Engine",

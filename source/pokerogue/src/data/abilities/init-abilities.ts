@@ -52,8 +52,10 @@ import {
   IgnoreMoveEffectsAbAttr,
   IgnoreOpponentStatStagesAbAttr,
   IgnoreProtectOnContactAbAttr,
+  IgnoreSubstituteAbAttr,
   IgnoreTypeImmunityAbAttr,
   IgnoreTypeStatusEffectImmunityAbAttr,
+  IllusionBattleStartAbAttr,
   IllusionBlockDamageAbAttr,
   IllusionBreakAbAttr,
   IllusionPostFaintAbAttr,
@@ -1046,12 +1048,16 @@ export function initAbilities() {
       })
       .build(),
     // Local fork (2026-11-19): Illusion = Disguise's effect + disguised as a random ally (C10, the user: "c10 일루전의
-    // 효과를 탈 + 랜덤 아군 변신으로 해두기"). It enters with a random ally's look; the first damaging hit is blocked at
+    // 효과를 탈 + 랜덤 아군 변신으로 해두기"). It enters with an ally's look; the first damaging hit is blocked at
     // the cost of 1/8 of its max HP (Disguise's numbers), then the illusion wears off, spent until the battle ends or
     // the holder faints (Disguise's rule). Switching out or losing the ability ends it sooner without spending it.
     // Like Disguise it does nothing on a fusion; no flyout, so the entry does not give the holder away.
+    // Local fork (2026-11-20): the ally is picked once, at the start of the battle, among the other party members
+    // fainted or not, and every entry of that battle uses it even after it faints (the user: "일루전은 전투 시작할 때
+    // 모방할 아군을 지정해서 아군들이 죽어도 모방하도록").
     new AbBuilder(AbilityId.ILLUSION, 5) //
       .attr(NoFusionAbilityAbAttr)
+      .attr(IllusionBattleStartAbAttr)
       .attr(IllusionPreSummonAbAttr, false)
       .attr(IllusionBlockDamageAbAttr, 0.125)
       .attr(PostDefendIllusionBreakAbAttr, false)
@@ -1723,8 +1729,11 @@ export function initAbilities() {
       .unreplaceable()
       .bypassFaint()
       .build(),
+    // Local fork (2026-11-20): Pokémon Champions 1.3.0 Stalwart (the user: "포켓몬 챔피언스 기준 굳건한정신 특성
+    // 업데이트"): besides ignoring redirection, the holder's moves ignore the target's Substitute
     new AbBuilder(AbilityId.STALWART, 8) //
       .attr(BlockRedirectAbAttr)
+      .attr(IgnoreSubstituteAbAttr)
       .build(),
     new AbBuilder(AbilityId.STEAM_ENGINE, 8) //
       .attr(

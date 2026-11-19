@@ -87,6 +87,8 @@ interface SlotRow {
   readonly replaced: AbilityName;
   /** Final [ability1, ability2, hidden] */
   readonly slots: readonly [AbilityName, AbilityName, AbilityName];
+  /** The sheet's ability is in the hidden slot instead of ability2 (the 11 Mega / G-Max rows, 2026-11-20) */
+  readonly hiddenSlot: boolean;
 }
 
 function slotRow(
@@ -95,14 +97,15 @@ function slotRow(
   formKey: string | null,
   replaced: AbilityName,
   slots: readonly [AbilityName, AbilityName, AbilityName],
+  hiddenSlot = false,
 ): SlotRow {
-  return { row, species, formKey, replaced, slots };
+  return { row, species, formKey, replaced, slots, hiddenSlot };
 }
 
 /** Every member each row covers (계열: the whole line; 특성 변화: that member onward; the rest: that form) */
 const SLOT_TABLE: readonly SlotRow[] = [
-  slotRow(1, "VENUSAUR", "gigantamax", "NONE", ["EFFECT_SPORE", "THICK_FAT", "EFFECT_SPORE"]),
-  slotRow(2, "PIKACHU", "gigantamax", "NONE", ["LIGHTNING_ROD", "QUARK_DRIVE", "LIGHTNING_ROD"]),
+  slotRow(1, "VENUSAUR", "gigantamax", "NONE", ["EFFECT_SPORE", "EFFECT_SPORE", "THICK_FAT"], true),
+  slotRow(2, "PIKACHU", "gigantamax", "NONE", ["LIGHTNING_ROD", "LIGHTNING_ROD", "QUARK_DRIVE"], true),
   slotRow(3, "ZUBAT", null, "NONE", ["INNER_FOCUS", "STRONG_JAW", "INFILTRATOR"]),
   slotRow(3, "GOLBAT", null, "NONE", ["INNER_FOCUS", "STRONG_JAW", "INFILTRATOR"]),
   slotRow(3, "CROBAT", null, "NONE", ["INNER_FOCUS", "STRONG_JAW", "INFILTRATOR"]),
@@ -111,7 +114,7 @@ const SLOT_TABLE: readonly SlotRow[] = [
   slotRow(6, "MAGNEMITE", null, "STURDY", ["MAGNET_PULL", "TRANSISTOR", "ANALYTIC"]),
   slotRow(6, "MAGNETON", null, "STURDY", ["MAGNET_PULL", "TRANSISTOR", "ANALYTIC"]),
   slotRow(6, "MAGNEZONE", null, "STURDY", ["MAGNET_PULL", "TRANSISTOR", "ANALYTIC"]),
-  slotRow(7, "GENGAR", "mega", "NONE", ["SHADOW_TAG", "WICKED_SCHEME", "NONE"]),
+  slotRow(7, "GENGAR", "mega", "NONE", ["SHADOW_TAG", "SHADOW_TAG", "WICKED_SCHEME"], true),
   slotRow(8, "ALOLA_EXEGGUTOR", null, "NONE", ["FRISK", "SUNBATHE", "HARVEST"]),
   slotRow(9, "ALOLA_MAROWAK", null, "LIGHTNING_ROD", ["CURSED_BODY", "GORILLA_TACTICS", "ROCK_HEAD"]),
   slotRow(10, "PORYGON", null, "DOWNLOAD", ["TRACE", "SPACE_WARP", "ANALYTIC"]),
@@ -119,8 +122,8 @@ const SLOT_TABLE: readonly SlotRow[] = [
   slotRow(11, "PORYGON_Z", null, "DOWNLOAD", ["ADAPTABILITY", "SPACE_WARP", "ANALYTIC"]),
   slotRow(12, "GALAR_ZAPDOS", null, "NONE", ["DEFIANT", "LIGHTNING_ROD", "NONE"]),
   slotRow(13, "GALAR_MOLTRES", null, "NONE", ["BERSERK", "DROUGHT", "NONE"]),
-  slotRow(14, "MEWTWO", "mega-x", "NONE", ["STEADFAST", "ADAPTABILITY", "STEADFAST"]),
-  slotRow(15, "MEWTWO", "mega-y", "NONE", ["INSOMNIA", "ADAPTABILITY", "INSOMNIA"]),
+  slotRow(14, "MEWTWO", "mega-x", "NONE", ["STEADFAST", "STEADFAST", "ADAPTABILITY"], true),
+  slotRow(15, "MEWTWO", "mega-y", "NONE", ["INSOMNIA", "INSOMNIA", "ADAPTABILITY"], true),
   slotRow(16, "MISDREAVUS", null, "NONE", ["LEVITATE", "WICKED_SCHEME", "NONE"]),
   slotRow(16, "MISMAGIUS", null, "NONE", ["LEVITATE", "WICKED_SCHEME", "NONE"]),
   slotRow(17, "MANTYKE", null, "WATER_ABSORB", ["SWIFT_SWIM", "LIGHTNING_ROD", "WATER_VEIL"]),
@@ -129,11 +132,11 @@ const SLOT_TABLE: readonly SlotRow[] = [
   slotRow(19, "RAIKOU", null, "NONE", ["PRESSURE", "ELECTRIC_SURGE", "INNER_FOCUS"]),
   slotRow(20, "ENTEI", null, "NONE", ["PRESSURE", "DROUGHT", "INNER_FOCUS"]),
   slotRow(21, "SUICUNE", null, "NONE", ["PRESSURE", "DRIZZLE", "INNER_FOCUS"]),
-  slotRow(22, "TYRANITAR", "mega", "NONE", ["SAND_STREAM", "SAND_RUSH", "SAND_STREAM"]),
-  slotRow(23, "SCEPTILE", "mega", "NONE", ["LIGHTNING_ROD", "MEGA_SOL", "LIGHTNING_ROD"]),
+  slotRow(22, "TYRANITAR", "mega", "NONE", ["SAND_STREAM", "SAND_STREAM", "SAND_RUSH"], true),
+  slotRow(23, "SCEPTILE", "mega", "NONE", ["LIGHTNING_ROD", "LIGHTNING_ROD", "MEGA_SOL"], true),
   slotRow(24, "GALLADE", "mega", "INNER_FOCUS", ["INNER_FOCUS", "INTREPID_SWORD", "INNER_FOCUS"]),
   slotRow(25, "MANECTRIC", "mega", "INTIMIDATE", ["INTIMIDATE", "TRANSISTOR", "INTIMIDATE"]),
-  slotRow(26, "SHARPEDO", "mega", "NONE", ["STRONG_JAW", "GORILLA_TACTICS", "STRONG_JAW"]),
+  slotRow(26, "SHARPEDO", "mega", "NONE", ["STRONG_JAW", "STRONG_JAW", "GORILLA_TACTICS"], true),
   slotRow(27, "CAMERUPT", "mega", "SHEER_FORCE", ["SHEER_FORCE", "SOLAR_POWER", "SHEER_FORCE"]),
   slotRow(28, "VIBRAVA", null, "NONE", ["LEVITATE", "SAND_FORCE", "NONE"]),
   slotRow(28, "FLYGON", null, "NONE", ["LEVITATE", "SAND_FORCE", "NONE"]),
@@ -145,8 +148,8 @@ const SLOT_TABLE: readonly SlotRow[] = [
   slotRow(33, "REGIROCK", null, "NONE", ["CLEAR_BODY", "SAND_FORCE", "STURDY"]),
   slotRow(34, "REGICE", null, "NONE", ["CLEAR_BODY", "POLAR_LIGHT", "ICE_BODY"]),
   slotRow(35, "REGISTEEL", null, "NONE", ["CLEAR_BODY", "STEEL_BODY", "LIGHT_METAL"]),
-  slotRow(36, "LATIAS", "mega", "NONE", ["LEVITATE", "SPEED_BOOST", "NONE"]),
-  slotRow(37, "LATIOS", "mega", "NONE", ["LEVITATE", "SPEED_BOOST", "NONE"]),
+  slotRow(36, "LATIAS", "mega", "NONE", ["LEVITATE", "LEVITATE", "SPEED_BOOST"], true),
+  slotRow(37, "LATIOS", "mega", "NONE", ["LEVITATE", "LEVITATE", "SPEED_BOOST"], true),
   slotRow(38, "DEOXYS", "attack", "NONE", ["PRESSURE", "MOXIE", "NONE"]),
   slotRow(39, "DEOXYS", "defense", "NONE", ["PRESSURE", "STAMINA", "NONE"]),
   slotRow(40, "DEOXYS", "speed", "NONE", ["PRESSURE", "SPEED_BOOST", "NONE"]),
@@ -158,7 +161,7 @@ const SLOT_TABLE: readonly SlotRow[] = [
   slotRow(42, "EMPOLEON", null, "NONE", ["TORRENT", "OVERAWE", "COMPETITIVE"]),
   slotRow(43, "KRICKETUNE", null, "NONE", ["SWARM", "LAST_STAND", "TECHNICIAN"]),
   slotRow(44, "ROTOM", "fan", "NONE", ["LEVITATE", "AERILATE", "NONE"]),
-  slotRow(45, "HEATRAN", "mega", "NONE", ["FLASH_FIRE", "DESOLATE_LAND", "FLASH_FIRE"]),
+  slotRow(45, "HEATRAN", "mega", "NONE", ["FLASH_FIRE", "FLASH_FIRE", "DESOLATE_LAND"], true),
   slotRow(46, "BLOODMOON_URSALUNA", null, "NONE", ["MINDS_EYE", "GRIT", "NONE"]),
 ];
 
@@ -204,8 +207,10 @@ describe("D12 - the passive sheet's extra abilities in the species' ability slot
     const { holders } = slotHolders(row);
     for (const holder of holders) {
       expect(slotsOf(holder)).toEqual(row.slots);
-      // the sheet's ability, in ability2 (the first free slot, or the replaced one)
-      expect(AbilityId[holder.ability2].replaceAll("_", "")).toBe(SHEET_ABILITY[row.row]);
+      // the sheet's ability, in ability2 (the first free slot, or the replaced one); for the 11 Mega / G-Max rows whose
+      // base species has no ability2 of its own, in the hidden slot (2026-11-20, the user: "숨겨진 칸으로")
+      const sheetSlot = row.hiddenSlot ? holder.abilityHidden : holder.ability2;
+      expect(AbilityId[sheetSlot].replaceAll("_", "")).toBe(SHEET_ABILITY[row.row]);
     }
     // what ability2 held before is gone, unless it was empty (then it was ability1, which stays)
     if (row.replaced !== "NONE" && row.replaced !== row.slots[0] && row.replaced !== row.slots[2]) {

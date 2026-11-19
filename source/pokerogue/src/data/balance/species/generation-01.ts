@@ -259,8 +259,8 @@ export function initGenerationOne(): SpeciesDataMapConfig {
           height: 24,
           weight: 999.9,
           ability1: AbilityId.EFFECT_SPORE,
-          ability2: AbilityId.THICK_FAT, // Local fork (2026-11-19): D12 extra ability, was NONE
-          abilityHidden: AbilityId.EFFECT_SPORE,
+          ability2: AbilityId.NONE,
+          abilityHidden: AbilityId.THICK_FAT, // Local fork (2026-11-20): D12 extra ability in the hidden slot (the user: "숨겨진 칸으로"), was EFFECT_SPORE
           baseTotal: 625,
           baseHp: 120,
           baseAtk: 122,
@@ -2559,8 +2559,8 @@ export function initGenerationOne(): SpeciesDataMapConfig {
           height: 21,
           weight: 999.9,
           ability1: AbilityId.LIGHTNING_ROD,
-          ability2: AbilityId.QUARK_DRIVE, // Local fork (2026-11-19): D12 extra ability, was NONE
-          abilityHidden: AbilityId.LIGHTNING_ROD,
+          ability2: AbilityId.NONE,
+          abilityHidden: AbilityId.QUARK_DRIVE, // Local fork (2026-11-20): D12 extra ability in the hidden slot (the user: "숨겨진 칸으로"), was LIGHTNING_ROD
           baseTotal: 530,
           baseHp: 125,
           baseAtk: 95,
@@ -9226,8 +9226,8 @@ export function initGenerationOne(): SpeciesDataMapConfig {
           height: 1.4,
           weight: 40.5,
           ability1: AbilityId.SHADOW_TAG,
-          ability2: AbilityId.WICKED_SCHEME, // Local fork (2026-11-19): D12 extra ability, was NONE
-          abilityHidden: AbilityId.NONE,
+          ability2: AbilityId.NONE,
+          abilityHidden: AbilityId.WICKED_SCHEME, // Local fork (2026-11-20): D12 extra ability in the hidden slot (the user: "숨겨진 칸으로"), was NONE
           baseTotal: 600,
           baseHp: 60,
           baseAtk: 65,
@@ -15584,8 +15584,8 @@ export function initGenerationOne(): SpeciesDataMapConfig {
           height: 2.3,
           weight: 127,
           ability1: AbilityId.STEADFAST,
-          ability2: AbilityId.ADAPTABILITY, // Local fork (2026-11-19): D12 extra ability, was NONE
-          abilityHidden: AbilityId.STEADFAST,
+          ability2: AbilityId.NONE,
+          abilityHidden: AbilityId.ADAPTABILITY, // Local fork (2026-11-20): D12 extra ability in the hidden slot (the user: "숨겨진 칸으로"), was STEADFAST
           baseTotal: 780,
           baseHp: 106,
           baseAtk: 190,
@@ -15605,8 +15605,8 @@ export function initGenerationOne(): SpeciesDataMapConfig {
           height: 1.5,
           weight: 33,
           ability1: AbilityId.INSOMNIA,
-          ability2: AbilityId.ADAPTABILITY, // Local fork (2026-11-19): D12 extra ability, was NONE
-          abilityHidden: AbilityId.INSOMNIA,
+          ability2: AbilityId.NONE,
+          abilityHidden: AbilityId.ADAPTABILITY, // Local fork (2026-11-20): D12 extra ability in the hidden slot (the user: "숨겨진 칸으로"), was INSOMNIA
           baseTotal: 780,
           baseHp: 106,
           baseAtk: 150,

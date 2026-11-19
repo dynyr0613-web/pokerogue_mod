@@ -244,7 +244,7 @@ describe("Custom mystery encounter - 우두머리! (ALPHA_ENCOUNTER)", { timeout
       expect(i18next.t(`${namespace}:option.2.label`, { lng: "ko" })).toBe("도망친다");
     });
 
-    it("are clearly temporary where the user will write them", () => {
+    it("use the texts the user chose (description 11-18, the rest from the 11-20 draft)", () => {
       expect(i18next.t(`${namespace}:description`)).toBe(
         "The leader of a herd has stepped in front of you to protect its herd! Will you leave, or will you fight?",
       );
@@ -252,9 +252,11 @@ describe("Custom mystery encounter - 우두머리! (ALPHA_ENCOUNTER)", { timeout
         "무리의 우두머리가 자신의 무리를 지키기 위해 당신 앞을 막아섰습니다! 떠날 건가요, 싸울 건가요?",
       );
       expect(i18next.t(`${namespace}:query`)).toBe("What will you do?");
-      expect(i18next.t(`${namespace}:query`, { lng: "ko" })).toBe("어떻게 할까?");
-      expect(i18next.t(`${namespace}:option.1.tooltip`, { lng: "ko" })).toBe("(+) 우두머리 포켓몬과 싸운다");
-      expect(i18next.t(`${namespace}:option.2.tooltip`, { lng: "ko" })).toBe("(-) 싸우지 않고 지나간다");
+      expect(i18next.t(`${namespace}:query`, { lng: "ko" })).toBe("어떻게 하시겠습니까?");
+      expect(i18next.t(`${namespace}:option.1.tooltip`, { lng: "ko" })).toBe(
+        "(-) 강력한 포켓몬과의 전투\n(+) 포획 가능한 우두머리 포켓몬",
+      );
+      expect(i18next.t(`${namespace}:option.2.tooltip`, { lng: "ko" })).toBe("(-) 보상 없음");
     });
 
     // Local fork (2026-11-18): the intro shows only the Pokémon's black silhouette (the user: "검은색 실루엣이 보이도록
@@ -269,14 +271,16 @@ describe("Custom mystery encounter - 우두머리! (ALPHA_ENCOUNTER)", { timeout
           expect(text, `${lang} ${key}`).not.toContain("[[");
         }
       }
-      expect(i18next.t(`${namespace}:intro`, { lng: "ko" })).toBe("우두머리 포켓몬이 나타났다!");
-      expect(i18next.t(`${namespace}:option.1.selected`, { lng: "ko" })).toBe("우두머리 포켓몬과 맞서 싸운다!");
-      expect(i18next.t(`${namespace}:option.2.selected`, { lng: "ko" })).toBe(
-        "우두머리 포켓몬을 피해 조용히 지나갔다.",
+      expect(i18next.t(`${namespace}:intro`, { lng: "ko" })).toBe("커다란 그림자가 앞을 가로막았다!");
+      expect(i18next.t(`${namespace}:option.1.selected`, { lng: "ko" })).toBe(
+        "무리를 지키려는 우두머리에게 용감하게 맞섰다!",
       );
-      expect(i18next.t(`${namespace}:intro`)).toBe("An alpha Pokémon appeared!");
-      expect(i18next.t(`${namespace}:option.1.selected`)).toBe("You face the alpha Pokémon!");
-      expect(i18next.t(`${namespace}:option.2.selected`)).toBe("You quietly slipped past the alpha Pokémon.");
+      expect(i18next.t(`${namespace}:option.2.selected`, { lng: "ko" })).toBe(
+        "우두머리를 자극하지 않도록 조용히 그 자리를 떠났다.",
+      );
+      expect(i18next.t(`${namespace}:intro`)).toBe("A large shadow blocks your path!");
+      expect(i18next.t(`${namespace}:option.1.selected`)).toBe("You bravely stand up to the alpha guarding its herd!");
+      expect(i18next.t(`${namespace}:option.2.selected`)).toBe("Careful not to provoke the alpha, you quietly leave.");
     });
   });
 

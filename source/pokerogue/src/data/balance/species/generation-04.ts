@@ -9775,8 +9775,8 @@ export function initGenerationFour(): SpeciesDataMapConfig {
           height: 2.8,
           weight: 570,
           ability1: AbilityId.FLASH_FIRE,
-          ability2: AbilityId.DESOLATE_LAND, // Local fork (2026-11-19): D12 extra ability, was NONE
-          abilityHidden: AbilityId.FLASH_FIRE,
+          ability2: AbilityId.NONE,
+          abilityHidden: AbilityId.DESOLATE_LAND, // Local fork (2026-11-20): D12 extra ability in the hidden slot (the user: "숨겨진 칸으로"), was FLASH_FIRE
           baseTotal: 700,
           baseHp: 91,
           baseAtk: 120,

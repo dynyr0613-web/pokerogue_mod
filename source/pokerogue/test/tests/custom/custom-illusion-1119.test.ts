@@ -1,8 +1,10 @@
 // Local fork (2026-11-19): tests of Illusion (일루전) = Disguise's effect + disguised as a random ally (C10, the user:
-// "c10 일루전의 효과를 탈 + 랜덤 아군 변신으로 해두기"). On entry the holder takes the look of a random non-fainted ally
-// of its own party (seeded RNG); the first damaging hit is blocked for 1/8 of its max HP, as Disguise does, and the
-// illusion wears off, spent until the battle ends or the holder faints (ab-attrs.ts, `IllusionPreSummonAbAttr` and
-// `IllusionBlockDamageAbAttr`).
+// "c10 일루전의 효과를 탈 + 랜덤 아군 변신으로 해두기"). On entry the holder takes the look of an ally of its own party;
+// the first damaging hit is blocked for 1/8 of its max HP, as Disguise does, and the illusion wears off, spent until
+// the battle ends or the holder faints (ab-attrs.ts, `IllusionPreSummonAbAttr` and `IllusionBlockDamageAbAttr`).
+// Local fork (2026-11-20): the ally is picked once at the start of the battle (seeded RNG), fainted or not, and kept
+// for every entry of that battle even after it faints (the user: "일루전은 전투 시작할 때 모방할 아군을 지정해서 아군들이
+// 죽어도 모방하도록"; `IllusionBattleStartAbAttr`, `PokemonBattleData.illusionAllyId`).
 import { applyAbAttrs } from "#abilities/apply-ab-attrs";
 import { getPokemonNameWithAffix } from "#app/messages";
 import { allAbilities } from "#data/data-lists";
@@ -77,7 +79,8 @@ describe("Custom ability - Illusion (C10)", () => {
     expect(zoroark.getTypes()).toEqual([PokemonType.DARK]);
   });
 
-  it("picks the ally with the battle's seeded RNG among the non-fainted allies other than itself", async () => {
+  // Changed 2026-11-20: the pick now includes fainted allies and is made once per battle
+  it("picks with the battle's seeded RNG among all the other party members, a fainted one included", async () => {
     await game.classicMode.startBattle(
       SpeciesId.ZOROARK,
       SpeciesId.FEEBAS,
@@ -88,24 +91,196 @@ describe("Custom ability - Illusion (C10)", () => {
     const party = game.scene.getPlayerParty();
     const zoroark = party[0];
     zoroark.breakIllusion();
+    zoroark.battleData.illusionAllyId = null; // as before the battle-start pick
     party[1].hp = 0; // Feebas fainted
 
-    const roll = vi.spyOn(zoroark, "randBattleSeedInt").mockReturnValueOnce(2);
+    const roll = vi.spyOn(zoroark, "randBattleSeedInt").mockReturnValueOnce(0);
+    applyAbAttrs("IllusionBattleStartAbAttr", { pokemon: zoroark });
+
+    expect(roll).toHaveBeenCalledWith(4); // Feebas, Magikarp, Abra, Axew
+    expect(zoroark.battleData.illusionAllyId).toBe(party[1].id);
+
+    applyAbAttrs("PreSummonAbAttr", { pokemon: zoroark });
+    expect(roll).toHaveBeenCalledTimes(1); // the entry uses the pick, no new roll
+    expect(zoroark.summonData.illusion?.species).toBe(SpeciesId.FEEBAS);
+    expect(zoroark.getNameToRender()).toBe(party[1].name);
+  });
+
+  it("picks its ally at the start of the battle, before it enters, and every entry of the battle uses that ally", async () => {
+    await game.classicMode.startBattle(SpeciesId.FEEBAS, SpeciesId.ZOROARK, SpeciesId.MAGIKARP);
+    const [feebas, zoroark, magikarp] = game.scene.getPlayerParty();
+
+    // Picked at battle start while still in the party
+    expect(zoroark.isOnField()).toBe(false);
+    expect(zoroark.summonData.illusion).toBeNull();
+    const allyId = zoroark.battleData.illusionAllyId;
+    const chosen = [feebas, magikarp].find(p => p.id === allyId);
+    expect(chosen, "one of the two other party members").toBeDefined();
+
+    const roll = vi.spyOn(zoroark, "randBattleSeedInt");
+    for (let entry = 0; entry < 3; entry++) {
+      game.doSwitchPokemon(game.scene.getPlayerParty().indexOf(zoroark));
+      await game.toNextTurn();
+      expect(game.field.getPlayerPokemon()).toBe(zoroark);
+      expect(zoroark.summonData.illusion?.species).toBe(chosen!.species.speciesId);
+      expect(zoroark.getNameToRender()).toBe(chosen!.name);
+
+      // Back out, to the party member it does not look like
+      const other = chosen === feebas ? magikarp : feebas;
+      game.doSwitchPokemon(game.scene.getPlayerParty().indexOf(other));
+      await game.toNextTurn();
+      expect(zoroark.summonData.illusion).toBeNull();
+    }
+    expect(zoroark.battleData.illusionAllyId).toBe(allyId);
+    expect(roll).not.toHaveBeenCalledWith(2); // never rolled again
+  });
+
+  it("keeps copying the picked ally after it faints, also as the last Pokémon standing", async () => {
+    await game.classicMode.startBattle(SpeciesId.FEEBAS, SpeciesId.ZOROARK, SpeciesId.MAGIKARP);
+    const [feebas, zoroark, magikarp] = game.scene.getPlayerParty();
+    zoroark.battleData.illusionAllyId = feebas.id; // the battle-start pick: the lead, Feebas
+    magikarp.hp = 0;
+    feebas.hp = 1;
+
+    // Feebas faints; Zoroark is the only one left to send in
+    game.move.select(MoveId.SPLASH);
+    await game.move.forceEnemyMove(MoveId.TACKLE);
+    game.doSelectPartyPokemon(1);
+    await game.toNextTurn();
+
+    expect(feebas.isFainted()).toBe(true);
+    expect(game.field.getPlayerPokemon()).toBe(zoroark);
+    expect(zoroark.summonData.illusion?.species).toBe(SpeciesId.FEEBAS);
+    expect(zoroark.getNameToRender()).toBe(feebas.name);
+    expect(zoroark.battleData.illusionAllyId).toBe(feebas.id);
+  });
+
+  it("re-enters as the same ally after its own faint and revival", async () => {
+    await game.classicMode.startBattle(SpeciesId.ZOROARK, SpeciesId.FEEBAS, SpeciesId.MAGIKARP);
+    const zoroark = game.field.getPlayerPokemon();
+    const species = zoroark.summonData.illusion?.species;
+    expect(species).toBeDefined();
+
+    // Spent, fainted (the faint reset re-arms it), then revived and sent in again
+    zoroark.battleData.illusionUsed = true;
+    zoroark.breakIllusion();
+    zoroark.hp = 0;
+    applyAbAttrs("PostFaintAbAttr", { pokemon: zoroark });
+    zoroark.hp = 1;
     applyAbAttrs("PreSummonAbAttr", { pokemon: zoroark });
 
-    expect(roll).toHaveBeenCalledWith(3); // Magikarp, Abra, Axew
-    expect(zoroark.summonData.illusion?.species).toBe(SpeciesId.AXEW);
+    expect(zoroark.summonData.illusion?.species).toBe(species);
+  });
+
+  it("an ally that left the party is replaced by a new pick at the next entry", async () => {
+    await game.classicMode.startBattle(SpeciesId.ZOROARK, SpeciesId.FEEBAS);
+    const zoroark = game.field.getPlayerPokemon();
+    zoroark.breakIllusion();
+    zoroark.battleData.illusionAllyId = 12345; // no longer in the party (fused into another, released)
+
+    applyAbAttrs("PreSummonAbAttr", { pokemon: zoroark });
+
+    const feebas = game.scene.getPlayerParty()[1];
+    expect(zoroark.battleData.illusionAllyId).toBe(feebas.id);
+    expect(zoroark.summonData.illusion?.species).toBe(SpeciesId.FEEBAS);
+  });
+
+  it("a new battle makes a new pick; a wild wave in the same biome keeps it", async () => {
+    // Wave 4 stays a plain wild wave; wave 5 is still Classic's fixed trainer battle
+    game.override.startingWave(3).disableTrainerWaves().mysteryEncounterChance(0);
+    await game.classicMode.startBattle(SpeciesId.FEEBAS, SpeciesId.ZOROARK, SpeciesId.MAGIKARP);
+    const zoroark = game.scene.getPlayerParty()[1];
+    const firstPick = zoroark.battleData.illusionAllyId;
+    expect(firstPick).not.toBeNull();
+    const roll = vi.spyOn(zoroark, "randBattleSeedInt");
+
+    // Wave 4: another wild wave in the same biome, so the same battle for the player's Pokémon
+    game.move.select(MoveId.SPLASH);
+    await game.doKillOpponents();
+    await game.toNextWave();
+    expect(game.scene.currentBattle.waveIndex).toBe(4);
+    expect(zoroark.battleData.illusionAllyId).toBe(firstPick);
+    expect(roll).not.toHaveBeenCalledWith(2);
+
+    // Wave 5: Classic's first trainer battle resets the battle data, and the encounter picks again
+    game.move.select(MoveId.SPLASH);
+    await game.doKillOpponents();
+    await game.toNextWave();
+    expect(game.scene.currentBattle.waveIndex).toBe(5);
+    expect(game.scene.currentBattle.battleType).toBe(BattleType.TRAINER);
+    expect(roll).toHaveBeenCalledWith(2);
+    const party = game.scene.getPlayerParty();
+    expect(party.filter(p => p !== zoroark).map(p => p.id)).toContain(zoroark.battleData.illusionAllyId);
+  });
+
+  // Review fix (2026-11-20): `NewBiomeEncounterPhase` resets the battle data a second time, after the encounter's pick
+  it("a new biome keeps the pick made at its start, for the lead and a bench holder, also after a reload", async () => {
+    game.override.startingWave(10).disableTrainerWaves().mysteryEncounterChance(0);
+    await game.classicMode.startBattle(SpeciesId.ZOROARK, SpeciesId.FEEBAS, SpeciesId.ZORUA, SpeciesId.MAGIKARP);
+
+    // Wave 10 to 11 changes the biome
+    game.move.select(MoveId.SPLASH);
+    await game.doKillOpponents();
+    await game.toNextWave();
+    expect(game.phaseInterceptor.phaseLog).toContain("NewBiomeEncounterPhase");
+
+    const [zoroark, , zorua] = game.scene.getPlayerParty();
+    const leadPick = zoroark.battleData.illusionAllyId;
+    const benchPick = zorua.battleData.illusionAllyId;
+    expect(leadPick, "the lead keeps its pick").not.toBeNull();
+    expect(benchPick, "the bench holder picked before entering").not.toBeNull();
+    const leadAlly = game.scene.getPlayerParty().find(p => p.id === leadPick);
+    const benchAlly = game.scene.getPlayerParty().find(p => p.id === benchPick);
+    expect(zoroark.summonData.illusion?.species).toBe(leadAlly?.species.speciesId);
+
+    // The bench holder enters as its pick, with no new roll
+    const roll = vi.spyOn(zorua, "randBattleSeedInt");
+    game.doSwitchPokemon(2);
+    await game.toNextTurn();
+    expect(game.field.getPlayerPokemon()).toBe(zorua);
+    expect(zorua.summonData.illusion?.species).toBe(benchAlly?.species.speciesId);
+    expect(roll).not.toHaveBeenCalled();
+
+    // The wave-start save holds the same picks
+    await game.reload.reloadSession();
+    const party = game.scene.getPlayerParty();
+    expect(party[0].battleData.illusionAllyId).toBe(leadPick);
+    expect(party[2].battleData.illusionAllyId).toBe(benchPick);
+    expect(party[0].summonData.illusion?.species).toBe(leadAlly?.species.speciesId);
   });
 
   it("keeps its own look with no ally to copy", async () => {
     await game.classicMode.startBattle(SpeciesId.ZOROARK);
     expect(game.field.getPlayerPokemon().summonData.illusion).toBeNull();
+    expect(game.field.getPlayerPokemon().battleData.illusionAllyId).toBeNull();
   });
 
   it("a wild holder keeps its own look", async () => {
     game.override.enemySpecies(SpeciesId.ZORUA).enemyAbility(AbilityId.ILLUSION);
     await game.classicMode.startBattle(SpeciesId.ZOROARK, SpeciesId.FEEBAS);
     expect(game.field.getEnemyPokemon().summonData.illusion).toBeNull();
+    expect(game.field.getEnemyPokemon().battleData.illusionAllyId).toBeNull();
+  });
+
+  it("the picks survive a reload of the saved wave, for the player and an enemy trainer", async () => {
+    game.override
+      .battleType(BattleType.TRAINER)
+      .randomTrainer({ trainerType: TrainerType.ACE_TRAINER, trainerVariant: TrainerVariant.DEFAULT })
+      .startingWave(30)
+      .enemyAbility(AbilityId.ILLUSION)
+      .enemyLevel(50);
+    await game.classicMode.startBattle(SpeciesId.FEEBAS, SpeciesId.ZOROARK, SpeciesId.MAGIKARP);
+    const playerPick = game.scene.getPlayerParty()[1].battleData.illusionAllyId;
+    const enemyPicks = game.scene.getEnemyParty().map(p => p.battleData.illusionAllyId);
+    expect(playerPick).not.toBeNull();
+    expect(enemyPicks.every(id => id != null)).toBe(true);
+    const enemyLook = game.field.getEnemyPokemon().summonData.illusion?.species;
+
+    await game.reload.reloadSession();
+
+    expect(game.scene.getPlayerParty()[1].battleData.illusionAllyId).toBe(playerPick);
+    expect(game.scene.getEnemyParty().map(p => p.battleData.illusionAllyId)).toEqual(enemyPicks);
+    expect(game.field.getEnemyPokemon().summonData.illusion?.species).toBe(enemyLook);
   });
 
   it("an enemy takes the look of another Pokemon of its own trainer", async () => {
@@ -251,10 +426,12 @@ describe("Custom ability - Illusion (C10)", () => {
     expect(game.textInterceptor.logs.some(log => log.includes(zoroark.name))).toBe(false);
   });
 
-  it("switching out with the illusion still up gives a new one on the next entry", async () => {
+  // Changed 2026-11-20: the same ally as before, not a new random one
+  it("switching out with the illusion still up gives it back, as the same ally, on the next entry", async () => {
     await game.classicMode.startBattle(SpeciesId.ZOROARK, SpeciesId.FEEBAS, SpeciesId.MAGIKARP);
     const zoroark = game.field.getPlayerPokemon();
-    expect(zoroark.summonData.illusion).not.toBeNull();
+    const species = zoroark.summonData.illusion?.species;
+    expect(species).toBeDefined();
 
     game.doSwitchPokemon(1);
     await game.toNextTurn();
@@ -262,7 +439,7 @@ describe("Custom ability - Illusion (C10)", () => {
 
     game.doSwitchPokemon(1);
     await game.toNextTurn();
-    expect(zoroark.summonData.illusion).not.toBeNull();
+    expect(zoroark.summonData.illusion?.species).toBe(species);
     expect(zoroark.battleData.illusionUsed).toBe(false);
   });
 
@@ -330,5 +507,26 @@ describe("Custom ability - Illusion (C10)", () => {
     expect(new PokemonBattleData(JSON.parse(JSON.stringify(zoroark.battleData))).illusionUsed).toBe(true);
     zoroark.resetBattleAndWaveData();
     expect(zoroark.battleData.illusionUsed).toBe(false);
+  });
+
+  // Local fork (2026-11-20): the battle's pick is a saved number, and the faint reset keeps it
+  it("the pick is kept through a faint, saved as the ally's id, and cleared for a new battle", async () => {
+    await game.classicMode.startBattle(SpeciesId.ZOROARK, SpeciesId.FEEBAS);
+    const zoroark = game.field.getPlayerPokemon();
+    const feebas = game.scene.getPlayerParty()[1];
+    expect(zoroark.battleData.illusionAllyId).toBe(feebas.id);
+
+    zoroark.battleData.illusionUsed = true;
+    zoroark.hp = 0;
+    applyAbAttrs("PostFaintAbAttr", { pokemon: zoroark });
+    expect(zoroark.battleData.illusionAllyId).toBe(feebas.id);
+
+    expect(new PokemonBattleData(JSON.parse(JSON.stringify(zoroark.battleData))).illusionAllyId).toBe(feebas.id);
+    // An older save has no such field, and a damaged one is ignored: the holder picks again
+    expect(new PokemonBattleData({ illusionUsed: true }).illusionAllyId).toBeNull();
+    expect(new PokemonBattleData(JSON.parse('{"illusionAllyId":"x"}')).illusionAllyId).toBeNull();
+
+    zoroark.resetBattleAndWaveData();
+    expect(zoroark.battleData.illusionAllyId).toBeNull();
   });
 });

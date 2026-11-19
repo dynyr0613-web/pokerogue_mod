@@ -10398,8 +10398,8 @@ export function initGenerationTwo(): SpeciesDataMapConfig {
           height: 2.5,
           weight: 255,
           ability1: AbilityId.SAND_STREAM,
-          ability2: AbilityId.SAND_RUSH, // Local fork (2026-11-19): D12 extra ability, was NONE
-          abilityHidden: AbilityId.SAND_STREAM,
+          ability2: AbilityId.NONE,
+          abilityHidden: AbilityId.SAND_RUSH, // Local fork (2026-11-20): D12 extra ability in the hidden slot (the user: "숨겨진 칸으로"), was SAND_STREAM
           baseTotal: 700,
           baseHp: 100,
           baseAtk: 164,

@@ -307,12 +307,21 @@ export class PokemonBattleData {
    * "c10 일루전의 효과를 탈 + 랜덤 아군 변신으로 해두기"). Saved with the rest, like the busted Disguise form.
    */
   public illusionUsed = false;
+  /**
+   * Local fork (2026-11-20): the {@linkcode Pokemon.id | id} of the ally this Pokémon's Illusion picked at the start of
+   * this battle; every entry takes that ally's look, even after it faints (the user: "일루전은 전투 시작할 때 모방할
+   * 아군을 지정해서 아군들이 죽어도 모방하도록"). `null` before the pick. An id, not the Pokémon or its party slot: slots
+   * change with every switch, and the number is saved with the rest, so a reloaded wave keeps the same pick (an older
+   * save without it just picks again).
+   */
+  public illusionAllyId: number | null = null;
 
   constructor(source?: PokemonBattleData | Partial<PokemonBattleData>) {
     if (source != null) {
       this.hasEatenBerry = source.hasEatenBerry ?? false;
       this.berriesEaten = source.berriesEaten ?? [];
       this.illusionUsed = source.illusionUsed ?? false;
+      this.illusionAllyId = typeof source.illusionAllyId === "number" ? source.illusionAllyId : null;
     }
   }
 }

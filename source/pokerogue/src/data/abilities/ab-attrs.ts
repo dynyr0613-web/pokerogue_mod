@@ -5589,6 +5589,30 @@ export class InfiltratorAbAttr extends AbAttr {
 }
 
 /**
+ * Local fork (2026-11-20): Stalwart as in Pokémon Champions 1.3.0 (the user: "포켓몬 챔피언스 기준 굳건한정신 특성
+ * 업데이트"): the holder's moves ignore the target's Substitute, like Infiltrator's Substitute bypass only (screens,
+ * Safeguard and Mist still apply). Read in {@linkcode Move.hitsSubstitute}, so damage, status moves, stat drops and
+ * secondary effects reach the real target the same way Infiltrator's do. Works as ability or passive.
+ * @sealed
+ */
+export class IgnoreSubstituteAbAttr extends AbAttr {
+  declare private readonly _: never;
+  constructor() {
+    super(false);
+  }
+
+  /** @returns Whether bypassed has not yet been set (by Infiltrator or another holder of this attribute) */
+  override canApply({ bypassed }: InfiltratorAbAttrParams): boolean {
+    return !bypassed.value;
+  }
+
+  /** Sets the flag to bypass the target's Substitute */
+  override apply({ bypassed }: InfiltratorAbAttrParams): void {
+    bypassed.value = true;
+  }
+}
+
+/**
  * Attribute implementing the effects of {@link https://bulbapedia.bulbagarden.net/wiki/Magic_Bounce_(ability) | Magic Bounce}.
  *
  * Allows the source to bounce back {@linkcode MoveFlags.REFLECTABLE | Reflectable}
@@ -5811,33 +5835,112 @@ export class PreSummonAbAttr extends AbAttr {
 }
 
 /**
- * Local fork (2026-11-19): the allies an Illusion (일루전) holder can disguise itself as (C10, the user: "c10 일루전의 효과를
- * 탈 + 랜덤 아군 변신으로 해두기"): every non-fainted member of its own party other than itself, the player's party or,
- * for an enemy, its own trainer's Pokémon (the same trainer slot when two trainers fight together). A wild enemy has
- * none. As in the main series, a Terastallized Ogerpon or Terapagos cannot be copied, nor can either of them by a
- * Terastallized holder.
+ * Local fork (2026-11-19): the party an Illusion (일루전) holder takes its disguise from (C10, the user: "c10 일루전의
+ * 효과를 탈 + 랜덤 아군 변신으로 해두기"): the player's party or, for an enemy, its own trainer's Pokémon (the same
+ * trainer slot when two trainers fight together). A wild enemy has none.
  * @param pokemon - The Illusion holder
- * @returns The allies it can take the look of; empty when it keeps its own look
+ * @returns The holder's party, itself included; empty for a wild holder
+ */
+function getIllusionParty(pokemon: Pokemon): Pokemon[] {
+  if (pokemon.isPlayer()) {
+    return globalScene.getPlayerParty();
+  }
+  if (pokemon.isEnemy() && pokemon.hasTrainer()) {
+    const { trainerSlot } = pokemon;
+    return globalScene.getEnemyParty().filter(p => p.trainerSlot === trainerSlot);
+  }
+  return [];
+}
+
+/**
+ * Local fork (2026-11-19): whether an Illusion holder can take an ally's look right now (C10). As in the main series, a
+ * Terastallized Ogerpon or Terapagos cannot be copied, nor can either of them by a Terastallized holder.
+ * @param pokemon - The Illusion holder
+ * @param ally - The ally to copy
+ */
+function canCopyIllusionAlly(pokemon: Pokemon, ally: Pokemon): boolean {
+  return !(
+    (ally.species.speciesId === SpeciesId.OGERPON || ally.species.speciesId === SpeciesId.TERAPAGOS)
+    && (ally.isTerastallized || pokemon.isTerastallized)
+  );
+}
+
+/**
+ * Local fork (2026-11-19): the allies an Illusion holder can pick (C10): every other member of its own party
+ * ({@linkcode getIllusionParty}) that the run's challenges allow and that it can copy now. Local fork (2026-11-20):
+ * fainted ones included, since the pick lasts the whole battle whoever faints (the user: "일루전은 전투 시작할 때 모방할
+ * 아군을 지정해서 아군들이 죽어도 모방하도록").
+ * @param pokemon - The Illusion holder
+ * @returns The allies it can pick; empty when it keeps its own look
  */
 function getIllusionAllies(pokemon: Pokemon): Pokemon[] {
-  let party: Pokemon[];
-  if (pokemon.isPlayer()) {
-    party = globalScene.getPlayerParty();
-  } else if (pokemon.isEnemy() && pokemon.hasTrainer()) {
-    const { trainerSlot } = pokemon;
-    party = globalScene.getEnemyParty().filter(p => p.trainerSlot === trainerSlot);
-  } else {
-    return [];
-  }
-  return party.filter(
-    p =>
-      p !== pokemon
-      && p.isAllowedInBattle()
-      && !(
-        (p.species.speciesId === SpeciesId.OGERPON || p.species.speciesId === SpeciesId.TERAPAGOS)
-        && (p.isTerastallized || pokemon.isTerastallized)
-      ),
+  return getIllusionParty(pokemon).filter(
+    p => p !== pokemon && p.isAllowedInChallenge() && canCopyIllusionAlly(pokemon, p),
   );
+}
+
+/**
+ * Local fork (2026-11-20): the ally an Illusion holder picked for this battle
+ * ({@linkcode PokemonBattleData.illusionAllyId}), fainted or not, while it is still in the holder's party.
+ * @param pokemon - The Illusion holder
+ * @returns The picked ally; `undefined` before the pick, or once that ally left the party (fused into another, released)
+ */
+function getChosenIllusionAlly(pokemon: Pokemon): Pokemon | undefined {
+  const allyId = pokemon.battleData.illusionAllyId;
+  if (allyId == null) {
+    return;
+  }
+  return getIllusionParty(pokemon).find(p => p !== pokemon && p.id === allyId);
+}
+
+/**
+ * Local fork (2026-11-20): pick the ally an Illusion holder looks like for this battle with the battle's seeded RNG,
+ * unless it has one already, and keep it in {@linkcode PokemonBattleData.illusionAllyId} (the user: "일루전은 전투 시작할
+ * 때 모방할 아군을 지정해서 아군들이 죽어도 모방하도록").
+ * @param pokemon - The Illusion holder
+ * @returns The ally picked for this battle; `undefined` with no other party member at all
+ */
+function chooseIllusionAlly(pokemon: Pokemon): Pokemon | undefined {
+  const chosen = getChosenIllusionAlly(pokemon);
+  if (chosen) {
+    return chosen;
+  }
+  const allies = getIllusionAllies(pokemon);
+  if (allies.length === 0) {
+    return;
+  }
+  const ally = allies[pokemon.randBattleSeedInt(allies.length)];
+  pokemon.battleData.illusionAllyId = ally.id;
+  return ally;
+}
+
+/**
+ * Local fork (2026-11-20): Illusion's pick at the start of a battle (the user: "일루전은 전투 시작할 때 모방할 아군을
+ * 지정해서 아군들이 죽어도 모방하도록"). `EncounterPhase` applies it to both parties once they are made and before the
+ * wave-start save: the holder picks one other member of its own party, fainted or not, with the battle's seeded RNG
+ * ({@linkcode chooseIllusionAlly}). Every entry of this battle then takes that ally's look until the illusion breaks,
+ * even after that ally faints ({@linkcode IllusionPreSummonAbAttr}). The pick lasts as long as the holder's
+ * `battleData`, as a spent illusion does: a new battle (new biome, trainer battle, Mystery Encounter) picks again, a
+ * wild wave in the same biome keeps it, and a saved wave keeps it on reload. A holder with nobody else in its party
+ * picks nothing.
+ * @sealed
+ */
+export class IllusionBattleStartAbAttr extends AbAttr {
+  declare private readonly _: never;
+
+  constructor() {
+    super(false);
+  }
+
+  override canApply({ pokemon }: AbAttrBaseParams): boolean {
+    return getChosenIllusionAlly(pokemon) == null && getIllusionAllies(pokemon).length > 0;
+  }
+
+  override apply({ pokemon, simulated }: AbAttrBaseParams): void {
+    if (!simulated) {
+      chooseIllusionAlly(pokemon);
+    }
+  }
 }
 
 /**
@@ -5852,10 +5955,14 @@ function spendIllusion(pokemon: Pokemon): void {
 
 /**
  * Local fork (2026-11-19): Illusion = Disguise's effect + disguised as a random ally (C10, the user: "c10 일루전의 효과를
- * 탈 + 랜덤 아군 변신으로 해두기"). On entering battle the holder takes the look of a random ally
- * ({@linkcode getIllusionAllies}), picked with the battle's seeded RNG: its sprite, name, gender, Poké Ball and icon
- * (in the holder's own shininess, see `Pokemon.setIllusion`). With no such ally (a wild holder, the last Pokémon
- * standing) it keeps its own look, and so does a holder whose illusion was already spent this battle.
+ * 탈 + 랜덤 아군 변신으로 해두기"). On entering battle the holder takes the look of an ally of its own party: its
+ * sprite, name, gender, Poké Ball and icon (in the holder's own shininess, see `Pokemon.setIllusion`). Local fork
+ * (2026-11-20): always the ally it picked at the start of the battle ({@linkcode IllusionBattleStartAbAttr}), even
+ * once that ally has fainted, so the last Pokémon standing is disguised too (the user: "일루전은 전투 시작할 때 모방할
+ * 아군을 지정해서 아군들이 죽어도 모방하도록"); a holder without a pick yet (Illusion gained later, an enemy party made
+ * by a Mystery Encounter, a party that had nobody else when the battle began) picks here, once for the battle. With no
+ * other party member at all (a wild holder, a lone Pokémon) it keeps its own look, and so does a holder whose illusion
+ * was already spent this battle, or that cannot copy its pick right now (a Terastallized Ogerpon or Terapagos).
  * Upstream copied the last Pokémon in the party (or a random species for a wild holder) and never got it working.
  * @sealed
  */
@@ -5864,12 +5971,15 @@ export class IllusionPreSummonAbAttr extends PreSummonAbAttr {
     if (simulated) {
       return;
     }
-    const allies = getIllusionAllies(pokemon);
-    pokemon.setIllusion(allies[pokemon.randBattleSeedInt(allies.length)]);
+    const ally = chooseIllusionAlly(pokemon);
+    if (ally) {
+      pokemon.setIllusion(ally);
+    }
   }
 
   /**
-   * @returns Whether the holder has no illusion yet, has not spent it this battle and has an ally to copy.
+   * @returns Whether the holder has no illusion yet, has not spent it this battle and has an ally to copy (its pick
+   * for this battle, or anyone to pick when it has none yet). No roll happens here.
    * Local fork (2026-11-19), review fix: never for a fainted holder (Illusion bypasses fainting for its faint reset) nor
    * for the Pokémon a switch is taking off the field: `SummonPhase.start` also applies `PreSummonAbAttr` to the
    * Pokémon in the slot, which in a `SwitchSummonPhase` (or its `ReturnPhase`) is the one leaving (the one coming in
@@ -5879,13 +5989,11 @@ export class IllusionPreSummonAbAttr extends PreSummonAbAttr {
   override canApply({ pokemon }: AbAttrBaseParams): boolean {
     const phase = globalScene.phaseManager.getCurrentPhase();
     const leavingField = pokemon.isOnField() && (phase?.is("SwitchSummonPhase") || phase?.is("ReturnPhase"));
-    return (
-      pokemon.summonData.illusion == null
-      && !pokemon.battleData.illusionUsed
-      && !pokemon.isFainted()
-      && !leavingField
-      && getIllusionAllies(pokemon).length > 0
-    );
+    if (pokemon.summonData.illusion != null || pokemon.battleData.illusionUsed || pokemon.isFainted() || leavingField) {
+      return false;
+    }
+    const chosen = getChosenIllusionAlly(pokemon);
+    return chosen ? canCopyIllusionAlly(pokemon, chosen) : getIllusionAllies(pokemon).length > 0;
   }
 }
 
@@ -6653,11 +6761,15 @@ export const AbilityAttrs = Object.freeze({
   IgnoreMoveEffectsAbAttr,
   IgnoreOpponentStatStagesAbAttr,
   IgnoreProtectOnContactAbAttr,
+  // Local fork (2026-11-20): Stalwart ignores Substitute (Pokémon Champions 1.3.0)
+  IgnoreSubstituteAbAttr,
   IgnoreTypeImmunityAbAttr,
   IgnoreTypeStatusEffectImmunityAbAttr,
   IllusionBreakAbAttr,
   // Local fork (2026-11-19): Illusion = Disguise's effect + a random ally's look (C10)
   IllusionBlockDamageAbAttr,
+  // Local fork (2026-11-20): Illusion picks its ally at the start of the battle, applied by `EncounterPhase`
+  IllusionBattleStartAbAttr,
   IllusionPostBattleAbAttr,
   IllusionPostFaintAbAttr,
   IllusionPreSummonAbAttr,

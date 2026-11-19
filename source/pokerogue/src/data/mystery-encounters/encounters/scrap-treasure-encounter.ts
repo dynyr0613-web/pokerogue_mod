@@ -209,14 +209,15 @@ function doScrapDig(): void {
  * 2. Dig through the heap: 60% a random party member with room gets an Assault Vest or a Bulletproof Vest; 40% the
  *    scrap collapses and the highest-level party member faints, nothing gained. Ends with the healing shop.
  * 3. Leave.
- * ROGUE tier, in the Factory, the Construction Site, the Laboratory and the Power Plant; in Endless, waves 809, 1809, ...
+ * ROGUE tier, from wave 100 (2026-11-20), in the Factory, the Construction Site, the Laboratory and the Power Plant; in Endless, waves 809, 1809, ...
  * also become it 81 times in 1000 (special-spawns.ts).
  */
 export const ScrapTreasureEncounter: MysteryEncounter = MysteryEncounterBuilder.withEncounterType(
   MysteryEncounterType.SCRAP_TREASURE,
 )
   .withEncounterTier(MysteryEncounterTier.ROGUE)
-  .withSceneWaveRangeRequirement(...CLASSIC_MODE_MYSTERY_ENCOUNTER_WAVES)
+  // Local fork (2026-11-20): from wave 100 like the official Trash to Treasure (the user: "고철 속 보물 시작 웨이브 100")
+  .withSceneWaveRangeRequirement(100, CLASSIC_MODE_MYSTERY_ENCOUNTER_WAVES[1])
   // The official Trash to Treasure's party size; the collapse knocks one out, so two are left. No once-per-run limit:
   // the fork lets every encounter repeat (the idea doc: the vest can be farmed in Endless, hence ROGUE)
   .withScenePartySizeRequirement(3)

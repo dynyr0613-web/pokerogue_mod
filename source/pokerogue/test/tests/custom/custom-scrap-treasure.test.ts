@@ -165,10 +165,12 @@ describe("Custom mystery encounter - Treasure in the Scrap (SCRAP_TREASURE)", ()
         MysteryEncounterOptionMode.DEFAULT,
         MysteryEncounterOptionMode.DEFAULT,
       ]);
-      // the usual waves and the official Trash to Treasure's party of 3
+      // waves 100-180 and the official Trash to Treasure's party of 3
       const [waveRange, partySize] = ScrapTreasureEncounter.requirements;
       expect(ScrapTreasureEncounter.requirements).toHaveLength(2);
       expect(waveRange).toBeInstanceOf(WaveRangeRequirement);
+      // 2026-11-20: from wave 100, like the official Trash to Treasure (the user: "고철 속 보물 시작 웨이브 100")
+      expect((waveRange as WaveRangeRequirement).waveRange).toEqual([100, 180]);
       expect(partySize).toBeInstanceOf(PartySizeRequirement);
       expect((partySize as PartySizeRequirement).partySizeRange).toEqual([3, 6]);
       expect(ScrapTreasureEncounter.autoHideIntroVisuals).toBe(false);
