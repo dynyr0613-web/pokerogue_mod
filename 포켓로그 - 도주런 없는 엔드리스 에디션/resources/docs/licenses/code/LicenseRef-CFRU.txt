@@ -1,0 +1,13 @@
+Complete FireRed Upgrade (CFRU) — terms of use as stated by its README
+Source: https://github.com/Skeli789/Complete-Fire-Red-Upgrade (read 2026-11-18/19)
+
+The repository has no LICENSE file. Its README states that anyone who uses the repository or any of its assets
+agrees never to make money from their game (paywalls and optional donations included) without the explicit
+permission of its author, Skeli; permission is to be asked from the author directly. Animations in
+assembly/data/attack_anim_table.s without a credit line are by Skeli; the Max Move / G-Max Move blocks carry
+"Credits to Skeli".
+
+Use in this fork (2026-11-19): the PokeRogue local fork is non-commercial and free of charge. Its Max Move, G-Max
+Move and Max Guard battle animations re-create the choreography of CFRU's animation scripts (Skeli and the CFRU
+team) in PokeRogue's format, and their sheets contain 27 of CFRU's attack particles (graphics/Attack_Particles).
+Credit: Skeli and the Complete FireRed Upgrade team.

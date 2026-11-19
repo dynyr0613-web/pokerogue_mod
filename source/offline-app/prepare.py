@@ -53,6 +53,13 @@ def make_source_zip() -> Path:
             if path.is_file() and path.suffix in {".py", ".md", ".txt", ".diff"}:
                 zf.write(path, f"tools/port/{path.name}")
                 count += 1
+        # 2026-11-19: the Max Move animation builder and its per-move specs (CFRU re-creation); the CFRU download,
+        # the extraction, the inventory and the previews stay out
+        for sub in ("cfru_max", "cfru_max/specs"):
+            for path in sorted((TOOLS / "port" / sub).glob("*")):
+                if path.is_file() and path.suffix in {".py", ".md"}:
+                    zf.write(path, f"tools/port/{sub}/{path.name}")
+                    count += 1
         for name in ("main.js", "package.json", "prepare.py"):
             zf.write(APP / name, f"offline-app/{name}")
             count += 1

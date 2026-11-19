@@ -93,6 +93,75 @@ export const MOVE_TRANSFORM_RULES = Object.freeze({
 });
 
 /**
+ * Local fork (2026-11-19): the Max moves, Max Guard and G-Max moves whose animation files were rebuilt from the Complete
+ * FireRed Upgrade scripts (Skeli and the CFRU team) by `D:/PokeRogueDev/tools/port/cfru_max/maxanim.py` (one spec per
+ * move in `tools/port/cfru_max/specs`). CFRU gives these 38 their own animation (33 own bodies, 5 recolours of a Max
+ * body); the other 14 G-Max moves reuse another animation there, see {@linkcode GMAX_ANIM_ALIASES}. A Z다이 slot keeps
+ * its Max move's id, so a Z다이 attack / Z다이월 plays the Max move's file.
+ */
+export const CFRU_MAX_ANIM_MOVES: readonly MoveId[] = Object.freeze([
+  MoveId.MAX_GUARD,
+  MoveId.MAX_STRIKE,
+  MoveId.MAX_KNUCKLE,
+  MoveId.MAX_AIRSTREAM,
+  MoveId.MAX_OOZE,
+  MoveId.MAX_QUAKE,
+  MoveId.MAX_ROCKFALL,
+  MoveId.MAX_FLUTTERBY,
+  MoveId.MAX_PHANTASM,
+  MoveId.MAX_STEELSPIKE,
+  MoveId.MAX_FLARE,
+  MoveId.MAX_GEYSER,
+  MoveId.MAX_OVERGROWTH,
+  MoveId.MAX_LIGHTNING,
+  MoveId.MAX_MINDSTORM,
+  MoveId.MAX_HAILSTORM,
+  MoveId.MAX_WYRMWIND,
+  MoveId.MAX_DARKNESS,
+  MoveId.MAX_STARFALL,
+  MoveId.G_MAX_WILDFIRE,
+  MoveId.G_MAX_GOLD_RUSH,
+  MoveId.G_MAX_TERROR,
+  MoveId.G_MAX_RESONANCE,
+  MoveId.G_MAX_CUDDLE,
+  MoveId.G_MAX_REPLENISH,
+  MoveId.G_MAX_MALODOR,
+  MoveId.G_MAX_STUN_SHOCK,
+  MoveId.G_MAX_DEPLETION,
+  MoveId.G_MAX_GRAVITAS,
+  MoveId.G_MAX_SANDBLAST,
+  MoveId.G_MAX_SNOOZE,
+  MoveId.G_MAX_TARTNESS,
+  MoveId.G_MAX_SMITE,
+  MoveId.G_MAX_STEELSURGE,
+  MoveId.G_MAX_MELTDOWN,
+  MoveId.G_MAX_FOAM_BURST,
+  MoveId.G_MAX_VINE_LASH,
+  MoveId.G_MAX_CANNONADE,
+]);
+
+/**
+ * Local fork (2026-11-19): the G-Max moves that CFRU animates with another move's script (a pure `goto`): ten with a
+ * Max move's (or G-Max Tartness's), four with a regular move's that upstream PokeRogue already has.
+ */
+export const GMAX_ANIM_ALIASES: ReadonlyMap<MoveId, MoveId> = new Map([
+  [MoveId.G_MAX_BEFUDDLE, MoveId.MAX_FLUTTERBY],
+  [MoveId.G_MAX_VOLT_CRASH, MoveId.MAX_LIGHTNING],
+  [MoveId.G_MAX_CHI_STRIKE, MoveId.MAX_KNUCKLE],
+  [MoveId.G_MAX_STONESURGE, MoveId.MAX_GEYSER],
+  [MoveId.G_MAX_WIND_RAGE, MoveId.MAX_AIRSTREAM],
+  [MoveId.G_MAX_FINALE, MoveId.MAX_STARFALL],
+  [MoveId.G_MAX_VOLCALITH, MoveId.MAX_ROCKFALL],
+  [MoveId.G_MAX_SWEETNESS, MoveId.G_MAX_TARTNESS],
+  [MoveId.G_MAX_CENTIFERNO, MoveId.MAX_FLARE],
+  [MoveId.G_MAX_ONE_BLOW, MoveId.MAX_DARKNESS],
+  [MoveId.G_MAX_DRUM_SOLO, MoveId.DRUM_BEATING],
+  [MoveId.G_MAX_FIREBALL, MoveId.PYRO_BALL],
+  [MoveId.G_MAX_HYDROSNIPE, MoveId.SNIPE_SHOT],
+  [MoveId.G_MAX_RAPID_FLOW, MoveId.AQUA_JET],
+]);
+
+/**
  * Local fork (2026-11-18): the Z / exclusive Z / Max / G-Max moves that have their own animation file in
  * `assets/battle-anims` (the user: "Z-다이 전용 전투 에니메이션은 아마 자료가 에센셜용으로 꽤 많이 있을거라 그걸 얻어오면
  * 되고"). Upstream had six exclusive Z ones (Catastropika ... Light That Burns the Sky); the others were converted from
@@ -100,6 +169,8 @@ export const MOVE_TRANSFORM_RULES = Object.freeze({
  * `D:/PokeRogueDev/tools/port/essentials_anims.py`. 10,000,000 Volt Thunderbolt, every Max and G-Max move and Max Guard
  * have no animation there (Essentials' "Max Moves" section is empty), so they keep the fallbacks of
  * {@linkcode getAnimMoveId}. A test checks this list against the files.
+ * Local fork (2026-11-19): plus the Max / G-Max / Max Guard animations rebuilt from Complete FireRed Upgrade (Skeli and
+ * the CFRU team; the user: "CFRU 받아서 만들기"): {@linkcode CFRU_MAX_ANIM_MOVES}.
  */
 export const ZMAX_OWN_ANIM_MOVES: ReadonlySet<MoveId> = new Set([
   // Z moves (one Essentials animation for both MoveIds of a type)
@@ -156,6 +227,8 @@ export const ZMAX_OWN_ANIM_MOVES: ReadonlySet<MoveId> = new Set([
   MoveId.LETS_SNUGGLE_FOREVER,
   MoveId.SPLINTERED_STORMSHARDS,
   MoveId.CLANGOROUS_SOULBLAZE,
+  // Local fork (2026-11-19): the CFRU Max / G-Max / Max Guard animations
+  ...CFRU_MAX_ANIM_MOVES,
 ]);
 
 /** The Gigantamax form keys (Eternamax is not one: Eternatus has no G-Max move) */
@@ -390,10 +463,18 @@ export function getMoveTransform(move: Move): Readonly<MoveTransform> | undefine
  * animations yet), the base move for a Z status move; `move.id` for every other move. A Z / Max / G-Max registry
  * entry used outside a converted slot (no base move known) and without its own file plays Tackle, the default
  * `initMoveAnim` would fall back to, without fetching a file that is not there (the offline app counts 404s).
+ * Local fork (2026-11-19): every Max move, Max Guard and 19 G-Max moves now have their own file (CFRU, see
+ * {@linkcode CFRU_MAX_ANIM_MOVES}), and the other 14 G-Max moves play the animation CFRU gives them
+ * ({@linkcode GMAX_ANIM_ALIASES}); so only 다이검무 / Z다이검무 (Swords Dance), 10,000,000 Volt Thunderbolt and Z status
+ * moves still use the fallbacks below.
  */
 export function getAnimMoveId(move: Move): MoveId {
   if (ZMAX_OWN_ANIM_MOVES.has(move.id)) {
     return move.id;
+  }
+  const alias = GMAX_ANIM_ALIASES.get(move.id);
+  if (alias !== undefined) {
+    return alias;
   }
   if (move.id === MoveId.MAX_GUARD) {
     return MoveId.PROTECT;

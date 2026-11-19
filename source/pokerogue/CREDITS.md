@@ -852,3 +852,14 @@ and [everyone else](https://github.com/pagefaultgames/pokerogue/graphs/contribut
   Essentials project (`Audio/SE/Anim/*.ogg`, converted to 16-bit .wav in `assets/audio/battle_anims/` by
   `D:/PokeRogueDev/tools/port/essentials_anim_sounds.py`). Terms: Pokémon Reborn's "credit what you borrow"
   (`assets/LICENSES/LicenseRef-POKEMON-REBORN.txt`).
+- Local fork (2026-11-19), Max Move battle animations: the 18 Max Moves, Max Guard and 19 G-Max Moves
+  (`assets/battle-anims/max-*.json`, `g-max-*.json`; the other 14 G-Max Moves play the animation CFRU gives them)
+  re-create the choreography of the Complete FireRed Upgrade animation scripts by Skeli and the CFRU team
+  (https://github.com/Skeli789/Complete-Fire-Red-Upgrade, `assembly/data/attack_anim_table.s`), rebuilt in PokéRogue's
+  format by `D:/PokeRogueDev/tools/port/cfru_max` outside the repository. Their sheets
+  (`assets/images/battle_anims/CFRU- *.png`) combine 27 CFRU attack particles (`graphics/Attack_Particles`: Apple,
+  Assurance Hand, Aura Sphere, Berry Normal, Embers, Flash Cannon Ball, Golden Apple, Green Star, Hydro Pump, Ice Rock,
+  Anchor, Arrows, Large Spike, Leaves, Leech Seed, Mean Look, Mushroom, Needle, Poison Column, Punishment, Razor Shell,
+  Rocks, Stone Pillar, Straight Beam, Thrash, Tornado, Wood) with PokéRogue's existing battle-anim sheets, backgrounds
+  and sounds (mostly Pokémon Reborn's PRAS ones, credited above). Terms: CFRU's README, non-commercial use with credit
+  (`LICENSES/LicenseRef-CFRU.txt`).

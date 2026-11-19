@@ -12,7 +12,13 @@ import { MoveId } from "#enums/move-id";
 import { PokemonType } from "#enums/pokemon-type";
 import { SpeciesId } from "#enums/species-id";
 import { ZCrystalModifierType } from "#modifiers/modifier-type";
-import { getAnimMoveId, getTransformedMove, ZMAX_OWN_ANIM_MOVES } from "#moves/move-transform";
+import {
+  CFRU_MAX_ANIM_MOVES,
+  GMAX_ANIM_ALIASES,
+  getAnimMoveId,
+  getTransformedMove,
+  ZMAX_OWN_ANIM_MOVES,
+} from "#moves/move-transform";
 import { ZMAX_ONLY_MOVES } from "#moves/zmax-data";
 import { GameManager } from "#test/framework/game-manager";
 import { toKebabCase } from "#utils/strings";
@@ -29,6 +35,8 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vite
  * matches the files, `getAnimMoveId` picks a converted move's own animation and the old fallbacks for the others, and
  * a battle with a Z move and a Max move plays them. The test harness serves Tackle for every animation fetch and
  * turns move animations off, so the files themselves are read from disk here.
+ * Local fork (2026-11-19): plus the Max / G-Max / Max Guard animations rebuilt from Complete FireRed Upgrade (Skeli and
+ * the CFRU team, `tools/port/cfru_max`; the user: "CFRU 받아서 만들기"): 38 own files, 14 G-Max moves on CFRU's aliases.
  */
 
 /** The animation file of `id`, as `initMoveAnim` names it */
@@ -143,23 +151,65 @@ describe("Z / Max battle animations 2026-11-18", () => {
       for (const id of ZMAX_OWN_ANIM_MOVES) {
         expect(ZMAX_ONLY_MOVES.has(id), MoveId[id]).toBe(true);
       }
-      // 18 types x physical / special + 16 exclusive Z moves (all but 10,000,000 Volt Thunderbolt)
-      expect(ZMAX_OWN_ANIM_MOVES.size).toBe(52);
+      // 18 types x physical / special + 16 exclusive Z moves (all but 10,000,000 Volt Thunderbolt) + the 38 CFRU ones
+      expect(CFRU_MAX_ANIM_MOVES.length).toBe(38);
+      expect(ZMAX_OWN_ANIM_MOVES.size).toBe(52 + 38);
     });
 
-    it("has no Max / G-Max / Max Guard / 10,000,000 Volt Thunderbolt animation (not in the Essentials data)", () => {
-      for (const id of [
-        MoveId.MAX_FLARE,
-        MoveId.MAX_STEELSPIKE,
-        MoveId.MAX_GUARD,
-        MoveId.MAX_SWORDS_DANCE,
-        MoveId.G_MAX_WILDFIRE,
-        MoveId.G_MAX_MELTDOWN,
-        MoveId.TEN_MILLION_VOLT_THUNDERBOLT,
-      ]) {
+    it("has a file for every Max move, Max Guard and 19 G-Max moves, and none for 다이검무 / 10,000,000 Volt Thunderbolt", () => {
+      const maxMoves = [...ZMAX_ONLY_MOVES].filter(id => MoveId[id].startsWith("MAX_") && id !== MoveId.MAX_SWORDS_DANCE);
+      expect(maxMoves.length).toBe(19);
+      for (const id of maxMoves) {
+        expect(existsSync(animPath(id)), MoveId[id]).toBe(true);
+      }
+      const gmaxMoves = [...ZMAX_ONLY_MOVES].filter(id => MoveId[id].startsWith("G_MAX_"));
+      expect(gmaxMoves.length).toBe(33);
+      for (const id of gmaxMoves) {
+        // own file or one of CFRU's 14 aliases, never both
+        expect(existsSync(animPath(id)), MoveId[id]).toBe(!GMAX_ANIM_ALIASES.has(id));
+      }
+      expect(GMAX_ANIM_ALIASES.size).toBe(14);
+      for (const id of [MoveId.MAX_SWORDS_DANCE, MoveId.TEN_MILLION_VOLT_THUNDERBOLT]) {
         expect(existsSync(animPath(id)), MoveId[id]).toBe(false);
       }
     });
+
+    it("gives every G-Max alias a target whose file exists", () => {
+      for (const [gmax, target] of GMAX_ANIM_ALIASES) {
+        expect(existsSync(animPath(target)), `${MoveId[gmax]} -> ${MoveId[target]}`).toBe(true);
+        expect(GMAX_ANIM_ALIASES.has(target), MoveId[target]).toBe(false);
+      }
+    });
+
+    it.each(CFRU_MAX_ANIM_MOVES.map(id => [MoveId[id], id] as const))(
+      "%s (CFRU) is one object for both sides, 40-75 frames, battlers in every frame, sheet named CFRU-",
+      (_name, id) => {
+        const anims = readAnims(id);
+        expect(anims.length).toBe(1);
+        const config = new AnimConfig(anims[0]);
+        expect(config.graphic.startsWith("CFRU- ")).toBe(true);
+        expect(config.frames.length).toBeGreaterThanOrEqual(40);
+        expect(config.frames.length).toBeLessThanOrEqual(75);
+        for (const frame of config.frames) {
+          const user = frame.filter(cel => cel.target === AnimFrameTarget.USER);
+          const target = frame.filter(cel => cel.target === AnimFrameTarget.TARGET);
+          expect(user.length).toBe(1);
+          expect(target.length).toBe(1);
+          expect(user[0].locked && target[0].locked).toBe(true);
+          expect(frame.filter(cel => cel.target === AnimFrameTarget.GRAPHIC).length).toBeLessThanOrEqual(24);
+          for (const cel of frame) {
+            // the engine adds tone[3] raw as a grey mix factor; the CFRU files keep it at 0
+            expect(cel.tone[3]).toBe(0);
+          }
+        }
+        if (id === MoveId.MAX_GUARD) {
+          // a self move: USER_TARGET would collapse onto the user, so its graphics follow the user
+          for (const cel of config.frames.flat().filter(c => c.target === AnimFrameTarget.GRAPHIC)) {
+            expect(cel.focus).toBe(AnimFocus.USER);
+          }
+        }
+      },
+    );
 
     it.each([...ZMAX_OWN_ANIM_MOVES].map(id => [MoveId[id], id] as const))(
       "%s parses into an AnimConfig whose sheet, backgrounds and sounds are in the assets",
@@ -234,22 +284,29 @@ describe("Z / Max battle animations 2026-11-18", () => {
       ).toBe(MoveId.THUNDERBOLT);
     });
 
-    it("keeps the fallbacks for Max / G-Max / Z다이 / Max Guard / 다이검무 and Z status moves", () => {
+    it("plays the CFRU files for Max / G-Max / Z다이 / Max Guard and keeps the fallbacks for 다이검무 and Z status moves", () => {
       expect(getAnimMoveId(getTransformedMove(MoveId.EMBER, { kind: "max", moveId: MoveId.MAX_FLARE }))).toBe(
-        MoveId.EMBER,
+        MoveId.MAX_FLARE,
       );
       expect(
         getAnimMoveId(getTransformedMove(MoveId.DOUBLE_IRON_BASH, { kind: "gmax", moveId: MoveId.G_MAX_MELTDOWN })),
-      ).toBe(MoveId.DOUBLE_IRON_BASH);
-      // Z다이 attack: a copy of the Max move, so the base move's until a Max animation exists
+      ).toBe(MoveId.G_MAX_MELTDOWN);
+      // CFRU's aliases: G-Max Centiferno plays Max Flare's, G-Max Fireball plays Pyro Ball's
+      expect(
+        getAnimMoveId(getTransformedMove(MoveId.FIRE_SPIN, { kind: "gmax", moveId: MoveId.G_MAX_CENTIFERNO })),
+      ).toBe(MoveId.MAX_FLARE);
+      expect(getAnimMoveId(getTransformedMove(MoveId.EMBER, { kind: "gmax", moveId: MoveId.G_MAX_FIREBALL }))).toBe(
+        MoveId.PYRO_BALL,
+      );
+      // Z다이 attack: a copy of the Max move, so the Max move's file
       expect(getAnimMoveId(getTransformedMove(MoveId.EMBER, { kind: "zMax", moveId: MoveId.MAX_FLARE }))).toBe(
-        MoveId.EMBER,
+        MoveId.MAX_FLARE,
       );
       expect(getAnimMoveId(getTransformedMove(MoveId.TAIL_WHIP, { kind: "max", moveId: MoveId.MAX_GUARD }))).toBe(
-        MoveId.PROTECT,
+        MoveId.MAX_GUARD,
       );
       expect(getAnimMoveId(getTransformedMove(MoveId.TAIL_WHIP, { kind: "zMax", moveId: MoveId.MAX_GUARD }))).toBe(
-        MoveId.PROTECT,
+        MoveId.MAX_GUARD,
       );
       expect(
         getAnimMoveId(getTransformedMove(MoveId.SWORDS_DANCE, { kind: "zMax", moveId: MoveId.MAX_SWORDS_DANCE })),
@@ -262,12 +319,17 @@ describe("Z / Max battle animations 2026-11-18", () => {
 
     it("never names a file that is not there for a Z / Max registry entry used outside a slot", () => {
       expect(getAnimMoveId(allMoves[MoveId.CATASTROPIKA])).toBe(MoveId.CATASTROPIKA);
-      expect(getAnimMoveId(allMoves[MoveId.MAX_FLARE])).toBe(MoveId.TACKLE);
-      expect(getAnimMoveId(allMoves[MoveId.G_MAX_WILDFIRE])).toBe(MoveId.TACKLE);
-      expect(getAnimMoveId(allMoves[MoveId.MAX_GUARD])).toBe(MoveId.PROTECT);
+      expect(getAnimMoveId(allMoves[MoveId.MAX_FLARE])).toBe(MoveId.MAX_FLARE);
+      expect(getAnimMoveId(allMoves[MoveId.G_MAX_WILDFIRE])).toBe(MoveId.G_MAX_WILDFIRE);
+      expect(getAnimMoveId(allMoves[MoveId.G_MAX_BEFUDDLE])).toBe(MoveId.MAX_FLUTTERBY);
+      expect(getAnimMoveId(allMoves[MoveId.MAX_GUARD])).toBe(MoveId.MAX_GUARD);
       for (const id of ZMAX_ONLY_MOVES) {
         const animId = getAnimMoveId(allMoves[id]);
         expect(ZMAX_ONLY_MOVES.has(animId) ? existsSync(animPath(animId)) : true, MoveId[id]).toBe(true);
+        if (MoveId[id].startsWith("MAX_") || MoveId[id].startsWith("G_MAX_")) {
+          // a Max / G-Max move never falls back to Tackle any more, except 다이검무 (Swords Dance's)
+          expect(existsSync(animPath(animId)), `${MoveId[id]} -> ${MoveId[animId]}`).toBe(true);
+        }
       }
     });
   });
@@ -299,7 +361,7 @@ describe("Z / Max battle animations 2026-11-18", () => {
       vi.restoreAllMocks();
     });
 
-    it("a Z move plays its own animation and a Max move its base move's", async () => {
+    it("a Z move plays its own animation and a Max move its CFRU one", async () => {
       await game.classicMode.startBattle(SpeciesId.RAICHU);
       const raichu = game.field.getPlayerPokemon();
       game.move.changeMoveset(raichu, [MoveId.THUNDERBOLT, MoveId.EMBER]);
@@ -311,7 +373,7 @@ describe("Z / Max battle animations 2026-11-18", () => {
 
       // What the summon and the conversion load (the harness serves Tackle's file for every animation)
       const animIds = raichu.getMoveset().map(m => getAnimMoveId(m.getMove()));
-      expect(animIds).toEqual([MoveId.GIGAVOLT_HAVOC__SPECIAL, MoveId.EMBER]);
+      expect(animIds).toEqual([MoveId.GIGAVOLT_HAVOC__SPECIAL, MoveId.MAX_FLARE]);
       await Promise.all(animIds.map(id => initMoveAnim(id)));
       await loadMoveAnimAssets(animIds);
       for (const id of animIds) {
@@ -332,8 +394,8 @@ describe("Z / Max battle animations 2026-11-18", () => {
 
       const played = play.mock.contexts.map(anim => (anim as MoveAnim).move);
       expect(played).toContain(MoveId.GIGAVOLT_HAVOC__SPECIAL);
-      expect(played).toContain(MoveId.EMBER);
-      expect(played).not.toContain(MoveId.MAX_FLARE);
+      expect(played).toContain(MoveId.MAX_FLARE);
+      expect(played).not.toContain(MoveId.EMBER);
     });
   });
 });
