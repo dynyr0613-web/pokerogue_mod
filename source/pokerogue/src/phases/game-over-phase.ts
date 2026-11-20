@@ -17,6 +17,7 @@ import { TrainerType } from "#enums/trainer-type";
 import { UiMode } from "#enums/ui-mode";
 import { Unlockables } from "#enums/unlockables";
 import type { Pokemon } from "#field/pokemon";
+import { revertHeldItemMoveChanges } from "#moves/held-item-moves"; // Local fork (2026-11-20): held-item moves
 import { BattlePhase } from "#phases/battle-phase";
 import type { EndCardPhase } from "#phases/end-card-phase";
 import { achvs, ChallengeAchv } from "#system/achv";
@@ -51,6 +52,10 @@ export class GameOverPhase extends BattlePhase {
     super.start();
 
     globalScene.phaseManager.hideAbilityBar();
+
+    // Local fork (2026-11-20): held-item moves (the user: "도구 변경은 전투 후 되돌아옴"). A battle that ends the run (or
+    // a lost mystery-encounter battle that does not) also puts the items Trick / Switcheroo / Fling moved back
+    revertHeldItemMoveChanges();
 
     // Failsafe if players somehow skip floor 200 in classic mode
     if (globalScene.gameMode.isClassic && globalScene.currentBattle.waveIndex > 200) {

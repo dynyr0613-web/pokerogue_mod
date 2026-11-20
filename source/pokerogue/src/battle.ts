@@ -59,6 +59,13 @@ export interface TurnCommand {
    * (`TurnStartPhase`; `src/data/moves/move-style.ts`).
    */
   moveStyle?: MoveStyle | undefined;
+  /**
+   * Local fork (2026-11-20): held-item moves (1.2.0 D5). The key of the held item the player chose for this FIGHT
+   * command's Trick / Switcheroo (to give), Fling (to throw) or Natural Gift (the berry); the user: "트릭/바꿔치기(주는
+   * 템은 선택 ...), 내던지기(도구 선택), 자연의은혜(나무열매 선택 ...)". `undefined` for every other command; the move
+   * reads it (`getCommandedHeldItemKey`, src/data/moves/held-item-moves.ts).
+   */
+  heldItemKey?: string | undefined;
 }
 
 export interface FaintLogEntry {

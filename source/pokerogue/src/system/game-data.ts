@@ -50,6 +50,8 @@ import { ArenaTagAddedEvent, TerrainChangedEvent, WeatherChangedEvent } from "#e
 import type { EnemyPokemon, PlayerPokemon, Pokemon } from "#field/pokemon";
 // biome-ignore lint/performance/noNamespaceImport: Something weird is going on here and I don't want to touch it
 import * as Modifier from "#modifiers/modifier";
+// Local fork (2026-11-20), review fix: held-item moves (a loaded session drops the last battle's ledger)
+import { discardHeldItemMoveLedger } from "#moves/held-item-moves";
 import { MysteryEncounterSaveData } from "#mystery-encounters/mystery-encounter-save-data";
 import { version } from "#package.json";
 import type { Variant } from "#sprites/variant";
@@ -996,6 +998,9 @@ export class GameData {
 
   // TODO: This needs a giant refactor and overhaul
   private async initSessionFromData(fromSession: SessionSaveData): Promise<void> {
+    // Local fork (2026-11-20), review fix: held-item moves (the user: "도구 변경은 전투 후 되돌아옴"). The session's
+    // items are those of its wave's start; a ledger left by a battle quit midway must not be settled on them
+    discardHeldItemMoveLedger();
     if (isBeta || isDev) {
       try {
         console.debug(

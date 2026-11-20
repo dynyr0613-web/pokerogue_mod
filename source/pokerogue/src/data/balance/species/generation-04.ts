@@ -5710,7 +5710,7 @@ export function initGenerationFour(): SpeciesDataMapConfig {
       [41, MoveId.FLING],
       [44, MoveId.NATURAL_GIFT],
       [49, MoveId.BELLY_DRUM],
-      [52, MoveId.SNATCH],
+      [52, MoveId.THIEF], // Local fork (2026-11-20): was Snatch ("알기술/레벨업 - 다른 기술로 대체")
       [57, MoveId.LAST_RESORT],
     ],
     tms: [
@@ -7292,7 +7292,7 @@ export function initGenerationFour(): SpeciesDataMapConfig {
       [1, MoveId.TAUNT],
       [1, MoveId.REVENGE],
       [1, MoveId.ASSURANCE],
-      [1, MoveId.EMBARGO],
+      [1, MoveId.TORMENT], // Local fork (2026-11-20): was Embargo ("알기술/레벨업 - 다른 기술로 대체")
       [8, MoveId.QUICK_ATTACK],
       [10, MoveId.FEINT_ATTACK],
       [14, MoveId.METAL_CLAW],
@@ -7304,7 +7304,7 @@ export function initGenerationFour(): SpeciesDataMapConfig {
       [30, MoveId.ICEBREAKER], // Local fork (2026-11-14): custom moves
       [32, MoveId.SCREECH],
       [35, MoveId.NIGHT_SLASH],
-      [40, MoveId.SNATCH],
+      [40, MoveId.THIEF], // Local fork (2026-11-20): was Snatch ("알기술/레벨업 - 다른 기술로 대체")
       [44, MoveId.PUNISHMENT],
       [47, MoveId.ICE_SHARD],
       [52, MoveId.DARK_PULSE],
@@ -7741,7 +7741,7 @@ export function initGenerationFour(): SpeciesDataMapConfig {
       [16, MoveId.ANCIENT_POWER],
       [19, MoveId.ENCORE],
       [21, MoveId.FOLLOW_ME],
-      [25, MoveId.BESTOW],
+      [25, MoveId.LUCKY_CHANT], // Local fork (2026-11-20): was Bestow ("알기술/레벨업 - 다른 기술로 대체")
       [29, MoveId.WISH],
       [33, MoveId.AFTER_YOU],
       [37, MoveId.SAFEGUARD],
@@ -8128,7 +8128,7 @@ export function initGenerationFour(): SpeciesDataMapConfig {
       [26, MoveId.RECOVER],
       [29, MoveId.SIGNAL_BEAM],
       [32, MoveId.CONVERSION_2],
-      [36, MoveId.EMBARGO],
+      [36, MoveId.DISABLE], // Local fork (2026-11-20): was Embargo ("알기술/레벨업 - 다른 기술로 대체")
       [40, MoveId.DISCHARGE],
       [44, MoveId.MAGIC_COAT],
       [48, MoveId.TRI_ATTACK],
@@ -8915,7 +8915,7 @@ export function initGenerationFour(): SpeciesDataMapConfig {
       [RELEARN_MOVE, MoveId.SNORE],
       [RELEARN_MOVE, MoveId.IRON_TAIL],
       [RELEARN_MOVE, MoveId.ROUND],
-      [RELEARN_MOVE, MoveId.ALLY_SWITCH],
+      [RELEARN_MOVE, MoveId.MAGIC_COAT], // Local fork (2026-11-20): was Ally Switch ("알기술/레벨업 - 다른 기술로 대체")
       [RELEARN_MOVE, MoveId.EXPANDING_FORCE],
       [1, MoveId.CONFUSION],
       [1, MoveId.REST],
@@ -8935,7 +8935,7 @@ export function initGenerationFour(): SpeciesDataMapConfig {
       [71, MoveId.FLAIL],
       [76, MoveId.MEMENTO],
       [81, MoveId.WONDER_ROOM],
-      [81, MoveId.MAGIC_ROOM],
+      [81, MoveId.TRICK_ROOM], // Local fork (2026-11-20): was Magic Room ("알기술/레벨업 - 다른 기술로 대체")
       [86, MoveId.FUTURE_SIGHT],
     ],
     tms: [
@@ -9062,7 +9062,7 @@ export function initGenerationFour(): SpeciesDataMapConfig {
       [RELEARN_MOVE, MoveId.IRON_TAIL],
       [RELEARN_MOVE, MoveId.LUCKY_CHANT],
       [RELEARN_MOVE, MoveId.ROUND],
-      [RELEARN_MOVE, MoveId.ALLY_SWITCH],
+      [RELEARN_MOVE, MoveId.MAGIC_COAT], // Local fork (2026-11-20): was Ally Switch ("알기술/레벨업 - 다른 기술로 대체")
       [RELEARN_MOVE, MoveId.EXPANDING_FORCE],
       [1, MoveId.CONFUSION],
       [1, MoveId.REST],
@@ -9082,7 +9082,7 @@ export function initGenerationFour(): SpeciesDataMapConfig {
       [71, MoveId.COPYCAT],
       [76, MoveId.HEALING_WISH],
       [81, MoveId.WONDER_ROOM],
-      [81, MoveId.MAGIC_ROOM],
+      [81, MoveId.TRICK_ROOM], // Local fork (2026-11-20): was Magic Room ("알기술/레벨업 - 다른 기술로 대체")
       [86, MoveId.FUTURE_SIGHT],
     ],
     tms: [
@@ -9210,7 +9210,7 @@ export function initGenerationFour(): SpeciesDataMapConfig {
       [RELEARN_MOVE, MoveId.IRON_TAIL],
       [RELEARN_MOVE, MoveId.PAYBACK],
       [RELEARN_MOVE, MoveId.ROUND],
-      [RELEARN_MOVE, MoveId.ALLY_SWITCH],
+      [RELEARN_MOVE, MoveId.MAGIC_COAT], // Local fork (2026-11-20): was Ally Switch ("알기술/레벨업 - 다른 기술로 대체")
       [RELEARN_MOVE, MoveId.EXPANDING_FORCE],
       [1, MoveId.CONFUSION],
       [1, MoveId.REST],
@@ -9230,7 +9230,7 @@ export function initGenerationFour(): SpeciesDataMapConfig {
       [71, MoveId.LAST_RESORT],
       [76, MoveId.EXPLOSION],
       [81, MoveId.WONDER_ROOM],
-      [81, MoveId.MAGIC_ROOM],
+      [81, MoveId.TRICK_ROOM], // Local fork (2026-11-20): was Magic Room ("알기술/레벨업 - 다른 기술로 대체")
       [86, MoveId.FUTURE_SIGHT],
     ],
     tms: [
@@ -10273,7 +10273,7 @@ export function initGenerationFour(): SpeciesDataMapConfig {
       [6, MoveId.MIST],
       [12, MoveId.AURORA_BEAM],
       [18, MoveId.PSYBEAM],
-      [24, MoveId.ALLY_SWITCH],
+      [24, MoveId.LIGHT_SCREEN], // Local fork (2026-11-20): was Ally Switch ("알기술/레벨업 - 다른 기술로 대체")
       [27, MoveId.MOONLIGHT],
       [30, MoveId.SLASH],
       [36, MoveId.PSYCHO_CUT],
@@ -10683,7 +10683,7 @@ export function initGenerationFour(): SpeciesDataMapConfig {
       [25, MoveId.NIGHT_SHADE],
       [29, MoveId.FEINT_ATTACK],
       [32, MoveId.PSYBEAM],
-      [34, MoveId.EMBARGO],
+      [34, MoveId.TAUNT], // Local fork (2026-11-20): was Embargo ("알기술/레벨업 - 다른 기술로 대체")
       [38, MoveId.NIGHTMARE],
       [43, MoveId.SUCKER_PUNCH],
       [47, MoveId.DOUBLE_TEAM],

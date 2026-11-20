@@ -428,6 +428,11 @@ export class PokemonTurnData {
    * nothing is in flight. `Move.getPriority` and `Move.calculateBattlePower` read it (`src/data/moves/move-style.ts`).
    */
   public moveStyleUse: { move: MoveId; style: MoveStyle } | undefined;
+  /**
+   * Local fork (2026-11-20): Me First (선취; the user: "구현: ... 선취"). The move Me First made this Pokémon use this
+   * turn (`MeFirstAttr`); `Move.calculateBattlePower` gives it x1.5 until the turn ends (Showdown's 1-turn volatile)
+   */
+  public meFirstMove: MoveId | undefined;
 
   // #endregion Move usage-related properties
 

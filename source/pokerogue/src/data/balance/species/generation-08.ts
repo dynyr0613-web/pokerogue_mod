@@ -1466,7 +1466,7 @@ export function initGenerationEight(): SpeciesDataMapConfig {
       [12, MoveId.AGILITY],
       [16, MoveId.PSYBEAM],
       [20, MoveId.HYPNOSIS],
-      [24, MoveId.ALLY_SWITCH],
+      [24, MoveId.SKILL_SWAP], // Local fork (2026-11-20): was Ally Switch ("알기술/레벨업 - 다른 기술로 대체")
       [28, MoveId.BUG_BUZZ],
       [32, MoveId.MIRROR_COAT],
       [36, MoveId.PSYCHIC],
@@ -5516,7 +5516,7 @@ export function initGenerationEight(): SpeciesDataMapConfig {
       [8, MoveId.MEDITATE],
       [10, MoveId.ENCORE],
       [12, MoveId.DOUBLE_SLAP],
-      [15, MoveId.ALLY_SWITCH],
+      [15, MoveId.ROLE_PLAY], // Local fork (2026-11-20): was Ally Switch ("알기술/레벨업 - 다른 기술로 대체")
       [18, MoveId.MIMIC],
       [18, MoveId.RAPID_SPIN],
       [20, MoveId.ICY_WIND],
@@ -10480,7 +10480,7 @@ export function initGenerationEight(): SpeciesDataMapConfig {
       [28, MoveId.AGILITY],
       [32, MoveId.SCREECH],
       [35, MoveId.BRICK_BREAK],
-      [40, MoveId.SNATCH],
+      [40, MoveId.THIEF], // Local fork (2026-11-20): was Snatch ("알기술/레벨업 - 다른 기술로 대체")
       [44, MoveId.PUNISHMENT],
       [47, MoveId.SLASH],
       [52, MoveId.CLOSE_COMBAT],
@@ -11559,7 +11559,7 @@ export function initGenerationEight(): SpeciesDataMapConfig {
       [8, MoveId.MEDITATE],
       [10, MoveId.ENCORE],
       [12, MoveId.DOUBLE_SLAP],
-      [15, MoveId.ALLY_SWITCH],
+      [15, MoveId.ROLE_PLAY], // Local fork (2026-11-20): was Ally Switch ("알기술/레벨업 - 다른 기술로 대체")
       [18, MoveId.MIMIC],
       [18, MoveId.RAPID_SPIN],
       [20, MoveId.ICY_WIND],
@@ -13385,7 +13385,7 @@ export function initGenerationEight(): SpeciesDataMapConfig {
       [28, MoveId.AGILITY],
       [32, MoveId.SCREECH],
       [35, MoveId.BRICK_BREAK],
-      [40, MoveId.SNATCH],
+      [40, MoveId.THIEF], // Local fork (2026-11-20): was Snatch ("알기술/레벨업 - 다른 기술로 대체")
       [44, MoveId.PUNISHMENT],
       [47, MoveId.SLASH],
       [52, MoveId.CLOSE_COMBAT],

@@ -10,5 +10,7 @@
   "effectivenessMultiplier": "{{effectiveness}}×",
   "moveStyleStrong": "강공",
   "moveStyleNormal": "중공",
-  "moveStyleAgile": "속공"
+  "moveStyleAgile": "속공",
+  "heldItemChoiceFling": "{{itemName}}  위력 {{power}}",
+  "heldItemChoiceNaturalGift": "{{itemName}}  {{type}} {{power}}"
 }

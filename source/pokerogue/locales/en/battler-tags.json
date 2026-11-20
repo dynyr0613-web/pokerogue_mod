@@ -105,5 +105,7 @@
   "uproarWake": "The uproar woke up {{pokemonNameWithAffix}}!",
   "uproarPreventSleep": "But the uproar kept {{pokemonNameWithAffix}} awake!",
   "skyDropCannotMove": "{{pokemonNameWithAffix}} is held up\nin the sky and can't move!",
-  "skyDropFreed": "{{pokemonNameWithAffix}} was freed\nfrom the Sky Drop!"
+  "skyDropFreed": "{{pokemonNameWithAffix}} was freed\nfrom the Sky Drop!",
+  "bideStoring": "{{pokemonNameWithAffix}} is storing energy!",
+  "bideUnleash": "{{pokemonNameWithAffix}} unleashed its energy!"
 }

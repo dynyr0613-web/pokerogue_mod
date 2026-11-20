@@ -311,25 +311,27 @@ describe("Abilities - Harvest", () => {
       expectBerriesContaining(...initBerries);
     });
 
-    // TODO: Enable once fling actually works...???
-    it.todo("can restore berries flung at user", async () => {
+    // Local fork (2026-11-20): Fling works now (1.2.0 D5), so this runs. A berry flung at the Harvest user is eaten by
+    // it, but was not its own: Harvest does not bring it back (`toEqual`, since `toBe([])` never matches)
+    it("can't restore berries flung at user", async () => {
       game.override.enemyHeldItems([{ name: "BERRY", type: BerryType.STARF, count: 1 }]).enemyMoveset(MoveId.FLING);
       await game.classicMode.startBattle(SpeciesId.FEEBAS);
 
       game.move.select(MoveId.SPLASH);
       await game.phaseInterceptor.to("TurnEndPhase");
 
-      expect(game.field.getPlayerPokemon().battleData.berriesEaten).toBe([]);
+      expect(game.field.getPlayerPokemon().battleData.berriesEaten).toEqual([]);
       expect(getPlayerBerries()).toEqual([]);
     });
 
-    // TODO: Enable once Nat Gift gets implemented...???
-    it.todo("can restore berries consumed via Natural Gift", async () => {
+    // Local fork (2026-11-20): Natural Gift works now (1.2.0 D5); its berry goes to battleData.berriesEaten
+    it("can restore berries consumed via Natural Gift", async () => {
       const initBerries: ModifierOverride[] = [{ name: "BERRY", type: BerryType.STARF, count: 1 }];
       game.override.startingHeldItems(initBerries);
       await game.classicMode.startBattle(SpeciesId.FEEBAS);
 
       game.move.select(MoveId.NATURAL_GIFT);
+      await game.move.selectEnemyMove(MoveId.SPLASH);
       await game.phaseInterceptor.to("TurnEndPhase");
 
       expect(game.field.getPlayerPokemon().battleData.berriesEaten).toHaveLength(0);

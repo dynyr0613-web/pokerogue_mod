@@ -10,5 +10,7 @@
   "effectivenessMultiplier": "{{effectiveness}}×",
   "moveStyleStrong": "Strong Style",
   "moveStyleNormal": "Normal",
-  "moveStyleAgile": "Agile Style"
+  "moveStyleAgile": "Agile Style",
+  "heldItemChoiceFling": "{{itemName}}  Power {{power}}",
+  "heldItemChoiceNaturalGift": "{{itemName}}  {{type}} {{power}}"
 }

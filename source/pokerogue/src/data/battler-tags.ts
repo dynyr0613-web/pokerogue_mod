@@ -59,7 +59,7 @@ import { SpeciesFormChangeAbilityTrigger } from "#data/form-change-triggers";
 import { getStatusEffectHealText } from "#data/status-effect";
 import { TerrainType } from "#data/terrain";
 import { AbilityId } from "#enums/ability-id";
-import type { BattlerIndex } from "#enums/battler-index";
+import { BattlerIndex } from "#enums/battler-index"; // Local fork (2026-11-20): a value for Bide's queued release
 import { BattlerTagLapseType, type NonCustomBattlerTagLapseType } from "#enums/battler-tag-lapse-type";
 import { BattlerTagType } from "#enums/battler-tag-type";
 import { HitResult } from "#enums/hit-result";
@@ -1980,6 +1980,93 @@ export function wakeUpInUproar(): void {
         StatusEffect.SLEEP,
         i18next.t("battlerTags:uproarWake", { pokemonNameWithAffix: getPokemonNameWithAffix(pokemon) }),
       );
+    }
+  }
+}
+
+/**
+ * Local fork (2026-11-20): Bide (참기) (the user: "구현: 참기"), main series Gen 5+ rules (Showdown's Gen 9 Bide). The
+ * use that starts it adds this tag (`BideAttr`); the holder is then locked into Bide for 2 more uses, as with the other
+ * move locks: each use ticks it down at `AFTER_MOVE` and queues the next one without PP. While it lasts, the damage
+ * attacks deal to the holder is stored ({@linkcode storeDamage}, from `MoveEffectPhase.applyMoveDamage`; a Substitute's
+ * damage and indirect damage are not). The third use strikes the last Pokémon that damaged it for twice that
+ * (`BideDamageAttr`, aimed by `BideRedirectAttr`), or fails when nothing was stored.
+ * Being interrupted (sleep, flinch, full paralysis ...), a move the holder chose itself (the lock lifted, e.g. by
+ * Disable) or switching out ends it, with nothing released.
+ */
+export class BideTag extends MoveLockTag {
+  public override readonly tagType = BattlerTagType.BIDE;
+  /** The number of uses in all: the one that starts it, one more storing turn, and the release */
+  public static readonly DURATION = 3;
+  /** The damage stored so far */
+  public readonly storedDamage: number = 0;
+  /** The {@linkcode Pokemon.id | PID} of the last Pokémon that damaged the holder with an attack since Bide started */
+  public readonly lastAttackerId: number | undefined;
+
+  constructor(turnCount: number = BideTag.DURATION) {
+    super(BattlerTagType.BIDE, turnCount, MoveId.BIDE);
+  }
+
+  /** @returns Whether the holder's next (or current) use of Bide is the release */
+  public isReleasing(): boolean {
+    return this.turnCount <= 1;
+  }
+
+  /**
+   * Store the damage an attack dealt to the holder (Showdown counts allies' attacks too, and aims at them then)
+   * @param damage - The HP the hit took
+   * @param source - The attacker
+   * @param holder - The Pokémon holding this tag
+   */
+  public storeDamage(damage: number, source: Pokemon, holder: Pokemon): void {
+    if (damage <= 0 || source === holder) {
+      return;
+    }
+    (this as Writable<BideTag>).storedDamage = this.storedDamage + damage;
+    (this as Writable<BideTag>).lastAttackerId = source.id;
+  }
+
+  /**
+   * The Pokémon the release strikes: the last attacker while it is on the field, else a random opponent on the field
+   * (Showdown: "a random target if that Pokémon has left the field"; in a single battle, whoever replaced it)
+   * @param holder - The Pokémon holding this tag
+   * @returns Its battler index, or `undefined` when there is no one to strike
+   */
+  public getReleaseTarget(holder: Pokemon): BattlerIndex | undefined {
+    const attacker = globalScene.getPokemonById(this.lastAttackerId);
+    if (attacker != null && attacker !== holder && attacker.isActive(true)) {
+      return attacker.getBattlerIndex();
+    }
+    const opponents = holder.getOpponents(true);
+    if (this.lastAttackerId === undefined || opponents.length === 0) {
+      return;
+    }
+    return opponents[holder.randBattleSeedInt(opponents.length)].getBattlerIndex();
+  }
+
+  public override lapse(pokemon: Pokemon, _lapseType: BattlerTagLapseType): boolean {
+    const lastMove = pokemon.getLastXMoves().at(0);
+    if (!lastMove) {
+      return true;
+    }
+    if (lastMove.move !== MoveId.BIDE && lastMove.move !== MoveId.NONE) {
+      // A move used through another effect (Dancer) does not count; one the holder chose itself ends Bide
+      return isVirtual(lastMove.useMode);
+    }
+    // Interrupted (the history holds NONE or a failed Bide), or the release just happened
+    if (lastMove.result !== MoveResult.SUCCESS || --this.turnCount <= 0) {
+      return false;
+    }
+    // The release is aimed when it is used (`BideRedirectAttr`), at whoever damaged the holder last by then
+    pokemon.pushMoveQueue({ move: MoveId.BIDE, targets: [BattlerIndex.ATTACKER], useMode: MoveUseMode.IGNORE_PP });
+    return true;
+  }
+
+  public override loadTag(source: BaseBattlerTag & Pick<BideTag, "tagType" | "storedDamage" | "lastAttackerId">): void {
+    super.loadTag(source);
+    (this as Writable<BideTag>).storedDamage = source.storedDamage ?? 0;
+    if (source.lastAttackerId !== undefined) {
+      (this as Writable<BideTag>).lastAttackerId = source.lastAttackerId;
     }
   }
 }
@@ -3959,7 +4046,8 @@ export class TormentTag extends MoveRestrictionBattlerTag {
       moveObj.hasAttr("ConsecutiveUseDoublePowerAttr")
       || moveObj.hasAttr("RolloutPowerAttr")
       || user.getTag(BattlerTagType.FRENZY)
-      || user.getTag(BattlerTagType.UPROAR);
+      || user.getTag(BattlerTagType.UPROAR)
+      || user.getTag(BattlerTagType.BIDE); // Local fork (2026-11-20): Bide's lock too
     const validLastMoveResult = lastMove.result === MoveResult.SUCCESS || lastMove.result === MoveResult.MISS;
     return lastMove.move === move && validLastMoveResult && lastMove.move !== MoveId.STRUGGLE && !isUnaffected;
   }
@@ -4427,6 +4515,8 @@ export function getBattlerTag(
       return new UproarTag(turnCount, sourceMove);
     case BattlerTagType.ROLLOUT: // Local fork (2026-11-19): Rollout / Ice Ball
       return new RolloutTag(turnCount, sourceMove);
+    case BattlerTagType.BIDE: // Local fork (2026-11-20): Bide
+      return new BideTag(turnCount);
     case BattlerTagType.CHARGING:
       return new SerializableBattlerTag(tagType, BattlerTagLapseType.CUSTOM, 1, sourceMove, sourceId);
     case BattlerTagType.ENCORE:
@@ -4746,6 +4836,7 @@ export type BattlerTagTypeMap = {
   [BattlerTagType.UPROAR]: UproarTag; // Local fork (2026-11-19): Uproar
   [BattlerTagType.ROLLOUT]: RolloutTag; // Local fork (2026-11-19): Rollout / Ice Ball
   [BattlerTagType.SKY_DROP]: SkyDropTag; // Local fork (2026-11-19): the Pokémon carried by Sky Drop
+  [BattlerTagType.BIDE]: BideTag; // Local fork (2026-11-20): Bide
 };
 
 /**

@@ -387,7 +387,7 @@ export function initGenerationSix(): SpeciesDataMapConfig {
       [38, MoveId.WILL_O_WISP],
       [41, MoveId.PSYCHIC],
       [43, MoveId.SUNNY_DAY],
-      [46, MoveId.MAGIC_ROOM],
+      [46, MoveId.WONDER_ROOM], // Local fork (2026-11-20): was Magic Room ("알기술/레벨업 - 다른 기술로 대체")
       [48, MoveId.FIRE_BLAST],
     ],
     tms: [
@@ -500,7 +500,7 @@ export function initGenerationSix(): SpeciesDataMapConfig {
       [45, MoveId.WILL_O_WISP],
       [49, MoveId.PSYCHIC],
       [52, MoveId.SUNNY_DAY],
-      [56, MoveId.MAGIC_ROOM],
+      [56, MoveId.WONDER_ROOM], // Local fork (2026-11-20): was Magic Room ("알기술/레벨업 - 다른 기술로 대체")
       [59, MoveId.FIRE_BLAST],
     ],
     tms: [
@@ -623,7 +623,7 @@ export function initGenerationSix(): SpeciesDataMapConfig {
       [51, MoveId.WILL_O_WISP],
       [57, MoveId.PSYCHIC],
       [62, MoveId.SUNNY_DAY],
-      [68, MoveId.MAGIC_ROOM],
+      [68, MoveId.WONDER_ROOM], // Local fork (2026-11-20): was Magic Room ("알기술/레벨업 - 다른 기술로 대체")
       [74, MoveId.FIRE_BLAST],
       [80, MoveId.FUTURE_SIGHT],
     ],
@@ -7828,7 +7828,7 @@ export function initGenerationSix(): SpeciesDataMapConfig {
       [36, MoveId.IMPRISON],
       [40, MoveId.RECYCLE],
       [43, MoveId.PLAY_ROUGH],
-      [44, MoveId.MAGIC_ROOM],
+      [44, MoveId.REFLECT], // Local fork (2026-11-20): was Magic Room ("알기술/레벨업 - 다른 기술로 대체")
       [50, MoveId.HEAL_BLOCK],
       [52, MoveId.LAST_RESORT],
     ],
@@ -9777,7 +9777,7 @@ export function initGenerationSix(): SpeciesDataMapConfig {
       [1, MoveId.DESTINY_BOND],
       [1, MoveId.TRICK],
       [1, MoveId.ASTONISH],
-      [4, MoveId.ALLY_SWITCH],
+      [4, MoveId.PROTECT], // Local fork (2026-11-20): was Ally Switch ("알기술/레벨업 - 다른 기술로 대체")
       [8, MoveId.MAGIC_COAT],
       [12, MoveId.PSYBEAM],
       [16, MoveId.LIGHT_SCREEN],

@@ -2,8 +2,10 @@ import { applyAbAttrs } from "#abilities/apply-ab-attrs";
 import { globalScene } from "#app/global-scene";
 import { BattlerTagType } from "#enums/battler-tag-type";
 import { LapsingPersistentModifier, LapsingPokemonHeldItemModifier } from "#modifiers/modifier";
+import { revertHeldItemMoveChanges } from "#moves/held-item-moves"; // Local fork (2026-11-20): held-item moves
 import { BattlePhase } from "#phases/battle-phase";
 import { isEndlessFinalWave } from "#trainers/endless-final-trainer";
+import i18next from "i18next";
 
 export class BattleEndPhase extends BattlePhase {
   public readonly phaseName = "BattleEndPhase";
@@ -28,6 +30,13 @@ export class BattleEndPhase extends BattlePhase {
     // cull any extra `BattleEnd` phases from the queue.
     this.isVictory ||= phaseManager.hasPhaseOfType("BattleEndPhase", (phase: BattleEndPhase) => phase.isVictory);
     phaseManager.removeAllPhasesOfType("BattleEndPhase");
+
+    // Local fork (2026-11-20): held-item moves (1.2.0 D5; the user: "도구 변경은 전투 후 되돌아옴"). Items Trick /
+    // Switcheroo moved and items the player's Pokémon threw with Fling go back to their holders, before the enemies'
+    // items are cleared below (held-item-moves.ts)
+    if (revertHeldItemMoveChanges()) {
+      phaseManager.queueMessage(i18next.t("moveTriggers:heldItemsReturned"));
+    }
 
     gameStats.battles++;
     if (isEndless && waveIndex + 1 > gameStats.highestEndlessWave) {

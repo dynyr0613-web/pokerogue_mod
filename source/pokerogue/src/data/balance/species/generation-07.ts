@@ -4180,7 +4180,7 @@ export function initGenerationSeven(): SpeciesDataMapConfig {
       [14, MoveId.BEAT_UP],
       [18, MoveId.SCARY_FACE],
       [22, MoveId.TAKE_DOWN],
-      [26, MoveId.BESTOW],
+      [26, MoveId.RETALIATE], // Local fork (2026-11-20): was Bestow ("알기술/레벨업 - 다른 기술로 대체")
       [30, MoveId.FLING],
       [35, MoveId.BULK_UP],
       [40, MoveId.THRASH],
@@ -11934,7 +11934,7 @@ export function initGenerationSeven(): SpeciesDataMapConfig {
       [1, MoveId.HYPNOSIS],
       [1, MoveId.BARRAGE],
       [1, MoveId.WORRY_SEED],
-      [1, MoveId.BESTOW],
+      [1, MoveId.LUCKY_CHANT], // Local fork (2026-11-20): was Bestow ("알기술/레벨업 - 다른 기술로 대체")
       [5, MoveId.REFLECT],
       [10, MoveId.LEECH_SEED],
       [15, MoveId.MEGA_DRAIN],

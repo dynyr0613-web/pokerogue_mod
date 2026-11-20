@@ -292,7 +292,10 @@ export abstract class BaseOptionSelectUiHandler<T extends OptionSelectItem> exte
     singleSpaceWidth: number,
     tempSprite: Phaser.GameObjects.Sprite,
   ): void {
-    let label = option.displayLabel ?? option.label;
+    // Local fork (2026-11-21): start from the plain label. An option re-initialized because a later option's icon is
+    // wider (`initialized = false` below) used to pad its already padded `displayLabel` again, so its text sat further
+    // right than the others' (seen in the game with the held-item choice: 화염구슬 above 왕의징표석)
+    let label = option.label;
 
     // Measure the width of the icon(s) to show before the label
     if (option.iconsConfig) {

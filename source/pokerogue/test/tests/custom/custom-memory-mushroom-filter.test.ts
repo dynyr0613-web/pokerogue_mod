@@ -48,6 +48,16 @@ describe("Local fork - Memory Mushroom list without unimplemented moves (2026-11
     vi.restoreAllMocks();
   });
 
+  /**
+   * Local fork (2026-11-20): Bide and Trick are implemented since 1.2.0 batch 6 (D5). Mark moves "(N)" again until the
+   * test ends (`vi.restoreAllMocks`), as stand-ins for a move that is still unimplemented
+   */
+  function markUnimplemented(...moveIds: MoveId[]): void {
+    for (const moveId of moveIds) {
+      vi.spyOn(allMoves[moveId], "isUnimplemented", "get").mockReturnValue(true);
+    }
+  }
+
   /** A Memory Mushroom type as the reward screen makes it */
   function memoryMushroom(): RememberMoveModifierType {
     return modifierTypes.MEMORY_MUSHROOM().withIdFromFunc(modifierTypes.MEMORY_MUSHROOM) as RememberMoveModifierType;
@@ -80,6 +90,7 @@ describe("Local fork - Memory Mushroom list without unimplemented moves (2026-11
     await game.classicMode.startBattle(SpeciesId.KADABRA, SpeciesId.MACHOP);
     const [kadabra, machop] = game.scene.getPlayerParty();
 
+    markUnimplemented(MoveId.TRICK, MoveId.BIDE);
     expect(allMoves[MoveId.TRICK].isUnimplemented).toBe(true);
     expect(allMoves[MoveId.BIDE].isUnimplemented).toBe(true);
     // the species data still has them (level 46 / level 5)...
@@ -106,6 +117,7 @@ describe("Local fork - Memory Mushroom list without unimplemented moves (2026-11
   it("leaves out unimplemented and Z / Max ids among used TMs too, and keeps the rest", async () => {
     await game.classicMode.startBattle(SpeciesId.KADABRA);
     const kadabra = game.field.getPlayerPokemon();
+    markUnimplemented(MoveId.TRICK);
     expect(isZMaxOnlyMove(MoveId.MAX_FLARE)).toBe(true);
     kadabra.usedTMs.push(MoveId.THUNDERBOLT, MoveId.MAX_FLARE, MoveId.TRICK);
 
@@ -136,6 +148,7 @@ describe("Local fork - Memory Mushroom list without unimplemented moves (2026-11
   it("a Pokémon whose only relearnable move is unimplemented cannot take the Memory Mushroom, and the reward is left out", async () => {
     await game.classicMode.startBattle(SpeciesId.MACHOP);
     const machop = game.field.getPlayerPokemon();
+    markUnimplemented(MoveId.BIDE);
     // Level 5 Machop knowing its three earlier moves: Bide (level 5) is the only one left
     machop.level = 5;
     game.move.changeMoveset(machop, [MoveId.LEER, MoveId.LOW_KICK, MoveId.FOCUS_ENERGY]);

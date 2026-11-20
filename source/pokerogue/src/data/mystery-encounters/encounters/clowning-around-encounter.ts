@@ -164,7 +164,9 @@ export const ClowningAroundEncounter: MysteryEncounter = MysteryEncounterBuilder
         {
           species: speciesDataRegistry.getSpecies(SpeciesId.MR_MIME),
           isBoss: true,
-          moveSet: [MoveId.TEETER_DANCE, MoveId.ALLY_SWITCH, MoveId.DAZZLING_GLEAM, MoveId.PSYCHIC],
+          // Local fork (2026-11-20): Light Screen was Ally Switch, which stays unimplemented (the user: "구현 목록에 없는
+          // n기술은 ... 다른 기술로 대체"; question A1): the mime's invisible wall, a support move for the double battle
+          moveSet: [MoveId.TEETER_DANCE, MoveId.LIGHT_SCREEN, MoveId.DAZZLING_GLEAM, MoveId.PSYCHIC],
         },
         {
           // Blacephalon has the random ability from pool, and 2 entirely random types to fit with the theme of the encounter
@@ -176,6 +178,9 @@ export const ClowningAroundEncounter: MysteryEncounter = MysteryEncounterBuilder
             types: [firstType, secondType],
           }),
           isBoss: true,
+          // Local fork (2026-11-20): Trick works now (1.2.0 D5): it swaps one of the boss's items for a random one of
+          // the target's, and the battle's swaps are put back when it ends (the user: "적 또한 플레이어 도구 간섭 가능",
+          // "도구 변경은 전투 후 되돌아옴")
           moveSet: [MoveId.TRICK, MoveId.HYPNOSIS, MoveId.SHADOW_BALL, MoveId.MIND_BLOWN],
         },
       ],

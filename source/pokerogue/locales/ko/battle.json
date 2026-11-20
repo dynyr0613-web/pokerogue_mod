@@ -76,6 +76,7 @@
   "moveDisabledConsecutive": "{{moveName}}[[는]]\n2번 연속으로 쓸 수 없다!",
   "moveDisabledBelch": "{{pokemonNameWithAffix}}[[는]]\n나무열매를 먹지 않아서 기술을 쓸 수 없다!",
   "moveDisabledNoBerry": "나무열매를 지니고 있지 않아 {{moveName}}[[를]] 쓸 수 없다!",
+  "moveDisabledNoFlingItem": "{{pokemonNameWithAffix}}[[는]]\n던질 수 있는 도구를 지니고 있지 않다!",
   "moveDisabledGravity": "{{pokemonNameWithAffix}}[[는]]\n중력이 강해서 {{moveName}}[[를]] 쓸 수 없다!",
   "canOnlyUseMove": "{{pokemonName}}[[는]]\n{{moveName}}밖에 쓸 수 없다!",
   "moveCannotBeSelected": "{{moveName}}[[를]] 쓸 수 없다!",

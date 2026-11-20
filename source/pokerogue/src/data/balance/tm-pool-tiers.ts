@@ -117,7 +117,7 @@ export const tmPoolTiers: TmPoolTiers = {
   [MoveId.CHARGE]: ModifierTier.COMMON,
   [MoveId.TAUNT]: ModifierTier.COMMON,
   [MoveId.HELPING_HAND]: ModifierTier.COMMON,
-  [MoveId.TRICK]: ModifierTier.COMMON,
+  [MoveId.TRICK]: ModifierTier.GREAT, // Local fork (2026-11-20): was COMMON (the user: "트릭 기술머신 등급 상승")
   [MoveId.SUPERPOWER]: ModifierTier.ULTRA,
   [MoveId.RECYCLE]: ModifierTier.COMMON,
   [MoveId.REVENGE]: ModifierTier.GREAT,
@@ -172,7 +172,7 @@ export const tmPoolTiers: TmPoolTiers = {
   [MoveId.CLOSE_COMBAT]: ModifierTier.ULTRA,
   [MoveId.PAYBACK]: ModifierTier.COMMON,
   [MoveId.ASSURANCE]: ModifierTier.COMMON,
-  [MoveId.EMBARGO]: ModifierTier.COMMON,
+  [MoveId.EMBARGO]: ModifierTier.COMMON, // Local fork (2026-11-20): reward weight 0, see ZERO_WEIGHT_TMS
   [MoveId.FLING]: ModifierTier.COMMON,
   [MoveId.GASTRO_ACID]: ModifierTier.GREAT,
   [MoveId.POWER_SWAP]: ModifierTier.COMMON,
@@ -227,7 +227,7 @@ export const tmPoolTiers: TmPoolTiers = {
   [MoveId.WONDER_ROOM]: ModifierTier.COMMON,
   [MoveId.PSYSHOCK]: ModifierTier.GREAT,
   [MoveId.VENOSHOCK]: ModifierTier.GREAT,
-  [MoveId.MAGIC_ROOM]: ModifierTier.COMMON,
+  [MoveId.MAGIC_ROOM]: ModifierTier.COMMON, // Local fork (2026-11-20): reward weight 0, see ZERO_WEIGHT_TMS
   [MoveId.SMACK_DOWN]: ModifierTier.COMMON,
   [MoveId.SLUDGE_WAVE]: ModifierTier.ULTRA,
   [MoveId.HEAVY_SLAM]: ModifierTier.GREAT,
@@ -239,7 +239,7 @@ export const tmPoolTiers: TmPoolTiers = {
   [MoveId.ROUND]: ModifierTier.COMMON,
   [MoveId.ECHOED_VOICE]: ModifierTier.COMMON,
   [MoveId.STORED_POWER]: ModifierTier.GREAT,
-  [MoveId.ALLY_SWITCH]: ModifierTier.COMMON,
+  [MoveId.ALLY_SWITCH]: ModifierTier.COMMON, // Local fork (2026-11-20): reward weight 0, see ZERO_WEIGHT_TMS
   [MoveId.SCALD]: ModifierTier.GREAT,
   [MoveId.HEX]: ModifierTier.GREAT,
   [MoveId.SKY_DROP]: ModifierTier.COMMON,
@@ -330,6 +330,15 @@ export const tmPoolTiers: TmPoolTiers = {
   [MoveId.PSYCHIC_NOISE]: ModifierTier.GREAT,
   [MoveId.UPPER_HAND]: ModifierTier.COMMON,
 };
+
+/**
+ * Local fork (2026-11-20): TMs whose reward weight is 0 (the user: "구현 목록에 없는 n기술은 알기술/레벨업 - 다른
+ * 기술로 대체, 기술머신 - 보상 가중치 0 조정"). Embargo, Magic Room and Ally Switch stay unimplemented. They keep their
+ * entry above, so every TM number ({@linkcode getTmNumber} counts the keys), the Pokédex TM list and the species TM
+ * data stay as they were, but the TM reward generator never deals them (`TmModifierTypeGenerator`, used by the reward
+ * pools and the mystery encounters). Snatch and Bestow have no TM.
+ */
+export const ZERO_WEIGHT_TMS: ReadonlySet<MoveId> = new Set([MoveId.EMBARGO, MoveId.MAGIC_ROOM, MoveId.ALLY_SWITCH]);
 
 /**
  * Get the TM number for a given move ID.

@@ -2484,7 +2484,7 @@ export function initGenerationNine(): SpeciesDataMapConfig {
       [28, MoveId.INCINERATE],
       [32, MoveId.LAVA_PLUME],
       [37, MoveId.CALM_MIND],
-      [42, MoveId.ALLY_SWITCH],
+      [42, MoveId.MAGIC_COAT], // Local fork (2026-11-20): was Ally Switch ("알기술/레벨업 - 다른 기술로 대체")
       [48, MoveId.FLAMETHROWER],
       [56, MoveId.EXPANDING_FORCE],
       [62, MoveId.ARMOR_CANNON],
@@ -2571,7 +2571,7 @@ export function initGenerationNine(): SpeciesDataMapConfig {
       [28, MoveId.INCINERATE],
       [32, MoveId.LAVA_PLUME],
       [37, MoveId.SWORDS_DANCE],
-      [42, MoveId.ALLY_SWITCH],
+      [42, MoveId.DETECT], // Local fork (2026-11-20): was Ally Switch ("알기술/레벨업 - 다른 기술로 대체")
       [48, MoveId.BITTER_BLADE],
       [56, MoveId.PSYCHO_CUT],
       [62, MoveId.FLARE_BLITZ],
@@ -6752,7 +6752,7 @@ export function initGenerationNine(): SpeciesDataMapConfig {
       [25, MoveId.ASSURANCE],
       [30, MoveId.SLASH],
       [33, MoveId.METAL_SOUND],
-      [38, MoveId.EMBARGO],
+      [38, MoveId.TAUNT], // Local fork (2026-11-20): was Embargo ("알기술/레벨업 - 다른 기술로 대체")
       [41, MoveId.NIGHT_SLASH],
       [46, MoveId.IRON_DEFENSE],
       [49, MoveId.RETALIATE],
@@ -9634,7 +9634,7 @@ export function initGenerationNine(): SpeciesDataMapConfig {
       [63, MoveId.CLOSE_COMBAT],
       [70, MoveId.IMPRISON],
       [77, MoveId.MEGAHORN],
-      [84, MoveId.ALLY_SWITCH],
+      [84, MoveId.DETECT], // Local fork (2026-11-20): was Ally Switch ("알기술/레벨업 - 다른 기술로 대체")
       [91, MoveId.SOLAR_BLADE],
     ],
     tms: [

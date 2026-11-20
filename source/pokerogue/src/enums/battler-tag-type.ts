@@ -110,4 +110,6 @@ export enum BattlerTagType {
   ROLLOUT = "ROLLOUT",
   /** Local fork (2026-11-19): Sky Drop (프리폴): the Pokémon carried into the sky, which cannot act (`SkyDropTag`) */
   SKY_DROP = "SKY_DROP",
+  /** Local fork (2026-11-20): Bide (참기): a 3-use lock that stores the damage taken, then strikes back x2 (`BideTag`) */
+  BIDE = "BIDE",
 }

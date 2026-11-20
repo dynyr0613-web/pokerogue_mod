@@ -19,6 +19,8 @@ import { isIgnorePP, isVirtual, MoveUseMode } from "#enums/move-use-mode";
 import { MysteryEncounterMode } from "#enums/mystery-encounter-mode";
 import { UiMode } from "#enums/ui-mode";
 import type { PlayerPokemon } from "#field/pokemon";
+// Local fork (2026-11-20): held-item moves (1.2.0 D5)
+import { getHeldItemKey, getHeldItemMoveKind, getHeldItemMoveOptions } from "#moves/held-item-moves";
 import { isMoveStyleOffered } from "#moves/move-style"; // Local fork (2026-11-20): S1 move styles
 import { getSlotMove } from "#moves/move-transform"; // Local fork (2026-11-16): Z / Max moves
 import { getMoveTargets } from "#moves/move-utils";
@@ -241,6 +243,7 @@ export class CommandPhase extends FieldPhase {
    * @param ignorePP - Whether to ignore PP when checking if the move can be used.
    * @param move - The move to force the command to use, if any.
    * @param moveStyle - Local fork (2026-11-20): S1 move styles. The style chosen in the fight menu, if any
+   * @param heldItemKey - Local fork (2026-11-20): held-item moves. The held item chosen in the fight menu, if any
    */
   private handleFightCommand(
     command: Command.FIGHT | Command.TERA,
@@ -248,6 +251,7 @@ export class CommandPhase extends FieldPhase {
     useMode: MoveUseMode = MoveUseMode.NORMAL,
     move?: TurnMove,
     moveStyle?: MoveStyle,
+    heldItemKey?: string,
   ): boolean {
     const playerPokemon = this.getPokemon();
     const ignorePP = isIgnorePP(useMode);
@@ -284,6 +288,17 @@ export class CommandPhase extends FieldPhase {
       )
     ) {
       turnCommand.moveStyle = style;
+    }
+    // Local fork (2026-11-20): held-item moves (the user: "트릭/바꿔치기(주는 템은 선택 ...), 내던지기(도구 선택),
+    // 자연의은혜(나무열매 선택 ...)"). The item chosen in the fight menu, recorded only for that move while the item is
+    // still usable (the move reads it, held-item-moves.ts)
+    if (
+      heldItemKey != null
+      && !useStruggle
+      && getHeldItemMoveKind(moveId) != null
+      && getHeldItemMoveOptions(playerPokemon, moveId).some(i => getHeldItemKey(i) === heldItemKey)
+    ) {
+      turnCommand.heldItemKey = heldItemKey;
     }
     const preTurnCommand: TurnCommand = {
       command,
@@ -641,6 +656,7 @@ export class CommandPhase extends FieldPhase {
     useMode?: MoveUseMode,
     move?: TurnMove,
     moveStyle?: MoveStyle,
+    heldItemKey?: string,
   ): boolean;
   handleCommand(command: Command.POKEMON, cursor: number, useBaton: boolean): boolean;
   handleCommand(command: Command.BALL | Command.RUN, cursor: number): boolean;
@@ -650,11 +666,14 @@ export class CommandPhase extends FieldPhase {
     useMode?: boolean | MoveUseMode,
     move?: TurnMove,
     moveStyle?: MoveStyle,
+    heldItemKey?: string,
   ): boolean;
 
   /**
    * @param moveStyle - Local fork (2026-11-20): S1 move styles. For {@linkcode Command.FIGHT} / {@linkcode Command.TERA},
    *   the style the player chose in the fight menu (강공 / 중공 / 속공); left out for 중공
+   * @param heldItemKey - Local fork (2026-11-20): held-item moves. For {@linkcode Command.FIGHT} /
+   *   {@linkcode Command.TERA}, the held item the player chose for Trick / Switcheroo / Fling / Natural Gift
    */
   public handleCommand(
     command: Command,
@@ -662,6 +681,7 @@ export class CommandPhase extends FieldPhase {
     useMode: boolean | MoveUseMode = false,
     move?: TurnMove,
     moveStyle?: MoveStyle,
+    heldItemKey?: string,
   ): boolean {
     let success = false;
 
@@ -674,6 +694,7 @@ export class CommandPhase extends FieldPhase {
           typeof useMode === "boolean" ? undefined : useMode,
           move,
           moveStyle,
+          heldItemKey,
         );
         break;
       case Command.BALL:

@@ -16,7 +16,7 @@ import { getEnemyTrainerTierCounts } from "#balance/enemy-trainer-buffs"; // Loc
 // Local fork (2026-11-12): the fork items wait for the first Classic clear
 import { FORK_UNLOCK, isForkContentUnlocked, isForkFormChangeItemLocked } from "#balance/fork-unlock";
 import { EvolutionItem } from "#balance/pokemon-evolutions";
-import { getTmNumber, tmPoolTiers } from "#balance/tm-pool-tiers";
+import { getTmNumber, tmPoolTiers, ZERO_WEIGHT_TMS } from "#balance/tm-pool-tiers";
 import { getBerryEffectDescription, getBerryName } from "#data/berry";
 import { getDailyEventSeedLuck } from "#data/daily-run";
 import { allMoves, modifierTypes } from "#data/data-lists";
@@ -1764,8 +1764,9 @@ class SpeciesStatBoosterModifierTypeGenerator extends ModifierTypeGenerator {
       for (const p of party) {
         const speciesId = p.getSpeciesForm(true).speciesId;
         const fusionSpeciesId = p.isFusion() ? p.getFusionSpeciesForm(true).speciesId : null;
-        // TODO: Use commented boolean when Fling is implemented
-        const hasFling = false; /* p.getMoveset(true).some(m => m.moveId === MoveId.FLING) */
+        // Local fork (2026-11-20): Fling works now (1.2.0 D5), so upstream's commented check is in: a Fling user calls
+        // the Light Ball (thrown, it paralyses)
+        const hasFling = p.getMoveset(true).some(m => m.moveId === MoveId.FLING);
 
         for (const i in values) {
           const checkedSpecies = values[i].species;
@@ -1850,6 +1851,8 @@ class TmModifierTypeGenerator extends ModifierTypeGenerator {
         .flat()
         .filter(tm => tmPoolTiers[tm] === tier)
         .filter(tm => !allMoves[tm].isUnimplemented)
+        // Local fork (2026-11-20): reward weight 0 (the user: "기술머신 - 보상 가중치 0 조정")
+        .filter(tm => !ZERO_WEIGHT_TMS.has(tm))
         .filter((tm, i, array) => array.indexOf(tm) === i);
       if (tierUniqueCompatibleTms.length === 0) {
         return null;

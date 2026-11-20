@@ -2287,7 +2287,7 @@ export function initGenerationTwo(): SpeciesDataMapConfig {
       [16, MoveId.ANCIENT_POWER],
       [19, MoveId.ENCORE],
       [21, MoveId.FOLLOW_ME],
-      [25, MoveId.BESTOW],
+      [25, MoveId.LUCKY_CHANT], // Local fork (2026-11-20): was Bestow ("알기술/레벨업 - 다른 기술로 대체")
       [29, MoveId.WISH],
       [33, MoveId.AFTER_YOU],
       [37, MoveId.SAFEGUARD],
@@ -2420,7 +2420,7 @@ export function initGenerationTwo(): SpeciesDataMapConfig {
       [16, MoveId.ANCIENT_POWER],
       [19, MoveId.ENCORE],
       [21, MoveId.FOLLOW_ME],
-      [25, MoveId.BESTOW],
+      [25, MoveId.LUCKY_CHANT], // Local fork (2026-11-20): was Bestow ("알기술/레벨업 - 다른 기술로 대체")
       [29, MoveId.WISH],
       [33, MoveId.AFTER_YOU],
       [37, MoveId.SAFEGUARD],
@@ -7033,7 +7033,7 @@ export function initGenerationTwo(): SpeciesDataMapConfig {
       [30, MoveId.ICEBREAKER], // Local fork (2026-11-14): custom moves
       [32, MoveId.SCREECH],
       [35, MoveId.SLASH],
-      [40, MoveId.SNATCH],
+      [40, MoveId.THIEF], // Local fork (2026-11-20): was Snatch ("알기술/레벨업 - 다른 기술로 대체")
       [44, MoveId.PUNISHMENT],
       [47, MoveId.ICE_SHARD],
     ],
@@ -8391,7 +8391,7 @@ export function initGenerationTwo(): SpeciesDataMapConfig {
       [22, MoveId.TAUNT],
       [25, MoveId.BEAT_UP],
       [28, MoveId.FIRE_FANG],
-      [30, MoveId.EMBARGO],
+      [30, MoveId.WILL_O_WISP], // Local fork (2026-11-20): was Embargo ("알기술/레벨업 - 다른 기술로 대체")
       [32, MoveId.FEINT_ATTACK],
       [34, MoveId.FLAME_CHARGE],
       [37, MoveId.COMEUPPANCE],
@@ -8582,7 +8582,7 @@ export function initGenerationTwo(): SpeciesDataMapConfig {
       [22, MoveId.TAUNT],
       [26, MoveId.BEAT_UP],
       [30, MoveId.FIRE_FANG],
-      [32, MoveId.EMBARGO],
+      [32, MoveId.WILL_O_WISP], // Local fork (2026-11-20): was Embargo ("알기술/레벨업 - 다른 기술로 대체")
       [35, MoveId.FEINT_ATTACK],
       [38, MoveId.FLAME_CHARGE],
       [41, MoveId.COMEUPPANCE],
@@ -9781,7 +9781,7 @@ export function initGenerationTwo(): SpeciesDataMapConfig {
       [10, MoveId.REFRESH],
       [12, MoveId.DOUBLE_SLAP],
       [16, MoveId.SING],
-      [20, MoveId.BESTOW],
+      [20, MoveId.HEAL_BELL], // Local fork (2026-11-20): was Bestow ("알기술/레벨업 - 다른 기술로 대체")
       [23, MoveId.MINIMIZE],
       [25, MoveId.TAKE_DOWN],
       [27, MoveId.HEAL_PULSE],

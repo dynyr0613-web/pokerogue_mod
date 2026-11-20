@@ -187,6 +187,9 @@ export const invalidMirrorMoveMoves: ReadonlySet<MoveId> = new Set([
   MoveId.AROMATIC_MIST,
   MoveId.BEAK_BLAST,
   MoveId.BELCH,
+  // Local fork (2026-11-20): Bide (참기; the user: "구현: 참기") has no "mirror" flag in the main series (Showdown), so
+  // Mirror Move fails on it now that it works; it would start a Bide of the user's own
+  MoveId.BIDE,
   MoveId.CHILLY_RECEPTION,
   MoveId.COACHING,
   MoveId.CONVERSION_2,
@@ -382,6 +385,36 @@ export const invalidInstructMoves: ReadonlySet<MoveId> = new Set([
   MoveId.MIMIC,
   MoveId.STRUGGLE,
   // NB: Add Max/G-Max/Z-Move blockage if or when they are implemented
+]);
+
+/**
+ * Local fork (2026-11-20): set of moves {@linkcode MoveId.ME_FIRST | Me First} (선취) fails against (the user: "구현:
+ * ... 선취"). The main series list (Showdown's `failmefirst` flag: the counter moves, Focus Punch, Beak Blast, Shell
+ * Trap, Belch, Covet, Thief, Struggle, the Starmobile torques and Me First itself) plus Chatter (Bulbapedia's list).
+ * The fork adds Bide (참기): its damage is fixed, so the 1.5x does nothing, and a called Bide would lock the Me First user
+ * into storing. Me First only copies damaging moves, so the other move-calling moves never come up; Z / Max moves are
+ * refused by `CallMoveAttrWithBanlist.isMoveAllowed` and the converted-slot check in `MeFirstAttr`.
+ */
+export const invalidMeFirstMoves: ReadonlySet<MoveId> = new Set([
+  ...moveCallingMoves,
+  MoveId.BEAK_BLAST,
+  MoveId.BELCH,
+  MoveId.BIDE,
+  MoveId.BLAZING_TORQUE,
+  MoveId.CHATTER,
+  MoveId.COMBAT_TORQUE,
+  MoveId.COMEUPPANCE,
+  MoveId.COUNTER,
+  MoveId.COVET,
+  MoveId.FOCUS_PUNCH,
+  MoveId.MAGICAL_TORQUE,
+  MoveId.METAL_BURST,
+  MoveId.MIRROR_COAT,
+  MoveId.NOXIOUS_TORQUE,
+  MoveId.SHELL_TRAP,
+  MoveId.STRUGGLE,
+  MoveId.THIEF,
+  MoveId.WICKED_TORQUE,
 ]);
 
 /**

@@ -105,5 +105,7 @@
   "uproarWake": "소란 때문에 {{pokemonNameWithAffix}}[[는]] 잠에서 깼다!",
   "uproarPreventSleep": "그러나 소란 때문에 {{pokemonNameWithAffix}}[[는]] 잠들 수 없다!",
   "skyDropCannotMove": "{{pokemonNameWithAffix}}[[는]] 상공에 붙잡혀서\n움직일 수 없다!",
-  "skyDropFreed": "{{pokemonNameWithAffix}}[[는]]\n프리폴에서 풀려났다!"
+  "skyDropFreed": "{{pokemonNameWithAffix}}[[는]]\n프리폴에서 풀려났다!",
+  "bideStoring": "{{pokemonNameWithAffix}}[[는]] 참고 있다!",
+  "bideUnleash": "{{pokemonNameWithAffix}}의 참기가 풀렸다!"
 }

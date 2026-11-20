@@ -22,6 +22,7 @@ import type { EntryHazardTag, PendingHealTag } from "#data/arena-tag";
 import { hasGrassyEffect, SWAPPABLE_SIDE_TAGS, swapSideArenaTags, WeakenMoveTypeTag } from "#data/arena-tag";
 import { MoveChargeAnim } from "#data/battle-anims";
 import {
+  BideTag, // Local fork (2026-11-20): Bide
   CommandedTag,
   EncoreTag,
   GulpMissileTag,
@@ -57,7 +58,7 @@ import { Command } from "#enums/command";
 import { FieldPosition } from "#enums/field-position";
 import { HitResult } from "#enums/hit-result";
 import { ModifierPoolType } from "#enums/modifier-pool-type";
-import { ChargeAnim } from "#enums/move-anims-common";
+import { ChargeAnim, CommonAnim } from "#enums/move-anims-common"; // Local fork (2026-11-20): CommonAnim for Bide
 import { MoveCategory, type MoveDamageCategory } from "#enums/move-category";
 import { MoveEffectTrigger } from "#enums/move-effect-trigger";
 import { MoveFlags } from "#enums/move-flags";
@@ -101,10 +102,24 @@ import {
 import { BerryModifierType } from "#modifiers/modifier-type"; // Local fork (2026-11-19): Recycle (1.2.0 D6)
 import { applyMoveAttrs } from "#moves/apply-attrs";
 import { hasPendingPursuit, isPursuitIntercept } from "#moves/custom-pursuit"; // Local fork (2026-11-19): Pursuit
+// Local fork (2026-11-20): held-item moves, 1.2.0 D5 (held-item-moves.ts imports nothing from this module)
+import {
+  applyFlingEffect,
+  canSwapHeldItems,
+  getHeldItemMoveOptions,
+  getHeldItemMovePower,
+  getNaturalGiftType,
+  getSwapUserBenefitScore,
+  hasHeldItemForMove,
+  startHeldItemMoveUse,
+  swapHeldItems,
+  transferStolenHeldItem, // Local fork (2026-11-20 night): Thief / Covet from the player go back after the battle
+} from "#moves/held-item-moves";
 import {
   invalidAssistMoves,
   invalidCopycatMoves,
   invalidInstructMoves,
+  invalidMeFirstMoves, // Local fork (2026-11-20): Me First
   invalidMetronomeMoves,
   invalidMirrorMoveMoves,
   invalidSketchMoves,
@@ -1282,6 +1297,11 @@ export abstract class Move implements Localizable {
       power.value *= 1.5;
     }
 
+    // Local fork (2026-11-20): Me First (선취; the user: "구현: ... 선취") x1.5 on the move it used this turn
+    if (source.turnData.meFirstMove === this.id) {
+      power.value *= 1.5;
+    }
+
     // Local fork (2026-11-20): S1 move styles (the user: "강공(위력 1.5배 ... 선공기일 경우 ... 위력 2배) ... 속공(위력
     // 0.8배"), on every hit of the player's move use in flight, as a plain multiplier next to Helping Hand
     power.value *= getMoveStylePowerMultiplier(getActiveMoveStyle(source, this), this);
@@ -1483,6 +1503,9 @@ export abstract class Move implements Localizable {
       MoveId.ROLLOUT,
       MoveId.ICE_BALL,
       MoveId.ENDEAVOR,
+      // Local fork (2026-11-20): Bide (참기; the user: "구현: 참기"). Its release is one strike (Showdown's release hit
+      // skips Parental Bond); a second fixed-damage strike dealt 4x the stored damage
+      MoveId.BIDE,
     ];
     if (exceptMoves.includes(this.id)) {
       return false;
@@ -3397,7 +3420,9 @@ export class StealHeldItemChanceAttr extends MoveEffectAttr {
       .reduce((highestTier, tier) => Math.max(tier!, highestTier), 0); // TODO: is the bang after tier correct?
     const tierHeldItems = heldItems.filter(m => m.type.getOrInferTier(poolType) === highestItemTier);
     const stolenItem = tierHeldItems[user.randBattleSeedInt(tierHeldItems.length)];
-    if (!globalScene.tryTransferHeldItemModifier(stolenItem, user, false)) {
+    // Local fork (2026-11-20 night): held-item moves. An enemy's steal from a player's Pokémon goes in the battle's
+    // ledger and comes back after the battle (the user: "도둑질도 되돌림"; held-item-moves.ts)
+    if (!transferStolenHeldItem(user, target, stolenItem)) {
       return false;
     }
 
@@ -4120,6 +4145,115 @@ export class DelayedAttackAttr extends OverrideMoveEffectAttr {
       globalScene.arena.positionalTagManager.canAddTag(PositionalTagType.DELAYED_ATTACK, target.getBattlerIndex());
   }
 }
+
+// #region Bide (2026-11-20)
+
+/**
+ * Local fork (2026-11-20): Bide (참기) (the user: "구현: 참기"), main series Gen 5+ rules (Showdown's Gen 9 Bide):
+ * priority +1, never misses (semi-invulnerable targets still dodge), contact, blocked by Protect. The use that starts it
+ * and the next one store energy and hit no one (this attr); the third, the release, strikes the last Pokémon that
+ * damaged the user for twice the damage it took meanwhile (`BideDamageAttr`, aimed by `BideRedirectAttr`). The release
+ * is a Normal-type hit, so Ghost types are immune (Gen 5+: Showdown's release hit has no `ignoreImmunity`). It fails
+ * when nothing was stored ({@linkcode bideReleaseCondition}). The lock and the storing are {@linkcode BideTag}'s.
+ *
+ * As a fixed-damage attack it gets no S1 style window (`isMoveStyleOffered`). A slot converted by a Z crystal or Max
+ * candy is that Z / Max move (power 100, zmax-data.ts), with none of this.
+ */
+export class BideAttr extends OverrideMoveEffectAttr {
+  public override apply(
+    user: Pokemon,
+    _target: Pokemon,
+    move: Move,
+    args: [overridden: BooleanHolder, useMode: MoveUseMode],
+  ): boolean {
+    const tag = user.getTag(BattlerTagType.BIDE);
+    if (tag?.isReleasing()) {
+      return false;
+    }
+    if (!tag) {
+      user.addTag(BattlerTagType.BIDE, BideTag.DURATION, move.id, user.id);
+    }
+    args[0].value = true;
+
+    globalScene.phaseManager.unshiftNew("CommonAnimPhase", user.getBattlerIndex(), undefined, CommonAnim.BIDE);
+    globalScene.phaseManager.queueMessage(
+      i18next.t("battlerTags:bideStoring", { pokemonNameWithAffix: getPokemonNameWithAffix(user) }),
+    );
+    // A success, so the lock goes on (`BideTag.lapse`)
+    user.pushMoveHistory({
+      move: move.id,
+      targets: [user.getBattlerIndex()],
+      result: MoveResult.SUCCESS,
+      useMode: args[1],
+    });
+    return true;
+  }
+
+  /**
+   * AI (enemy `getNextMove` scores Bide by this alone, as it aims at the attacker): worth about a 40-power attack at
+   * full HP, nothing at half HP and less below, as the user has to survive two turns of hits; never against foes all
+   * immune to Normal moves (Ghost types)
+   */
+  override getUserBenefitScore(user: Pokemon, _target: Pokemon, move: Move): number {
+    if (user.getTag(BattlerTagType.BIDE)) {
+      return 0;
+    }
+    const opponents = user.getOpponents(true);
+    if (
+      opponents.length === 0
+      || opponents.every(o => o.getAttackTypeEffectiveness(PokemonType.NORMAL, { source: user, move }) === 0)
+    ) {
+      return -20;
+    }
+    return Math.round((user.getHpRatio() - 0.5) * 16);
+  }
+}
+
+/**
+ * Local fork (2026-11-20): Bide (참기). The damage of the release: twice the damage the user's {@linkcode BideTag}
+ * stored. A {@linkcode FixedDamageAttr}, so no power multiplier (or S1 style) changes it.
+ */
+export class BideDamageAttr extends FixedDamageAttr {
+  constructor() {
+    super(0);
+  }
+
+  override getDamage(user: Pokemon, _target: Pokemon, _move: Move): number {
+    return toDmgValue((user.getTag(BattlerTagType.BIDE)?.storedDamage ?? 0) * 2);
+  }
+}
+
+/**
+ * Local fork (2026-11-20): Bide (참기). Aims each use of Bide, whose target is {@linkcode MoveTarget.ATTACKER} as for
+ * Counter (`MovePhase.resolveCounterAttackTarget`): the storing uses at the user itself (they hit no one,
+ * {@linkcode BideAttr}), the release at the last Pokémon that damaged the user ({@linkcode BideTag.getReleaseTarget}).
+ * With no one to strike, the release is aimed at the user as well and fails in the third check
+ * ({@linkcode bideReleaseCondition}), after its message.
+ */
+export class BideRedirectAttr extends CounterRedirectAttr {
+  override apply(user: Pokemon, _target: Pokemon | null, _move: Move, args: [NumberHolder, ...any[]]): boolean {
+    const tag = user.getTag(BattlerTagType.BIDE);
+    args[0].value = (tag?.isReleasing() ? tag.getReleaseTarget(user) : undefined) ?? user.getBattlerIndex();
+    return true;
+  }
+}
+
+/**
+ * Local fork (2026-11-20): Bide (참기). The release fails ("But it failed!") when no damage was stored or no one is
+ * left to strike (then it is aimed at the user, {@linkcode BideRedirectAttr}); the storing uses never fail here.
+ */
+const bideReleaseCondition: MoveConditionFunc = (user, target) => {
+  const tag = user.getTag(BattlerTagType.BIDE);
+  return !tag?.isReleasing() || (tag.storedDamage > 0 && target != null && target !== user);
+};
+
+/** Local fork (2026-11-20): Bide (참기). "...unleashed its energy!" before the release, even when it then fails */
+const bideReleaseMessage: MoveMessageFunc = user =>
+  user.getTag(BattlerTagType.BIDE)?.isReleasing()
+    ? i18next.t("battlerTags:bideUnleash", { pokemonNameWithAffix: getPokemonNameWithAffix(user) })
+    : "";
+
+// #endregion Bide (2026-11-20)
 
 /**
  * Attribute to queue a {@linkcode WishTag} to activate in 2 turns.
@@ -6144,6 +6278,109 @@ export class VariableMoveTypeAttr extends MoveAttr {
   // biome-ignore lint/correctness/noUnusedFunctionParameters: params made available for subclasses
   public getTypeForMovegen(user: Pokemon, move: Move, willTera: boolean): PokemonType {
     return move.type;
+  }
+}
+
+/**
+ * Local fork (2026-11-20): Trick (트릭) and Switcheroo (바꿔치기), 1.2.0 D5. The user: "트릭/바꿔치기(주는 템은 선택,
+ * 받는 아이템은 랜덤) ... 도구 변경은 전투 후 되돌아옴 / 적 또한 플레이어 도구 간섭 가능". One of the user's held items
+ * (the player chooses it in the fight menu, enemies pick by rule) for a random held item of the target, one unit each
+ * way; one direction is enough. Fails against Sticky Hold or when nothing can change hands. The ledger puts everything
+ * back when the battle ends. See src/data/moves/held-item-moves.ts.
+ */
+export class SwapHeldItemsAttr extends MoveEffectAttr {
+  constructor() {
+    super(false);
+  }
+
+  override apply(user: Pokemon, target: Pokemon, move: Move, args?: any[]): boolean {
+    if (!super.apply(user, target, move, args)) {
+      return false;
+    }
+    return swapHeldItems(user, target, move.id);
+  }
+
+  override getCondition(): MoveConditionFunc {
+    return (user, target, move) => canSwapHeldItems(user, target, move.id);
+  }
+
+  /** 10 when it gives a harmful item (a Choice item, an orb that would hurt the target), 4 to only take one */
+  override getUserBenefitScore(user: Pokemon, target: Pokemon, move: Move): number {
+    return getSwapUserBenefitScore(user, target, move.id);
+  }
+
+  override getTargetBenefitScore(user: Pokemon, target: Pokemon, move: Move): number {
+    return getSwapUserBenefitScore(user, target, move.id) >= 10 ? -5 : 0;
+  }
+}
+
+/**
+ * Local fork (2026-11-20): Fling (내던지기) and Natural Gift (자연의은혜), 1.2.0 D5. Starts the move's use when it is
+ * used, before the accuracy check, as in the main series: the item is decided (the player's choice, else the rule) and
+ * let go, thrown by Fling (gone even after a miss; a player's item comes back after the battle) or used by Natural
+ * Gift (eaten; the Berry Pouch may keep it). The power and type attributes and the Fling effect read the item from the
+ * use in flight. Should the item have gone since the move's checks, nothing happens. See held-item-moves.ts.
+ */
+export class HeldItemMoveStartAttr extends OverrideMoveEffectAttr {
+  public override apply(
+    user: Pokemon,
+    target: Pokemon,
+    move: Move,
+    args: [overridden: BooleanHolder, useMode: MoveUseMode],
+  ): boolean {
+    if (!startHeldItemMoveUse(user, move.id, target ?? undefined)) {
+      args[0].value = true;
+      globalScene.phaseManager.queueMessage(i18next.t("battle:attackFailed"));
+    }
+    return true;
+  }
+}
+
+/**
+ * Local fork (2026-11-20): Fling's (내던지기) and Natural Gift's (자연의은혜) power, from the item of the use in flight,
+ * else the item the move would go with now (the fight menu, the AI): fling-table.ts / `NATURAL_GIFT_TABLE`
+ */
+export class HeldItemMovePowerAttr extends VariablePowerAttr {
+  override apply(user: Pokemon, target: Pokemon, move: Move, args: any[]): boolean {
+    const power = getHeldItemMovePower(user, move.id, target ?? undefined);
+    if (power == null) {
+      return false;
+    }
+    (args[0] as NumberHolder).value = power;
+    return true;
+  }
+}
+
+/**
+ * Local fork (2026-11-20): Natural Gift's (자연의은혜) type, the berry's (Gen 6+ table; the user: "n1 그대로"): the berry
+ * of the use in flight, else the one the move would use now. Normal without a berry.
+ */
+export class NaturalGiftTypeAttr extends VariableMoveTypeAttr {
+  override apply(user: Pokemon, _target: Pokemon, _move: Move, args: [ValueHolder<PokemonType>, ...any[]]): boolean {
+    const type = getNaturalGiftType(user);
+    if (type == null) {
+      return false;
+    }
+    args[0].value = type;
+    return true;
+  }
+}
+
+/**
+ * Local fork (2026-11-20): what the item thrown by Fling (내던지기) does to the target on a hit (fling-table.ts): Flame
+ * Orb burns, Toxic Orb badly poisons, Light Ball paralyses, Poison Barb poisons, King's Rock makes it flinch, White Herb
+ * restores its lowered stats, a berry is eaten by it. Once per use, on its first hit (Multi Lens adds hits)
+ */
+export class FlingEffectAttr extends MoveEffectAttr {
+  constructor() {
+    super(false, { firstHitOnly: true });
+  }
+
+  override apply(user: Pokemon, target: Pokemon, move: Move, args?: any[]): boolean {
+    if (!super.apply(user, target, move, args)) {
+      return false;
+    }
+    return applyFlingEffect(user, target);
   }
 }
 
@@ -8788,6 +9025,74 @@ export class CopyMoveAttr extends CallMoveAttrWithBanlist {
 }
 
 /**
+ * Local fork (2026-11-20): Me First (선취) (the user: "구현: ... 선취"), main series rules (Gen 4-7, as Showdown has it):
+ * the user uses the damaging move its target chose this turn, before the target, at 1.5x power
+ * (`PokemonTurnData.meFirstMove`, read by `Move.calculateBattlePower` for the rest of the turn, like Showdown's 1-turn
+ * volatile). A single-target move goes at Me First's target, a spread move as it targets. It fails when the target has
+ * already moved, chose no move (a switch, an item, recharging), chose a status move, a converted Z / Max slot (Showdown
+ * fails Z / Max moves) or one of {@linkcode invalidMeFirstMoves}. A status move itself: no S1 style window; the copied
+ * move is a called move, so it has none either.
+ */
+export class MeFirstAttr extends CallMoveAttrWithBanlist {
+  constructor() {
+    super(invalidMeFirstMoves, true);
+  }
+
+  protected override getMove(_user: Pokemon, target: Pokemon): MoveId {
+    const command = globalScene.currentBattle?.turnCommands[target.getBattlerIndex()];
+    const moveId = command?.command === Command.FIGHT && !command.skip ? command.move?.move : undefined;
+    // Local fork (2026-11-20), review fix: a Pokémon switched in this turn (after a U-turn, Volt Switch, Eject Button
+    // ...) chose nothing; the command in its slot is the previous Pokémon's, which Me First copied
+    if (moveId == null || target.turnData.acted || target.turnData.switchedInThisTurn) {
+      return MoveId.NONE;
+    }
+    // A converted slot acts as its Z / Max move (`failIfTargetNotAttackingCondition` reads it the same way)
+    if (target.getMoveset().find(m => m.moveId === moveId)?.transform != null) {
+      return MoveId.NONE;
+    }
+    return allMoves[moveId].category !== MoveCategory.STATUS && this.isMoveAllowed(moveId) ? moveId : MoveId.NONE;
+  }
+
+  public override apply(user: Pokemon, target: Pokemon): boolean {
+    user.turnData.meFirstMove = this.getMove(user, target);
+    return super.apply(user, target);
+  }
+
+  /**
+   * AI. Enemies pick their move after the player's command is in, so this does not read it (as with Sucker Punch, the
+   * failure condition is not checked for the AI): by speed, Me First goes first or not (Trick Room reverses it), and
+   * then is worth the target's copyable damaging moves on average, at 1.5x power (status moves count as 0).
+   * A target benefit: negative when good for the user (`EnemyPokemon.getNextMove` turns it around for foes).
+   */
+  override getTargetBenefitScore(user: Pokemon, target: Pokemon, _move: Move): number {
+    if (!user.isOpponent(target)) {
+      return 0;
+    }
+    const userSpeed = user.getEffectiveStat(Stat.SPD);
+    const targetSpeed = target.getEffectiveStat(Stat.SPD);
+    const trickRoom = globalScene.arena.hasTag(ArenaTagType.TRICK_ROOM);
+    // Slower (faster under Trick Room): the target moves first
+    if (userSpeed !== targetSpeed && userSpeed > targetSpeed === trickRoom) {
+      return 20;
+    }
+    const slots = target.getMoveset();
+    let total = 0;
+    for (const slot of slots) {
+      const move = slot.getMove();
+      if (slot.transform != null || move.category === MoveCategory.STATUS || !this.isMoveAllowed(move.id)) {
+        continue;
+      }
+      const power = move.power > 0 ? move.power : 60;
+      const effectiveness = target.getAttackTypeEffectiveness(move.type, { source: user, move });
+      total += Math.floor((power * 1.5) / 5) * effectiveness * (user.isOfType(move.type) ? 1.5 : 1);
+    }
+    // A speed tie goes first half the time
+    const score = (total / Math.max(slots.length, 1)) * (userSpeed === targetSpeed ? 0.5 : 1);
+    return score > 0 ? -score : 20;
+  }
+}
+
+/**
  * Attribute to call a random move among moves not in a banlist.
  * @see {@link https://bulbapedia.bulbagarden.net/wiki/Metronome_(move)}
  */
@@ -9065,7 +9370,11 @@ const targetMoveCopiableCondition: MoveConditionFunc = (_user, target, _move) =>
     return false;
   }
 
-  // TODO: Add last turn of Bide
+  // Local fork (2026-11-20): Bide (참기). Not while the target is still storing energy (like a charging move above);
+  // once Bide is released (its tag is gone) it can be copied
+  if (copiableMove.move === MoveId.BIDE && target.getTag(BattlerTagType.BIDE)) {
+    return false;
+  }
 
   return true;
 };
@@ -10550,6 +10859,12 @@ const MoveAttrs = Object.freeze({
   RemoveHeldItemAttr,
   CorrosiveGasAttr, // Local fork (2026-11-19): Corrosive Gas (1.2.0 D6)
   RecycleAttr, // Local fork (2026-11-19): Recycle (1.2.0 D6)
+  // Local fork (2026-11-20): held-item moves (1.2.0 D5)
+  SwapHeldItemsAttr,
+  HeldItemMoveStartAttr,
+  HeldItemMovePowerAttr,
+  NaturalGiftTypeAttr,
+  FlingEffectAttr,
   EatBerryAttr,
   StealEatBerryAttr,
   HealStatusEffectAttr,
@@ -10740,6 +11055,9 @@ const MoveAttrs = Object.freeze({
   MaxMoveArenaTagAttr,
   GmaxSnoozeAttr,
   GuardianOfAlolaDamageAttr,
+  // Local fork (2026-11-20): Bide (참기) and Me First (선취)
+  BideAttr,
+  MeFirstAttr,
 });
 
 /** Map of of move attribute names to their constructors */
@@ -11083,9 +11401,16 @@ export function initMoves() {
       .attr(AddBattlerTagAttr, BattlerTagType.CRIT_BOOST, true, true)
       // TODO: Remove once dragon cheer & focus energy are merged into 1 tag
       .condition((_user, target) => !target.getTag(BattlerTagType.DRAGON_CHEER)),
+    // Local fork (2026-11-20): Bide (참기; the user: "구현: 참기"), Gen 5+ rules: see `BideAttr` / `BideTag`. Aimed at
+    // the attacker like Counter (each use is aimed by `BideRedirectAttr`), and Follow Me / Rage Powder do not draw it
     new AttackMove(MoveId.BIDE, PokemonType.NORMAL, MoveCategory.PHYSICAL, -1, -1, 10, -1, 1, 1)
-      .target(MoveTarget.USER)
-      .unimplemented(),
+      .attr(BideAttr)
+      .attr(BideDamageAttr)
+      .attr(BideRedirectAttr)
+      .attr(BypassRedirectAttr)
+      .attr(PreMoveMessageAttr, bideReleaseMessage)
+      .condition(bideReleaseCondition, 3)
+      .target(MoveTarget.ATTACKER),
     new SelfStatusMove(MoveId.METRONOME, PokemonType.NORMAL, -1, 10, -1, 0, 1) //
       .attr(RandomMoveAttr, invalidMetronomeMoves),
     new StatusMove(MoveId.MIRROR_MOVE, PokemonType.FLYING, -1, 20, -1, 0, 1) //
@@ -11652,8 +11977,9 @@ export function initMoves() {
       .condition(failIfSingleBattle)
       // should stack multiplicatively if used multiple times in 1 turn
       .edgeCase(),
+    // Local fork (2026-11-20): held-item moves, 1.2.0 D5 (the user: "트릭/바꿔치기(주는 템은 선택, 받는 아이템은 랜덤)")
     new StatusMove(MoveId.TRICK, PokemonType.PSYCHIC, 100, 10, -1, 0, 3) //
-      .unimplemented(),
+      .attr(SwapHeldItemsAttr),
     new StatusMove(MoveId.ROLE_PLAY, PokemonType.PSYCHIC, -1, 10, -1, 0, 3)
       .ignoresSubstitute()
       // TODO: Enable / remove once balance reaches a consensus on ability overrides during boss fights
@@ -11961,14 +12287,21 @@ export function initMoves() {
       .condition(failIfLastInPartyCondition),
     new AttackMove(MoveId.BRINE, PokemonType.WATER, MoveCategory.SPECIAL, 65, 100, 10, -1, 0, 4) //
       .attr(MovePowerMultiplierAttr, (_user, target, _move) => (target.getHpRatio() < 0.5 ? 2 : 1)),
+    // Local fork (2026-11-20): held-item moves, 1.2.0 D5 (the user: "자연의은혜(나무열매 선택, 위력과 타입 표시,
+    // 열매주머니 발동 가능)", "n1 그대로"). The chosen berry's Gen 6+ type and power; the berry goes to
+    // battleData.berriesEaten (Harvest, Recycle), never to berriesEatenLast (Cud Chew), as upstream's note asked.
+    // Not selectable without a berry.
     new AttackMove(MoveId.NATURAL_GIFT, PokemonType.NORMAL, MoveCategory.PHYSICAL, -1, 100, 15, -1, 0, 4)
       .makesContact(false)
-      /*
-      NOTE: To whoever tries to implement this, reminder to push to battleData.berriesEaten
-      and enable the harvest test..
-      Do NOT push to berriesEatenLast or else cud chew will puke the berry.
-      */
-      .unimplemented(),
+      .restriction(
+        user => getHeldItemMoveOptions(user, MoveId.NATURAL_GIFT).length === 0,
+        "battle:moveDisabledNoBerry",
+        true,
+      )
+      .condition((user, target, move) => hasHeldItemForMove(user, move.id, target))
+      .attr(HeldItemMoveStartAttr)
+      .attr(HeldItemMovePowerAttr)
+      .attr(NaturalGiftTypeAttr),
     new AttackMove(MoveId.FEINT, PokemonType.NORMAL, MoveCategory.PHYSICAL, 30, 100, 10, -1, 2, 4)
       .attr(RemoveBattlerTagAttr, [BattlerTagType.PROTECTED])
       .attr(
@@ -12010,9 +12343,20 @@ export function initMoves() {
     new StatusMove(MoveId.EMBARGO, PokemonType.DARK, 100, 15, -1, 0, 4) //
       .reflectable()
       .unimplemented(),
+    // Local fork (2026-11-20): held-item moves, 1.2.0 D5 (the user: "내던지기(도구 선택), 내던지기용 xlsx표도 제작").
+    // Power and effect by item (fling-table.ts); the thrown item comes back after the battle. Not selectable without an
+    // item it can throw.
     new AttackMove(MoveId.FLING, PokemonType.DARK, MoveCategory.PHYSICAL, -1, 100, 10, -1, 0, 4)
       .makesContact(false)
-      .unimplemented(),
+      .restriction(
+        user => getHeldItemMoveOptions(user, MoveId.FLING).length === 0,
+        "battle:moveDisabledNoFlingItem",
+        true,
+      )
+      .condition((user, target, move) => hasHeldItemForMove(user, move.id, target))
+      .attr(HeldItemMoveStartAttr)
+      .attr(HeldItemMovePowerAttr)
+      .attr(FlingEffectAttr),
     new StatusMove(MoveId.PSYCHO_SHIFT, PokemonType.PSYCHIC, 100, 10, -1, 0, 4)
       .attr(PsychoShiftEffectAttr)
       // TODO: Verify status applied if a statused pokemon obtains Comatose (via Transform) and uses Psycho Shift
@@ -12035,10 +12379,11 @@ export function initMoves() {
     new StatusMove(MoveId.LUCKY_CHANT, PokemonType.NORMAL, -1, 30, -1, 0, 4)
       .attr(AddArenaTagAttr, ArenaTagType.NO_CRIT, 5, true, true)
       .target(MoveTarget.USER_SIDE),
+    // Local fork (2026-11-20): Me First (선취; the user: "구현: ... 선취"): see `MeFirstAttr`
     new StatusMove(MoveId.ME_FIRST, PokemonType.NORMAL, -1, 20, -1, 0, 4)
+      .attr(MeFirstAttr)
       .ignoresSubstitute()
-      .target(MoveTarget.NEAR_ENEMY)
-      .unimplemented(),
+      .target(MoveTarget.NEAR_ENEMY),
     new SelfStatusMove(MoveId.COPYCAT, PokemonType.NORMAL, -1, 20, -1, 0, 4) //
       .attr(CopyMoveAttr, invalidCopycatMoves),
     new StatusMove(MoveId.POWER_SWAP, PokemonType.PSYCHIC, -1, 10, 100, 0, 4)
@@ -12128,8 +12473,9 @@ export function initMoves() {
       .recklessMove(),
     new AttackMove(MoveId.EARTH_POWER, PokemonType.GROUND, MoveCategory.SPECIAL, 90, 100, 10, 10, 0, 4) //
       .attr(StatStageChangeAttr, [Stat.SPDEF], -1),
+    // Local fork (2026-11-20): held-item moves, 1.2.0 D5 (the user: "트릭/바꿔치기(주는 템은 선택, 받는 아이템은 랜덤)")
     new StatusMove(MoveId.SWITCHEROO, PokemonType.DARK, 100, 10, -1, 0, 4) //
-      .unimplemented(),
+      .attr(SwapHeldItemsAttr),
     new AttackMove(MoveId.GIGA_IMPACT, PokemonType.NORMAL, MoveCategory.PHYSICAL, 150, 90, 5, -1, 0, 4) //
       .attr(RechargeAttr),
     new SelfStatusMove(MoveId.NASTY_PLOT, PokemonType.DARK, -1, 20, -1, 0, 4) //

@@ -820,6 +820,8 @@ export class MoveEffectPhase extends PokemonPhase {
       sourceId: user.id,
       sourceBattlerIndex: user.getBattlerIndex(),
     });
+    // Local fork (2026-11-20): Bide (참기; the user: "구현: 참기") stores the damage its holder takes from attacks
+    target.getTag(BattlerTagType.BIDE)?.storeDamage(finalDmg, user, target);
 
     if (user.isPlayer() && target.isEnemy()) {
       globalScene.applyModifiers(DamageMoneyRewardModifier, true, user, new NumberHolder(finalDmg));

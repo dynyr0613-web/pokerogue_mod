@@ -845,14 +845,41 @@ const BRIDGE_MOVE_STYLES = Object.freeze({
 });
 
 /**
+ * Local fork (2026-11-20): held-item moves. The line of the open item choice that `item` names: a line number, an item
+ * key ("BERRY:SITRUS") or part of the shown name; the first line when left out, `-1` when nothing matches.
+ */
+function findHeldItemChoiceLine(fight: { heldItemChoiceKeys: readonly string[] }, item?: number | string): number {
+  if (item == null) {
+    return 0;
+  }
+  if (typeof item === "number") {
+    return item;
+  }
+  const byKey = fight.heldItemChoiceKeys.indexOf(item);
+  if (byKey >= 0) {
+    return byKey;
+  }
+  const options: { label: string }[] = (globalScene.ui.getHandler() as any).options ?? [];
+  const byName = options.findIndex(o => String(o.label).includes(item));
+  if (byName < 0 || byName >= fight.heldItemChoiceKeys.length) {
+    throw new Error(`no held item "${item}" in the choice (${fight.heldItemChoiceKeys.join(", ")})`);
+  }
+  return byName;
+}
+
+/**
  * In the command menu, pick a move by index (and a target in doubles) through the real UI handlers.
  * Local fork (2026-11-20): S1 move styles. When the fight menu asks 강공 / 중공 / 속공, `style` is picked there
  * ("normal", 중공, when left out).
+ * Local fork (2026-11-20): held-item moves. When the fight menu asks for a held item (Trick, Switcheroo, Fling,
+ * Natural Gift), `item` picks it: its line number in that list (from 0), or its key ("BERRY:SITRUS", "LEFTOVERS") or
+ * part of its shown name; the first line when left out.
  */
 async function useMove(
   moveIndex: number,
   targetIndex?: number,
   style: keyof typeof BRIDGE_MOVE_STYLES = "normal",
+  item?: number | string,
 ): Promise<string> {
   const ui = globalScene.ui;
   if (currentMode() !== UiMode.COMMAND) {
@@ -869,6 +896,17 @@ async function useMove(
   fight.setCursor(moveIndex);
   fight.processInput(Button.ACTION);
   await sleep(150);
+  // Local fork (2026-11-20): held-item moves. The item choice comes before the style choice
+  if (currentMode() === UiMode.OPTION_SELECT && fight.openChoice === "heldItem") {
+    const choice: any = ui.getHandler();
+    const line = Math.max(findHeldItemChoiceLine(fight, item), 0);
+    // A long list scrolls (6 lines show at once): scroll so the line shows, then put the cursor on it
+    const scroll = Math.max(0, Math.min(line, choice.options.length - choice.maxOptions));
+    choice.setScrollCursor(scroll);
+    choice.setCursor(line - scroll);
+    choice.processInput(Button.ACTION);
+    await sleep(150);
+  }
   if (currentMode() === UiMode.OPTION_SELECT) {
     const styleIndex = MOVE_STYLE_MENU_ORDER.indexOf(BRIDGE_MOVE_STYLES[style] ?? MoveStyle.NORMAL);
     const choice: any = ui.getHandler();
@@ -961,7 +999,7 @@ function help(): string[] {
     "state() / party() / enemies()    battle and party dump",
     "speciesInfo(species, form=0)     base and custom passive, abilities, evolutions",
     'keys("ACTION DOWN*2 wait:300")   press buttons (Button names, USE/A/OK/B/BACK/START, *n, wait:ms)',
-    'useMove(index, target?, style?)  pick a move in the command menu (style "strong" / "normal" / "agile")',
+    'useMove(index, target?, style?, item?)  pick a move in the command menu (style "strong" / "normal" / "agile"; item: line, key or name for Trick / Fling / Natural Gift)',
     'wait("CommandPhase" | "mode:OPTION_SELECT" | "js expr", timeoutMs)',
     "settle(quietMs)                  wait until nothing changes",
     'shot("name") / live(ms)          screenshots into Bridge/shots and Bridge/live.png',

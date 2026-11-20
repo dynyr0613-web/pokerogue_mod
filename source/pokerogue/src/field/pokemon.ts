@@ -7705,6 +7705,11 @@ export class EnemyPokemon extends Pokemon {
             for (const mt of moveTargets[pokemonMove.moveId]) {
               // Prevent a target score from being calculated when the target is whoever attacks the user
               if (mt === BattlerIndex.ATTACKER) {
+                // Local fork (2026-11-20): Bide (참기) aims at the attacker too, but is scored by its own benefit
+                // (`BideAttr.getUserBenefitScore`) instead of being left out like Counter
+                if (move.hasAttr("BideAttr")) {
+                  targetScores.push(move.getUserBenefitScore(this, this, move));
+                }
                 break;
               }
 
@@ -7722,9 +7727,11 @@ export class EnemyPokemon extends Pokemon {
                 targetScore = 0;
               }
               // If this move is unimplemented, or the move is known to fail when used, set its target score to -20
+              // Local fork (2026-11-20): Me First (선취) reads the target's chosen move too, so it is not checked here
+              // either (the player's command is already in); `MeFirstAttr` scores it by speed and the target's moves
               if (
                 (move.isUnimplemented || !move.applyConditions(this, target, -1))
-                && ![MoveId.SUCKER_PUNCH, MoveId.UPPER_HAND, MoveId.THUNDERCLAP].includes(move.id)
+                && ![MoveId.SUCKER_PUNCH, MoveId.UPPER_HAND, MoveId.THUNDERCLAP, MoveId.ME_FIRST].includes(move.id)
               ) {
                 targetScore = -20;
               }
@@ -7864,7 +7871,8 @@ export class EnemyPokemon extends Pokemon {
     if (sortedBenefitScores.length === 0) {
       // Set target to BattlerIndex.ATTACKER when using a counter move
       // This is the same as when the player does so
-      if (move.hasAttr("CounterDamageAttr")) {
+      // Local fork (2026-11-20): and Bide (참기), aimed the same way
+      if (move.hasAttr("CounterDamageAttr") || move.hasAttr("BideAttr")) {
         return [BattlerIndex.ATTACKER];
       }
 

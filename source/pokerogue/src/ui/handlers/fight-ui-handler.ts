@@ -13,6 +13,18 @@ import { TextStyle } from "#enums/text-style";
 import { TypeHints } from "#enums/type-hints";
 import { UiMode } from "#enums/ui-mode";
 import type { EnemyPokemon, Pokemon } from "#field/pokemon";
+import type { PokemonHeldItemModifier } from "#modifiers/modifier";
+// Local fork (2026-11-20): held-item moves (1.2.0 D5)
+import {
+  getFlingEntry,
+  getHeldItemChoiceLabel,
+  getHeldItemChoicePower,
+  getHeldItemKey,
+  getHeldItemMoveKind,
+  getHeldItemMoveOptions,
+  getNaturalGiftEntry,
+  type HeldItemMoveKind,
+} from "#moves/held-item-moves";
 // Local fork (2026-11-20): S1 move styles
 import {
   getMoveStylePowerMultiplier,
@@ -20,6 +32,7 @@ import {
   MOVE_STYLE_DEFAULT,
   MOVE_STYLE_MENU_ORDER,
 } from "#moves/move-style";
+import { getMoveTargets } from "#moves/move-utils";
 import type { PokemonMove } from "#moves/pokemon-move";
 import type { CommandPhase } from "#phases/command-phase";
 import type { OptionSelectItem } from "#types/ui-types";
@@ -55,6 +68,13 @@ export class FightUiHandler extends UiHandler implements InfoToggle {
   protected fieldIndex = 0;
   protected fromCommand: Command = Command.FIGHT;
   protected cursor2 = 0;
+  /**
+   * Local fork (2026-11-20): held-item moves. Which small choice over the fight menu is open: the held item (Trick,
+   * Switcheroo, Fling, Natural Gift) or the S1 style; `null` when none (the Dev Bridge reads it)
+   */
+  public openChoice: "heldItem" | "moveStyle" | null = null;
+  /** Local fork (2026-11-20): held-item moves. The keys of the items the last item choice listed, in order */
+  public heldItemChoiceKeys: readonly string[] = [];
 
   /**
    * Set the visibility of the objects in the move info container.
@@ -168,6 +188,12 @@ export class FightUiHandler extends UiHandler implements InfoToggle {
 
     switch (button) {
       case Button.ACTION:
+        // Local fork (2026-11-20): held-item moves. Trick / Switcheroo / Fling / Natural Gift ask for the held item
+        // first (then the style, for Fling and Natural Gift)
+        if (this.tryShowHeldItemChoice(cursor)) {
+          success = true;
+          break;
+        }
         // Local fork (2026-11-20): S1 move styles. A damaging move asks 강공 / 중공 / 속공 before it is chosen
         if (this.tryShowMoveStyleChoice(cursor)) {
           success = true;
@@ -230,9 +256,11 @@ export class FightUiHandler extends UiHandler implements InfoToggle {
    * cursor on 중공. The highlighted style's power shows in the move info; a style chooses the move in it, 취소 (or
    * cancel) goes back to the move list.
    * @param cursor - The chosen move slot
+   * @param heldItemKey - Local fork (2026-11-20): held-item moves. The held item already chosen for this move (Fling,
+   *   Natural Gift): it goes into the command with the style, its power shows, and cancel goes back to the item choice
    * @returns Whether the choice was shown (else the move is chosen as before)
    */
-  private tryShowMoveStyleChoice(cursor: number): boolean {
+  private tryShowMoveStyleChoice(cursor: number, heldItemKey?: string): boolean {
     if (!settings.general.moveStyleChoice) {
       return false;
     }
@@ -243,30 +271,40 @@ export class FightUiHandler extends UiHandler implements InfoToggle {
     if (slot == null || !pokemon.trySelectMove(cursor)[0] || !isMoveStyleOffered(pokemon, slot)) {
       return false;
     }
+    // Local fork (2026-11-20): held-item moves. Fling / Natural Gift have the chosen item's power
+    const basePower = heldItemKey == null ? undefined : getHeldItemChoicePower(pokemon, slot.moveId, heldItemKey);
 
     const ui = this.getUi();
     const fromCommand = this.fromCommand;
     const options: OptionSelectItem[] = MOVE_STYLE_MENU_ORDER.map(style => ({
       label: i18next.t(MOVE_STYLE_LABEL_KEYS[style]),
       handler: () => {
+        this.openChoice = null;
         ui.revertMode();
-        if (!phase.handleCommand(fromCommand, cursor, MoveUseMode.NORMAL, undefined, style)) {
+        if (!phase.handleCommand(fromCommand, cursor, MoveUseMode.NORMAL, undefined, style, heldItemKey)) {
           ui.playError();
         }
         return true;
       },
-      onHover: () => this.showMoveStylePower(slot, style),
+      onHover: () => this.showMoveStylePower(slot, style, basePower),
     }));
     options.push({
       label: i18next.t("menu:cancel"),
+      // Local fork (2026-11-20): held-item moves. After an item choice, cancel goes back to it (one step back); the
+      // menu stays open for that, since this handler opens it again itself
+      keepOpen: heldItemKey != null,
       handler: () => {
+        this.openChoice = null;
         ui.revertMode();
-        this.showMoveStylePower(slot, MoveStyle.NORMAL);
+        if (heldItemKey == null || !this.tryShowHeldItemChoice(cursor, heldItemKey)) {
+          this.showMoveStylePower(slot, MoveStyle.NORMAL);
+        }
         return true;
       },
-      onHover: () => this.showMoveStylePower(slot, MoveStyle.NORMAL),
+      onHover: () => this.showMoveStylePower(slot, MoveStyle.NORMAL, basePower),
     });
 
+    this.openChoice = "moveStyle";
     ui.setOverlayMode(UiMode.OPTION_SELECT, {
       options,
       initialCursor: MOVE_STYLE_MENU_ORDER.indexOf(MOVE_STYLE_DEFAULT),
@@ -276,11 +314,109 @@ export class FightUiHandler extends UiHandler implements InfoToggle {
     return true;
   }
 
-  /** Local fork (2026-11-20): S1 move styles. Show `slot`'s power in `style` in the move info */
-  private showMoveStylePower(slot: PokemonMove, style: MoveStyle): void {
+  /**
+   * Local fork (2026-11-20): S1 move styles. Show `slot`'s power in `style` in the move info
+   * @param basePower - Local fork (2026-11-20): held-item moves. The power before the style (Fling / Natural Gift with
+   *   the chosen item); the move's own power when left out
+   */
+  private showMoveStylePower(slot: PokemonMove, style: MoveStyle, basePower?: number): void {
     const move = slot.getMove();
-    const power = move.power;
+    const power = basePower ?? move.power;
     this.powerText.setText(power >= 0 ? `${Math.floor(power * getMoveStylePowerMultiplier(style, move))}` : "---");
+  }
+
+  /**
+   * Local fork (2026-11-20): held-item moves (1.2.0 D5; the user: "자연의은혜(나무열매 선택, 위력과 타입 표시 ...),
+   * 트릭/바꿔치기(주는 템은 선택 ...), 내던지기(도구 선택)"). For a usable Trick / Switcheroo / Fling / Natural Gift
+   * slot whose user holds an item it can use, list those items over the fight menu (with their icons; Fling lines show
+   * the power, Natural Gift lines the type and power, which the move info also shows for the highlighted line), then
+   * 취소. An item goes on to the S1 style choice when the move takes one (Fling, Natural Gift), else chooses the move;
+   * 취소 (or cancel) goes back to the move list. Trick with nothing to give is chosen at once (it only takes).
+   * @param cursor - The chosen move slot
+   * @param initialKey - The item the cursor starts on (coming back from the style choice)
+   * @returns Whether the choice was shown
+   */
+  private tryShowHeldItemChoice(cursor: number, initialKey?: string): boolean {
+    const phase = globalScene.phaseManager.getCurrentPhase() as CommandPhase;
+    const pokemon = phase.getPokemon();
+    const slot = pokemon.getMoveset()[cursor];
+    const kind = slot == null ? undefined : getHeldItemMoveKind(slot.moveId);
+    // An unusable move goes the usual way (its message, or Struggle); a Z / Max slot has no item to choose
+    if (slot == null || kind == null || slot.transform != null || !pokemon.trySelectMove(cursor)[0]) {
+      return false;
+    }
+    // In a single battle the target is known, so Trick lists only what it can take
+    const targets = getMoveTargets(pokemon, slot.getMove()).targets;
+    const target = targets.length === 1 ? globalScene.getField()[targets[0]] : undefined;
+    const items = getHeldItemMoveOptions(pokemon, slot.moveId, target?.isActive(true) ? target : undefined);
+    if (items.length === 0) {
+      return false;
+    }
+
+    const ui = this.getUi();
+    const fromCommand = this.fromCommand;
+    const options: OptionSelectItem[] = items.map(item => {
+      const key = getHeldItemKey(item);
+      return {
+        label: getHeldItemChoiceLabel(item, kind),
+        iconsConfig: [{ name: "items", frame: item.getIconFrame(), scale: 0.5 }],
+        // The handler may open the style choice in this same menu, so the menu must not close itself afterwards
+        keepOpen: true,
+        handler: () => {
+          this.openChoice = null;
+          ui.revertMode();
+          if (!this.tryShowMoveStyleChoice(cursor, key)) {
+            this.showHeldItemMoveInfo(slot, kind);
+            if (!phase.handleCommand(fromCommand, cursor, MoveUseMode.NORMAL, undefined, undefined, key)) {
+              ui.playError();
+            }
+          }
+          return true;
+        },
+        onHover: () => this.showHeldItemMoveInfo(slot, kind, item),
+      };
+    });
+    options.push({
+      label: i18next.t("menu:cancel"),
+      handler: () => {
+        this.openChoice = null;
+        ui.revertMode();
+        this.showHeldItemMoveInfo(slot, kind);
+        return true;
+      },
+      onHover: () => this.showHeldItemMoveInfo(slot, kind),
+    });
+
+    const initial = initialKey == null ? 0 : items.findIndex(i => getHeldItemKey(i) === initialKey);
+    this.openChoice = "heldItem";
+    this.heldItemChoiceKeys = items.map(i => getHeldItemKey(i));
+    ui.setOverlayMode(UiMode.OPTION_SELECT, {
+      options,
+      initialCursor: Math.max(initial, 0),
+      maxOptions: 6,
+      yOffset: 50, // where the S1 style choice opens
+    });
+    return true;
+  }
+
+  /**
+   * Local fork (2026-11-20): held-item moves. Show in the move info the type and power `slot`'s move has with `item`
+   * (Natural Gift: the berry's type and power; Fling: the item's power); the move's own without an item
+   */
+  private showHeldItemMoveInfo(slot: PokemonMove, kind: HeldItemMoveKind, item?: PokemonHeldItemModifier): void {
+    const move = slot.getMove();
+    const pokemon = (globalScene.phaseManager.getCurrentPhase() as CommandPhase).getPokemon();
+    let type = pokemon.getMoveType(move);
+    let power = move.power;
+    if (item != null && kind === "berry") {
+      const entry = getNaturalGiftEntry(item);
+      type = entry?.type ?? type;
+      power = entry?.power ?? power;
+    } else if (item != null && kind === "throw") {
+      power = getFlingEntry(item).power;
+    }
+    this.typeIcon.setTexture(getLocalizedSpriteKey("types"), PokemonType[type].toLowerCase());
+    this.powerText.setText(power >= 0 ? `${power}` : "---");
   }
 
   /**

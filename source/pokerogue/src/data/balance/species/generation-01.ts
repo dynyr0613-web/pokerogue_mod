@@ -3649,7 +3649,7 @@ export function initGenerationOne(): SpeciesDataMapConfig {
       [14, MoveId.FOLLOW_ME],
       [16, MoveId.DRAINING_KISS],
       [18, MoveId.LIFE_DEW],
-      [20, MoveId.BESTOW],
+      [20, MoveId.WISH], // Local fork (2026-11-20): was Bestow ("알기술/레벨업 - 다른 기술로 대체")
       [22, MoveId.WAKE_UP_SLAP],
       [25, MoveId.MINIMIZE],
       [28, MoveId.STORED_POWER],
@@ -3800,7 +3800,7 @@ export function initGenerationOne(): SpeciesDataMapConfig {
       [14, MoveId.FOLLOW_ME],
       [16, MoveId.DRAINING_KISS],
       [18, MoveId.LIFE_DEW],
-      [20, MoveId.BESTOW],
+      [20, MoveId.WISH], // Local fork (2026-11-20): was Bestow ("알기술/레벨업 - 다른 기술로 대체")
       [22, MoveId.WAKE_UP_SLAP],
       [25, MoveId.MINIMIZE],
       [28, MoveId.STORED_POWER],
@@ -6359,7 +6359,7 @@ export function initGenerationOne(): SpeciesDataMapConfig {
       [EVOLVE_MOVE, MoveId.CONFUSION],
       [1, MoveId.TELEPORT],
       [1, MoveId.PSYWAVE],
-      [1, MoveId.ALLY_SWITCH],
+      [1, MoveId.MAGIC_COAT], // Local fork (2026-11-20): was Ally Switch ("알기술/레벨업 - 다른 기술로 대체")
       [16, MoveId.KINESIS],
       [18, MoveId.DISABLE],
       [21, MoveId.PSYBEAM],
@@ -6481,7 +6481,7 @@ export function initGenerationOne(): SpeciesDataMapConfig {
       [EVOLVE_MOVE, MoveId.KINESIS],
       [1, MoveId.TELEPORT],
       [1, MoveId.PSYWAVE],
-      [1, MoveId.ALLY_SWITCH],
+      [1, MoveId.MAGIC_COAT], // Local fork (2026-11-20): was Ally Switch ("알기술/레벨업 - 다른 기술로 대체")
       [16, MoveId.CONFUSION],
       [18, MoveId.DISABLE],
       [21, MoveId.PSYBEAM],
@@ -10114,7 +10114,7 @@ export function initGenerationOne(): SpeciesDataMapConfig {
       [43, MoveId.UPROAR],
       [47, MoveId.PSYCHIC],
       [50, MoveId.WORRY_SEED],
-      [50, MoveId.BESTOW],
+      [50, MoveId.LUCKY_CHANT], // Local fork (2026-11-20): was Bestow ("알기술/레벨업 - 다른 기술로 대체")
       [53, MoveId.SOLAR_BEAM],
     ],
     tms: [
@@ -10220,7 +10220,7 @@ export function initGenerationOne(): SpeciesDataMapConfig {
       [1, MoveId.HYPNOSIS],
       [1, MoveId.BARRAGE],
       [1, MoveId.WORRY_SEED],
-      [1, MoveId.BESTOW],
+      [1, MoveId.LUCKY_CHANT], // Local fork (2026-11-20): was Bestow ("알기술/레벨업 - 다른 기술로 대체")
       [5, MoveId.REFLECT],
       [10, MoveId.LEECH_SEED],
       [15, MoveId.MEGA_DRAIN],
@@ -11225,7 +11225,7 @@ export function initGenerationOne(): SpeciesDataMapConfig {
       [10, MoveId.REFRESH],
       [12, MoveId.DOUBLE_SLAP],
       [16, MoveId.SING],
-      [20, MoveId.BESTOW],
+      [20, MoveId.HEAL_BELL], // Local fork (2026-11-20): was Bestow ("알기술/레벨업 - 다른 기술로 대체")
       [23, MoveId.MINIMIZE],
       [25, MoveId.TAKE_DOWN],
       [27, MoveId.HEAL_PULSE],
@@ -14778,7 +14778,7 @@ export function initGenerationOne(): SpeciesDataMapConfig {
       [RELEARN_MOVE, MoveId.STOCKPILE],
       [RELEARN_MOVE, MoveId.SWALLOW],
       [RELEARN_MOVE, MoveId.RECYCLE],
-      [RELEARN_MOVE, MoveId.SNATCH],
+      [RELEARN_MOVE, MoveId.THIEF], // Local fork (2026-11-20): was Snatch ("알기술/레벨업 - 다른 기술로 대체")
       [RELEARN_MOVE, MoveId.NATURAL_GIFT],
       [RELEARN_MOVE, MoveId.FLING],
       [RELEARN_MOVE, MoveId.LAST_RESORT],

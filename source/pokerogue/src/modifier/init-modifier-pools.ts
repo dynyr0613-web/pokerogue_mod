@@ -487,10 +487,9 @@ function wouldOfferToxicOrb(p: Pokemon): boolean {
     // Moves that take advantage of obtaining the actual status effect
     const hasStatusMoves = [MoveId.FACADE, MoveId.PSYCHO_SHIFT].some(m => moveset.includes(m));
     // Moves that take advantage of being able to give the target a status orb
-    // TODO: Take moves (Trick, Fling, Switcheroo) from comment when they are implemented
-    const hasItemMoves = [
-      /* MoveId.TRICK, MoveId.FLING, MoveId.SWITCHEROO */
-    ].some(m => moveset.includes(m));
+    // Local fork (2026-11-20): Trick, Fling and Switcheroo work now (1.2.0 D5), so upstream's commented list is in. As
+    // upstream wrote it, they count only for a Pokémon the orb cannot poison itself (see the return below)
+    const hasItemMoves = [MoveId.TRICK, MoveId.FLING, MoveId.SWITCHEROO].some(m => moveset.includes(m));
 
     if (canSetStatus) {
       // Abilities that take advantage of obtaining the actual status effect, separated based on specificity to the orb
@@ -782,10 +781,9 @@ function initUltraModifierPool() {
             // Moves that take advantage of obtaining the actual status effect
             const hasStatusMoves = [MoveId.FACADE, MoveId.PSYCHO_SHIFT].some(m => moveset.includes(m));
             // Moves that take advantage of being able to give the target a status orb
-            // TODO: Take moves (Trick, Fling, Switcheroo) from comment when they are implemented
-            const hasItemMoves = [
-              /* MoveId.TRICK, MoveId.FLING, MoveId.SWITCHEROO */
-            ].some(m => moveset.includes(m));
+            // Local fork (2026-11-20): Trick, Fling and Switcheroo work now (1.2.0 D5), so upstream's commented list is
+            // in. As upstream wrote it, they count only for a Pokémon the orb cannot burn itself (see the return below)
+            const hasItemMoves = [MoveId.TRICK, MoveId.FLING, MoveId.SWITCHEROO].some(m => moveset.includes(m));
 
             if (canSetStatus) {
               // Abilities that take advantage of obtaining the actual status effect, separated based on specificity to the orb

@@ -125,6 +125,8 @@ import {
   type ModifierType,
   PokemonHeldItemModifierType,
 } from "#modifiers/modifier-type";
+// Local fork (2026-11-20): held-item moves
+import { discardHeldItemMoveLedger, followHeldItemMoveClaim } from "#moves/held-item-moves";
 import { isDarkGtsEndWave } from "#mystery-encounters/dark-gts-spawn";
 import { MysteryEncounter } from "#mystery-encounters/mystery-encounter";
 import { allMysteryEncounters, mysteryEncountersByBiome } from "#mystery-encounters/mystery-encounter-biomes";
@@ -1189,6 +1191,9 @@ export class BattleScene extends SceneBase {
 
     this.modifiers = [];
     this.enemyModifiers = [];
+    // Local fork (2026-11-20), review fix: held-item moves. A battle left midway (Save & Quit, back to the title) leaves
+    // its Trick / Fling ledger unsettled; it belongs to items that are gone now
+    discardHeldItemMoveLedger();
     this.modifierBar.removeAll(true);
     this.enemyModifierBar.removeAll(true);
 
@@ -2722,6 +2727,7 @@ export class BattleScene extends SceneBase {
       target.isPlayer(),
     ) as PokemonHeldItemModifier;
 
+    let movedCount = 0; // Local fork (2026-11-20): held-item moves
     if (matchingModifier) {
       const maxStackCount = matchingModifier.getMaxStackCount();
       if (matchingModifier.stackCount >= maxStackCount) {
@@ -2734,15 +2740,21 @@ export class BattleScene extends SceneBase {
       );
       itemModifier.stackCount -= countTaken;
       newItemModifier.stackCount = matchingModifier.stackCount + countTaken;
+      movedCount = countTaken;
     } else {
       const countTaken = Math.min(transferQuantity, itemModifier.stackCount);
       itemModifier.stackCount -= countTaken;
       newItemModifier.stackCount = countTaken;
+      movedCount = countTaken;
     }
 
     const removeOld = itemModifier.stackCount === 0;
 
     if (!removeOld || !source || this.removeModifier(itemModifier, source.isEnemy())) {
+      // Local fork (2026-11-20): held-item moves (the user: "도구 변경은 전투 후 되돌아옴"). Units the source holds on
+      // loan from Trick / Switcheroo go first, and the loan follows them, so a stolen-back item is not doubled when the
+      // battle's item changes are put back (held-item-moves.ts)
+      followHeldItemMoveClaim(source, target, itemModifier, movedCount);
       const addModifier = () => {
         if (!matchingModifier || this.removeModifier(matchingModifier, target.isEnemy())) {
           if (target.isPlayer()) {

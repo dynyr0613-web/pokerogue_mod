@@ -1054,7 +1054,7 @@ export function initGenerationThree(): SpeciesDataMapConfig {
       [22, MoveId.ASSURANCE],
       [25, MoveId.SCARY_FACE],
       [27, MoveId.HEADBUTT],
-      [29, MoveId.EMBARGO],
+      [29, MoveId.TORMENT], // Local fork (2026-11-20): was Embargo ("알기술/레벨업 - 다른 기술로 대체")
       [31, MoveId.TAUNT],
       [34, MoveId.CRUNCH],
       [37, MoveId.YAWN],
@@ -1172,7 +1172,7 @@ export function initGenerationThree(): SpeciesDataMapConfig {
       [24, MoveId.ASSURANCE],
       [28, MoveId.SCARY_FACE],
       [30, MoveId.HEADBUTT],
-      [32, MoveId.EMBARGO],
+      [32, MoveId.TORMENT], // Local fork (2026-11-20): was Embargo ("알기술/레벨업 - 다른 기술로 대체")
       [36, MoveId.TAUNT],
       [40, MoveId.CRUNCH],
       [44, MoveId.YAWN],
@@ -1226,7 +1226,7 @@ export function initGenerationThree(): SpeciesDataMapConfig {
       [15, MoveId.BABY_DOLL_EYES],
       [18, MoveId.PIN_MISSILE],
       [21, MoveId.REST],
-      [23, MoveId.BESTOW],
+      [23, MoveId.TICKLE], // Local fork (2026-11-20): was Bestow ("알기술/레벨업 - 다른 기술로 대체")
       [25, MoveId.TAKE_DOWN],
       [27, MoveId.FLING],
       [30, MoveId.FLAIL],
@@ -1342,7 +1342,7 @@ export function initGenerationThree(): SpeciesDataMapConfig {
       [15, MoveId.MUD_SPORT],
       [18, MoveId.FURY_SWIPES],
       [23, MoveId.REST],
-      [26, MoveId.BESTOW],
+      [26, MoveId.TICKLE], // Local fork (2026-11-20): was Bestow ("알기술/레벨업 - 다른 기술로 대체")
       [28, MoveId.TAKE_DOWN],
       [33, MoveId.FLING],
       [38, MoveId.FLAIL],
@@ -5771,7 +5771,7 @@ export function initGenerationThree(): SpeciesDataMapConfig {
       [4, MoveId.HELPING_HAND],
       [7, MoveId.SPARK],
       [10, MoveId.ENCORE],
-      [13, MoveId.BESTOW],
+      [13, MoveId.WISH], // Local fork (2026-11-20): was Bestow ("알기술/레벨업 - 다른 기술로 대체")
       [16, MoveId.SWIFT],
       [19, MoveId.ELECTRO_BALL],
       [21, MoveId.FAKE_TEARS],
@@ -8282,7 +8282,7 @@ export function initGenerationThree(): SpeciesDataMapConfig {
       [RELEARN_MOVE, MoveId.METAL_CLAW],
       [RELEARN_MOVE, MoveId.AERIAL_ACE],
       [RELEARN_MOVE, MoveId.FEINT],
-      [RELEARN_MOVE, MoveId.EMBARGO],
+      [RELEARN_MOVE, MoveId.TORMENT], // Local fork (2026-11-20): was Embargo ("알기술/레벨업 - 다른 기술로 대체")
       [RELEARN_MOVE, MoveId.NIGHT_SLASH],
       [RELEARN_MOVE, MoveId.DOUBLE_HIT],
       [RELEARN_MOVE, MoveId.QUICK_GUARD],
@@ -8590,8 +8590,8 @@ export function initGenerationThree(): SpeciesDataMapConfig {
       [32, MoveId.HEAL_BLOCK],
       [35, MoveId.STONE_EDGE],
       [40, MoveId.FUTURE_SIGHT],
-      [43, MoveId.EMBARGO],
-      [46, MoveId.MAGIC_ROOM],
+      [43, MoveId.GRAVITY], // Local fork (2026-11-20): was Embargo ("알기술/레벨업 - 다른 기술로 대체")
+      [46, MoveId.TRICK_ROOM], // Local fork (2026-11-20): was Magic Room ("알기술/레벨업 - 다른 기술로 대체")
       [50, MoveId.MOONBLAST],
       [55, MoveId.EXPLOSION],
     ],
@@ -8724,7 +8724,7 @@ export function initGenerationThree(): SpeciesDataMapConfig {
       [32, MoveId.HEAL_BLOCK],
       [35, MoveId.STONE_EDGE],
       [40, MoveId.SOLAR_BEAM],
-      [43, MoveId.EMBARGO],
+      [43, MoveId.GRAVITY], // Local fork (2026-11-20): was Embargo ("알기술/레벨업 - 다른 기술로 대체")
       [46, MoveId.WONDER_ROOM],
       [50, MoveId.FLARE_BLITZ],
       [55, MoveId.EXPLOSION],
@@ -10377,10 +10377,10 @@ export function initGenerationThree(): SpeciesDataMapConfig {
       [25, MoveId.PAIN_SPLIT],
       [28, MoveId.ROLE_PLAY],
       [31, MoveId.SHADOW_BALL],
-      [34, MoveId.EMBARGO],
+      [34, MoveId.TAUNT], // Local fork (2026-11-20): was Embargo ("알기술/레벨업 - 다른 기술로 대체")
       [36, MoveId.KNOCK_OFF],
       [40, MoveId.SUCKER_PUNCH],
-      [43, MoveId.SNATCH],
+      [43, MoveId.TORMENT], // Local fork (2026-11-20): was Snatch ("알기술/레벨업 - 다른 기술로 대체")
       [46, MoveId.GRUDGE],
       [49, MoveId.SWORDS_DANCE],
       [52, MoveId.TRICK],
@@ -10564,10 +10564,10 @@ export function initGenerationThree(): SpeciesDataMapConfig {
       [25, MoveId.PAIN_SPLIT],
       [28, MoveId.ROLE_PLAY],
       [31, MoveId.SHADOW_BALL],
-      [34, MoveId.EMBARGO],
+      [34, MoveId.TAUNT], // Local fork (2026-11-20): was Embargo ("알기술/레벨업 - 다른 기술로 대체")
       [36, MoveId.KNOCK_OFF],
       [40, MoveId.SUCKER_PUNCH],
-      [46, MoveId.SNATCH],
+      [46, MoveId.TORMENT], // Local fork (2026-11-20): was Snatch ("알기술/레벨업 - 다른 기술로 대체")
       [52, MoveId.GRUDGE],
       [58, MoveId.TRICK],
       [64, MoveId.PHANTOM_FORCE],
@@ -10817,7 +10817,7 @@ export function initGenerationThree(): SpeciesDataMapConfig {
       [1, MoveId.RAZOR_LEAF],
       [6, MoveId.SWEET_SCENT],
       [10, MoveId.STOMP],
-      [13, MoveId.BESTOW],
+      [13, MoveId.LEECH_SEED], // Local fork (2026-11-20): was Bestow ("알기술/레벨업 - 다른 기술로 대체")
       [16, MoveId.MAGICAL_LEAF],
       [21, MoveId.WHIRLWIND],
       [26, MoveId.LEAF_TORNADO],
@@ -13471,7 +13471,7 @@ export function initGenerationThree(): SpeciesDataMapConfig {
     },
     levelMoves: [
       [RELEARN_MOVE, MoveId.SIMPLE_BEAM],
-      [RELEARN_MOVE, MoveId.ALLY_SWITCH],
+      [RELEARN_MOVE, MoveId.MAGIC_COAT], // Local fork (2026-11-20): was Ally Switch ("알기술/레벨업 - 다른 기술로 대체")
       [1, MoveId.CONFUSION],
       [1, MoveId.HELPING_HAND],
       [1, MoveId.STORED_POWER],
@@ -14508,7 +14508,7 @@ export function initGenerationThree(): SpeciesDataMapConfig {
       normal: [
         [37, MoveId.GRAVITY],
         [43, MoveId.SWITCHEROO],
-        [46, MoveId.SNATCH],
+        [46, MoveId.TAUNT], // Local fork (2026-11-20): was Snatch ("알기술/레벨업 - 다른 기술로 대체")
         [55, MoveId.COSMIC_POWER],
         [70, MoveId.DARK_PULSE],
       ],
@@ -14523,7 +14523,7 @@ export function initGenerationThree(): SpeciesDataMapConfig {
         [22, MoveId.SPIKES],
         [37, MoveId.PROTECT],
         [43, MoveId.SWITCHEROO],
-        [46, MoveId.SNATCH],
+        [46, MoveId.TAUNT], // Local fork (2026-11-20): was Snatch ("알기술/레벨업 - 다른 기술로 대체")
         [55, MoveId.AMNESIA],
         [55, MoveId.IRON_DEFENSE],
         [70, MoveId.COUNTER],

@@ -106,7 +106,8 @@ describe("Clowning Around - Mystery Encounter", () => {
     expect(config.pokemonConfigs?.[0]).toEqual({
       species: speciesDataRegistry.getSpecies(SpeciesId.MR_MIME),
       isBoss: true,
-      moveSet: [MoveId.TEETER_DANCE, MoveId.ALLY_SWITCH, MoveId.DAZZLING_GLEAM, MoveId.PSYCHIC],
+      // Local fork (2026-11-20): Light Screen in place of the unimplemented Ally Switch
+      moveSet: [MoveId.TEETER_DANCE, MoveId.LIGHT_SCREEN, MoveId.DAZZLING_GLEAM, MoveId.PSYCHIC],
     });
     expect(config.pokemonConfigs?.[1]).toEqual({
       species: speciesDataRegistry.getSpecies(SpeciesId.BLACEPHALON),
@@ -169,7 +170,7 @@ describe("Clowning Around - Mystery Encounter", () => {
       expect(enemyField[0].species.speciesId).toBe(SpeciesId.MR_MIME);
       expect(enemyField[0].moveset).toEqual([
         new PokemonMove(MoveId.TEETER_DANCE),
-        new PokemonMove(MoveId.ALLY_SWITCH),
+        new PokemonMove(MoveId.LIGHT_SCREEN), // Local fork (2026-11-20): was Ally Switch
         new PokemonMove(MoveId.DAZZLING_GLEAM),
         new PokemonMove(MoveId.PSYCHIC),
       ]);
