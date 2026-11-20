@@ -50,6 +50,7 @@ export const FLING_DEFAULT_ENTRY: FlingEntry = Object.freeze({
 });
 
 /** Fling's power and effect by held item key */
+// biome-ignore format: one row per line between the markers, the shape tools/fling/fling_table.py reads and writes
 export const FLING_TABLE: Readonly<Record<string, FlingEntry>> = Object.freeze({
   // <fling-table:begin> (written by tools/fling/fling_table.py)
   WHITE_HERB: { power: 10, effect: "whiteHerb", source: "mainline" },
@@ -152,41 +153,16 @@ export const FLING_TABLE: Readonly<Record<string, FlingEntry>> = Object.freeze({
   FLAME_ORB: { power: 30, effect: "burn", source: "mainline" },
   BATON: { power: 30, source: "fork", note: "기본값" },
   MINI_BLACK_HOLE: { power: 30, source: "fork", note: "기본값" },
-  BASE_STAT_BOOSTER: {
-    power: 30,
-    throwable: false,
-    source: "mainline",
-    note: "영양제 6종: 이 게임에서는 옮길 수 없음",
-  },
+  BASE_STAT_BOOSTER: { power: 30, throwable: false, source: "mainline", note: "영양제 6종: 이 게임에서는 옮길 수 없음" },
   IV_CANDY: { power: 0, throwable: false, source: "fork", note: "개체값 사탕 6종: 옮길 수 없음" },
   WEIGHT_BAND: { power: 0, throwable: false, source: "fork", note: "옮길 수 없음" },
   CHAMPION_BELT: { power: 0, throwable: false, source: "fork", note: "옮길 수 없음" },
   FORGED_STEEL: { power: 0, throwable: false, source: "fork", note: "옮길 수 없음" },
   EVOLUTION_TRACKER_GIMMIGHOUL: { power: 0, throwable: false, source: "fork", note: "옮길 수 없음" },
-  FORM_CHANGE_ITEM: {
-    power: 0,
-    throwable: false,
-    source: "mainline",
-    note: "메가스톤 등 폼체인지 도구 전부: 옮길 수 없음",
-  },
-  RARE_FORM_CHANGE_ITEM: {
-    power: 0,
-    throwable: false,
-    source: "mainline",
-    note: "플레이트·메모리 등 폼체인지 도구 전부: 옮길 수 없음",
-  },
-  MYSTERY_ENCOUNTER_SHUCKLE_JUICE: {
-    power: 0,
-    throwable: false,
-    source: "fork",
-    note: "이상한 만남 도구: 옮길 수 없음",
-  },
+  FORM_CHANGE_ITEM: { power: 0, throwable: false, source: "mainline", note: "메가스톤 등 폼체인지 도구 전부: 옮길 수 없음" },
+  RARE_FORM_CHANGE_ITEM: { power: 0, throwable: false, source: "mainline", note: "플레이트·메모리 등 폼체인지 도구 전부: 옮길 수 없음" },
+  MYSTERY_ENCOUNTER_SHUCKLE_JUICE: { power: 0, throwable: false, source: "fork", note: "이상한 만남 도구: 옮길 수 없음" },
   MYSTERY_ENCOUNTER_OLD_GATEAU: { power: 0, throwable: false, source: "fork", note: "이상한 만남 도구: 옮길 수 없음" },
-  MYSTERY_ENCOUNTER_MACHO_BRACE: {
-    power: 60,
-    throwable: false,
-    source: "mainline",
-    note: "이상한 만남 도구: 옮길 수 없음",
-  },
+  MYSTERY_ENCOUNTER_MACHO_BRACE: { power: 60, throwable: false, source: "mainline", note: "이상한 만남 도구: 옮길 수 없음" },
   // <fling-table:end>
 });

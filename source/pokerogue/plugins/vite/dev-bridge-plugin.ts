@@ -70,6 +70,50 @@ function sendJson(res: ServerResponse, status: number, body: unknown): void {
   res.end(JSON.stringify(body));
 }
 
+/**
+ * Local fork (2026-11-21): whether a request comes from this machine. The dev server can be started on all addresses
+ * (`start:podman` passes `--host 0.0.0.0`); the bridge runs JavaScript in the game, so it answers this machine only.
+ */
+function isLoopback(req: IncomingMessage): boolean {
+  const address = req.socket.remoteAddress ?? "";
+  return address === "127.0.0.1" || address === "::1" || address === "::ffff:127.0.0.1";
+}
+
+const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
+
+/** The host name of a Host header value ("localhost:8000" -> "localhost", "[::1]:8000" -> "[::1]") */
+function hostName(host: string): string {
+  const m = /^(\[[^\]]*\]|[^:]*)/.exec(host.trim().toLowerCase());
+  return m ? m[1] : "";
+}
+
+/**
+ * Review fix (2026-11-21): whether a request from this machine may use the bridge. A loopback address alone is not
+ * enough: any web page open in a browser on this machine could send `POST /cmd` (a "simple" cross-site request needs no
+ * CORS permission) and run JavaScript in the game, and a DNS-rebinding page reaches 127.0.0.1 under its own host name.
+ * So the Host header must name a loopback host, and a request a browser marks as coming from another site
+ * (`Sec-Fetch-Site: cross-site`, or an `Origin` that is not a loopback host) is refused. The game's own page is
+ * same-origin and bridge.py sends neither header; a page on another local port (a preview proxy) still works.
+ */
+export function isAllowedBridgeRequest(headers: IncomingMessage["headers"]): boolean {
+  const host = typeof headers.host === "string" ? headers.host : "";
+  if (!LOOPBACK_HOSTS.has(hostName(host))) {
+    return false;
+  }
+  if (headers["sec-fetch-site"] === "cross-site") {
+    return false;
+  }
+  const origin = headers.origin;
+  if (typeof origin === "string") {
+    try {
+      return LOOPBACK_HOSTS.has(new URL(origin).hostname.toLowerCase());
+    } catch {
+      return false;
+    }
+  }
+  return true;
+}
+
 /** Keep screenshot names to something safe for the file system */
 function safeName(name: unknown, fallback: string): string {
   const str = typeof name === "string" && name.trim() ? name.trim() : fallback;
@@ -276,8 +320,13 @@ export function devBridgePlugin(): VitePlugin {
           "log.txt     game messages, UI/phase changes and console errors, one line per event",
           "state.json  latest battle/party dump (bridge.sh peek)",
           "status.json what the game last reported plus the command queue (bridge.sh status)",
-          "shots/      screenshots from bridge.sh shot NAME",
+          "shots/      screenshots from bridge.sh shot NAME and contact sheets from bridge.sh burst NAME",
           "live.png    the screen, rewritten while bridge.sh live N is on",
+          "presets.json  scenario presets for bridge.sh scenario ID (kept by hand; bridge.sh presets lists them)",
+          "",
+          "Tools for an agent (2026-11-21): bridge.sh ready / look / scenario / advance / move / nextwave / menu /",
+          "burst / shot --crop / set ... / settings. Docs: D:/PokeRogueDev/docs/브리지_도구_20261121.md;",
+          "bridge.sh with no arguments prints the command list.",
           "",
         ].join("\n"),
         "utf8",
@@ -286,6 +335,14 @@ export function devBridgePlugin(): VitePlugin {
       server.config.logger.info(`  ➜  Dev Bridge: ${bridgeDir} (bridge.sh)`);
 
       server.middlewares.use("/__bridge", (req, res) => {
+        if (!isLoopback(req)) {
+          sendJson(res, 403, { error: "the Dev Bridge answers this machine only" });
+          return;
+        }
+        if (!isAllowedBridgeRequest(req.headers)) {
+          sendJson(res, 403, { error: "the Dev Bridge answers the game's own page and bridge.sh only" });
+          return;
+        }
         handle(req, res).catch(err => {
           sendJson(res, 500, { error: String(err?.stack ?? err) });
         });

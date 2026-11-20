@@ -7,9 +7,45 @@
  * `unlockStarter()`, `newGame()`, `startRun()`, `encounter()` ...) and posts the results back. Game messages,
  * UI mode and phase changes and console errors go to the bridge log. `Bridge/bridge.sh` is the
  * shell side.
+ *
+ * Local fork (2026-11-21): tools for Claude driving the game (the user: "당신이 화면 정보를 보다 쉽게 읽고 원하는 세팅을
+ * 빠르게 만드는데 사용할 도구"): `look()` (bridge-look.ts), `scenario()` / `advance()` / `nextWave()`
+ * (bridge-scenario.ts), `burst()` and cropped `shot()` (bridge-burst.ts), the setup helpers (bridge-setup.ts), with
+ * their pure parts in bridge-pure.ts. Docs: D:/PokeRogueDev/docs/브리지_도구_20261121.md.
  */
 
 import type { Battle } from "#app/battle";
+import { burst, cropShot, initBurstTools } from "#app/dev-bridge/bridge-burst";
+import { buildLookView, look, recordMessage } from "#app/dev-bridge/bridge-look";
+import { clean, enumByName, nameOf, type SettingsPatch } from "#app/dev-bridge/bridge-pure";
+import { resolveMove, resolveNature, resolveSpecies } from "#app/dev-bridge/bridge-resolve";
+import {
+  advance,
+  initScenarioTools,
+  nextWave,
+  pendingScenarios,
+  resetOverrides,
+  resumePendingScenario,
+  scenario,
+  scenarioResult,
+  snapshotOverrides,
+} from "#app/dev-bridge/bridge-scenario";
+import {
+  addEggs,
+  applySettings,
+  faint,
+  giveItem,
+  heal,
+  loadMovesAnims,
+  openMenu,
+  setHp,
+  setLevel,
+  setMoves,
+  setStatus,
+  setTerrain,
+  setWeather,
+  takeItem,
+} from "#app/dev-bridge/bridge-setup";
 import { getGameMode } from "#app/game-mode";
 import { globalScene } from "#app/global-scene";
 import { settings } from "#app/global-settings-manager";
@@ -38,20 +74,18 @@ import { Passive } from "#enums/passive";
 import { PokemonType } from "#enums/pokemon-type";
 import { SpeciesId } from "#enums/species-id";
 import { StatusEffect } from "#enums/status-effect";
+import { TimeOfDay } from "#enums/time-of-day";
 import { UiMode } from "#enums/ui-mode";
 import { WeatherType } from "#enums/weather-type";
 import type { Pokemon } from "#field/pokemon";
 import { MOVE_STYLE_MENU_ORDER } from "#moves/move-style"; // Local fork (2026-11-20): S1 move styles
-import { getAnimMoveId } from "#moves/move-transform";
 import { PokemonMove } from "#moves/pokemon-move";
 import { allMysteryEncounters } from "#mystery-encounters/mystery-encounter-biomes";
 import { SelectStarterPhase } from "#phases/select-starter-phase";
-import { loadMoveAnimations } from "#sprites/pokemon-asset-loader";
 import type { Starter, StarterMoveset } from "#types/save-data";
 import type { StarterSpeciesId } from "#types/starter-species-id";
 import { MessageUiHandler } from "#ui/message-ui-handler";
 import { getStarterData, getStarterMoves } from "#ui/starter-select-ui-utils";
-import { getEnumValues } from "#utils/enums";
 
 const POLL_MS = 150;
 const STATUS_MS = 400;
@@ -111,16 +145,6 @@ function sleep(ms: number): Promise<void> {
 // #endregion transport
 
 // #region text helpers
-
-/** Strip BBCode and PokeRogue's text codes so a message fits on one log line */
-function clean(text: string): string {
-  return text
-    .replace(/\[\/?[a-z]+(=[^\]]*)?\]/gi, "")
-    .replace(/@[a-z]\{[^}]*\}/g, "")
-    .replace(/\$/g, " / ")
-    .replace(/\s*\n\s*/g, " ")
-    .trim();
-}
 
 function phaseName(): string {
   return globalScene?.phaseManager?.getCurrentPhase()?.phaseName ?? "-";
@@ -189,68 +213,6 @@ function errorText(err: unknown): string {
 }
 
 // #endregion text helpers
-
-// #region lookups
-
-function enumByName<E extends Record<string, string | number>>(enumType: E, name: string, what: string): E[keyof E] {
-  const key = name
-    .trim()
-    .toUpperCase()
-    .replace(/[\s-]+/g, "_") as keyof E;
-  const value = enumType[key];
-  if (typeof value !== "number") {
-    throw new Error(`unknown ${what}: ${name}`);
-  }
-  return value as E[keyof E];
-}
-
-/** The member name for an enum value; also works for the const-object enums that have no reverse mapping */
-function nameOf(enumObject: Record<string, string | number>, value: number | null | undefined): string | null {
-  if (value == null) {
-    return null;
-  }
-  const direct = enumObject[value as unknown as string];
-  if (typeof direct === "string") {
-    return direct;
-  }
-  const entry = Object.entries(enumObject).find(([, v]) => v === value);
-  return entry ? entry[0] : String(value);
-}
-
-/** Accepts a SpeciesId, an enum key ("CHARMANDER") or a displayed name ("파이리") */
-function resolveSpecies(species: number | string): SpeciesId {
-  if (typeof species === "number") {
-    return species as SpeciesId;
-  }
-  const key = species
-    .trim()
-    .toUpperCase()
-    .replace(/[\s-]+/g, "_");
-  const byKey = (SpeciesId as Record<string, string | number>)[key];
-  if (typeof byKey === "number") {
-    return byKey as SpeciesId;
-  }
-  const wanted = species.trim();
-  for (const id of getEnumValues(SpeciesId)) {
-    if (speciesDataRegistry.getSpecies(id).getName() === wanted) {
-      return id;
-    }
-  }
-  throw new Error(`unknown species: ${species}`);
-}
-
-function resolveMove(move: number | string): MoveId {
-  return typeof move === "number" ? (move as MoveId) : enumByName(MoveId, move, "move");
-}
-
-function resolveNature(nature: number | string | undefined): Nature {
-  if (nature == null) {
-    return Nature.HARDY;
-  }
-  return typeof nature === "number" ? (nature as Nature) : enumByName(Nature, nature, "nature");
-}
-
-// #endregion lookups
 
 // #region dumps
 
@@ -461,10 +423,24 @@ function snapshot(): Promise<string> {
   });
 }
 
-/** Save a screenshot to Bridge/shots/<name>.png and return its path */
-async function shot(name?: string): Promise<string> {
-  const response = await post("shot", { name, dataUrl: await snapshot() });
-  return response.path ?? response.error;
+async function saveShot(name: string | undefined, dataUrl: string): Promise<string> {
+  const response = await post("shot", { name, dataUrl });
+  if (!response.path) {
+    throw new Error(response.error ?? "the dev server did not save the shot");
+  }
+  return response.path;
+}
+
+/**
+ * Save a screenshot to Bridge/shots/<name>.png and return its path.
+ * Local fork (2026-11-21): `{crop, scale}` saves only a region ("field", "enemy", "player", "message", "menu", or
+ * [x, y, w, h] in 320x180 game pixels), at game pixels times `scale` (default 1); without it, the full canvas as before.
+ */
+async function shot(name?: string, opts: { crop?: string | number[]; scale?: number } = {}): Promise<string> {
+  if (opts.crop != null) {
+    return saveShot(name, await cropShot(opts.crop, opts.scale ?? 1));
+  }
+  return saveShot(name, await snapshot());
 }
 
 /** Keep writing the screen to Bridge/live.png every `ms` (0 stops) */
@@ -713,14 +689,8 @@ function startRun(spec: RunSpec): string {
       pokemon.moveset = starterSpec.moves.slice(0, 4).map(m => new PokemonMove(resolveMove(m)));
       // Local fork (2026-11-20): `initBattle` already queued the animations of the moves the starter had; load the
       // given moves' animations (and their flame colour copies) too, else they play nothing in the first battles
-      void loadMoveAnimations(
-        pokemon.getMoveset().map(m => getAnimMoveId(m.getMove())),
-        pokemon,
-      ).then(() => {
-        if (!globalScene.load.isLoading()) {
-          globalScene.load.start();
-        }
-      });
+      // (2026-11-21: shared with `setMoves`, bridge-setup.ts)
+      void loadMovesAnims(pokemon);
     } else if (pokemon.moveset.length === 0) {
       pokemon.generateAndPopulateMoveset();
     }
@@ -882,6 +852,12 @@ async function useMove(
   item?: number | string,
 ): Promise<string> {
   const ui = globalScene.ui;
+  // Local fork (2026-11-21): from the fight menu or a choice opened over it (style / held item), back out to the
+  // command menu first (seen in the live check: "bridge.sh move" right after "bridge.sh menu FIGHT" failed)
+  for (let i = 0; i < 4 && phaseName() === "CommandPhase" && currentMode() !== UiMode.COMMAND; i++) {
+    ui.getHandler().processInput(Button.CANCEL);
+    await sleep(150);
+  }
   if (currentMode() !== UiMode.COMMAND) {
     throw new Error(`not in the command menu (mode ${modeName()}, phase ${phaseName()})`);
   }
@@ -942,6 +918,8 @@ const OVERRIDE_ENUMS: Record<string, Record<string, string | number>> = {
   ENEMY_STATUS_OVERRIDE: StatusEffect,
   NATURE_OVERRIDE: Nature,
   ENEMY_NATURE_OVERRIDE: Nature,
+  // Local fork (2026-11-21): for scenario({timeOfDay})
+  TIME_OF_DAY_OVERRIDE: TimeOfDay,
 };
 /** Species overrides take what `startRun` takes: an id, a member name or the displayed name */
 const SPECIES_OVERRIDES = new Set([
@@ -952,6 +930,21 @@ const SPECIES_OVERRIDES = new Set([
 ]);
 /** Moveset overrides take one move or a list, each by id or member name */
 const MOVESET_OVERRIDES = new Set(["MOVESET_OVERRIDE", "ENEMY_MOVESET_OVERRIDE"]);
+
+/**
+ * The values `override()` would set for a patch, checked but not applied (review fix 2026-11-21: `scenario()` checks
+ * its overrides with it before it reloads the page)
+ */
+function resolveOverrides(patch: Record<string, unknown>): Record<string, unknown> {
+  const applied: Record<string, unknown> = {};
+  for (const [key, raw] of Object.entries(patch)) {
+    if (!(key in activeOverrides)) {
+      throw new Error(`unknown override: ${key}`);
+    }
+    applied[key] = overrideValue(key, raw);
+  }
+  return applied;
+}
 
 function overrideValue(key: string, raw: unknown): unknown {
   if (SPECIES_OVERRIDES.has(key) && typeof raw === "string") {
@@ -978,14 +971,8 @@ function overrideValue(key: string, raw: unknown): unknown {
  * "SHADY_VITAMIN_DEALER"; species also the displayed name); before, a name was stored as it was and matched nothing.
  */
 function override(patch: Record<string, unknown>): Record<string, unknown> {
-  const applied: Record<string, unknown> = {};
   // Every value is checked first, so a refused one leaves the whole patch unapplied
-  for (const [key, raw] of Object.entries(patch)) {
-    if (!(key in activeOverrides)) {
-      throw new Error(`unknown override: ${key}`);
-    }
-    applied[key] = overrideValue(key, raw);
-  }
+  const applied = resolveOverrides(patch);
   for (const [key, value] of Object.entries(applied)) {
     (activeOverrides as any)[key] = value;
   }
@@ -1020,8 +1007,42 @@ function help(): string[] {
     "  wild (no trainer wave), not a Classic fixed battle (e.g. 112 = evil team grunt), not a boss, not X1, and in",
     "  waves 10-180 (Classic); MYSTERY_ENCOUNTER_RATE_OVERRIDE is out of 256, not a percent (256 = every such wave)",
     "saveSystem() / reload()",
+    "--- tools (2026-11-21; docs/브리지_도구_20261121.md) ---",
+    "look({moves, bench, messages})   screen and battle as short text: header, field, arena, the open window, new messages",
+    "scenario(spec)                   from any state to a ready battle/encounter (reloads unless at the title; then",
+    "                                 scenarioResult(token)); spec: mode, starters [{species, form, level, moves, items,",
+    "                                 ability, passive, custom, nature, shiny}], level, enemy {species, form, level, moves,",
+    "                                 items, ability, passive, boss}, biome, timeOfDay, wave, battleType, encounter, weather,",
+    "                                 terrain, money, overrides, settings, stopAt, turns, eggs, open, js, restart, keepOverrides",
+    'advance(until="input", maxPresses) A through messages, "no" to switch?, until a decision / mode / phase',
+    "nextWave()                       faint the foes, skip the rewards, stop at the next decision",
+    "burst(name, {count, intervalMs, move, style, item, js, crop, scale, columns, changedOnly, threshold, startOn})",
+    'shot(name, {crop: "field"|"enemy"|"player"|"message"|"menu"|[x,y,w,h], scale})',
+    'setHp(t, 120|"full"|"50%") faint(t="enemy") heal("party"|"all"|t) setStatus(t, "BURN"|"none") setLevel(t, n)',
+    'giveItem(t, "BERRY:SITRUS x2") takeItem(t, name?) setMoves(t, [..]) setWeather(n, turns?) setTerrain(n, turns?)',
+    '  targets: "player" "player2" "enemy" "enemy2", party index, "enemy:N"',
+    'addEggs(n, {tier, species, shiny, hatchWaves, replace}) openMenu("BALL"|"FIGHT"|"STYLE:0"|"PARTY"|"MENU"|"EGG_LIST"|"BATTLE_LOG"...)',
+    'settings() / settings("normal") / settings({speed, anims, tutorials, hpBar, expSpeed, moveStyle, battleStyle, <key>})',
+    "health() / resetOverrides() / forceEncounter(type)",
   ];
 }
+
+/** Local fork (2026-11-21): whether the page is loaded and running, for `bridge.sh ready` */
+function health(): Record<string, unknown> {
+  return {
+    tools: BRIDGE_TOOLS_VERSION,
+    loaded: !!globalScene?.ui,
+    mode: modeName(),
+    phase: phaseName(),
+    frame: game?.loop?.frame ?? null,
+    loop: loopSwitched ? "setTimeout" : "requestAnimationFrame",
+    upMs: Math.round(performance.now()),
+    pendingScenarios: pendingScenarios(),
+  };
+}
+
+/** Local fork (2026-11-21): the version of the bridge tools; the CLI reloads a page that answers without it */
+const BRIDGE_TOOLS_VERSION = 1;
 
 // #endregion actions
 
@@ -1068,10 +1089,56 @@ const api = {
     return "reloading";
   },
   help,
+  // Local fork (2026-11-21): the tools
+  look,
+  lookView: buildLookView,
+  scenario,
+  scenarioResult,
+  advance,
+  nextWave,
+  burst,
+  setHp,
+  faint,
+  heal,
+  giveItem,
+  takeItem,
+  setStatus,
+  setWeather,
+  setTerrain,
+  setLevel,
+  setMoves,
+  addEggs: (count: number, opts: Parameters<typeof addEggs>[1] = {}) => addEggs(count, opts, resolveSpecies),
+  openMenu,
+  settings: (patch?: SettingsPatch | "normal" | "fast" | null) => {
+    if (patch === "fast") {
+      fast();
+      return applySettings();
+    }
+    return applySettings(patch, skipTutorials);
+  },
+  forceEncounter: (type: number | string | null) => encounter(type),
+  resetOverrides,
+  health,
 };
 
 /** The same helpers for the fork's tests (test/tests/custom/custom-dev-settings-1120.test.ts) */
 export const devBridgeApi = api;
+
+// Local fork (2026-11-21): the tools get the helpers they share with the rest of the bridge (here, not in
+// `startDevBridge`, so that the tests have them too)
+initScenarioTools({
+  keys,
+  useMove,
+  startRun,
+  override,
+  resolveOverrides,
+  encounter,
+  resolveEncounter,
+  skipTutorials,
+  evalCommand,
+  log,
+});
+initBurstTools({ game: () => game, saveShot, useMove, evalCommand });
 
 type Runner = (bridge: typeof api, code: string) => Promise<unknown>;
 const AsyncFunction = Object.getPrototypeOf(async () => undefined).constructor as new (...args: string[]) => Runner;
@@ -1125,6 +1192,7 @@ function installHooks(): void {
   proto.showText = function (this: MessageUiHandler, text: string, ...rest: unknown[]) {
     if (typeof text === "string" && text.trim()) {
       log(`[M] ${clean(text)}`);
+      recordMessage(text); // Local fork (2026-11-21): for look() and burst()
     }
     return originalShowText.call(this, text, ...rest);
   };
@@ -1209,7 +1277,11 @@ export function startDevBridge(phaserGame: Phaser.Game): void {
   game = phaserGame;
   (window as any).devBridge = api;
   installHooks();
+  // Local fork (2026-11-21): the overrides `scenario()` goes back to
+  snapshotOverrides();
   setInterval(tickStatus, STATUS_MS);
   log("[S] bridge started in the game; window.devBridge is the same API");
+  // A scenario that reloaded the page runs now, once the title is up
+  resumePendingScenario();
   pollLoop();
 }
