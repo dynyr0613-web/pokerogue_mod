@@ -7,5 +7,8 @@
   "teraHover": "{{type}} Terastallized",
   "effectiveness000": "0×",
   "effectiveness100": "1×",
-  "effectivenessMultiplier": "{{effectiveness}}×"
+  "effectivenessMultiplier": "{{effectiveness}}×",
+  "moveStyleStrong": "Strong Style",
+  "moveStyleNormal": "Normal",
+  "moveStyleAgile": "Agile Style"
 }

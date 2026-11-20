@@ -6,6 +6,13 @@ import type { EvolutionItem } from "#balance/pokemon-evolutions";
 import { allMoves } from "#data/data-lists";
 import { SpeciesFormChangeItemTrigger } from "#data/form-change-triggers";
 import { Gender, getGenderColor, getGenderSymbol } from "#data/gender";
+import {
+  countHeldItemsOverLimit,
+  getCatchReleaseTarget,
+  getTransferableHeldItems,
+  keepHeldItemsForCaughtPokemon,
+  transferAllHeldItems,
+} from "#data/release-held-items"; // Local fork (2026-11-20)
 import { Button } from "#enums/buttons";
 import { ChallengeType } from "#enums/challenge-type";
 import { Challenges } from "#enums/challenges";
@@ -27,7 +34,7 @@ import type { PokemonMove } from "#moves/pokemon-move";
 import type { CommandPhase } from "#phases/command-phase";
 import { getVariantTint } from "#sprites/variant";
 import type { TurnMove } from "#types/turn-move";
-import type { ConfirmModeConfig } from "#types/ui-types";
+import type { ConfirmModeConfig, OptionSelectItem } from "#types/ui-types";
 import { getLearnableMoveSourceIconFrame } from "#ui/learnable-move-utils";
 import { MessageUiHandler } from "#ui/message-ui-handler";
 import { MoveInfoOverlay } from "#ui/move-info-overlay";
@@ -126,6 +133,11 @@ export class PartyUiHandler extends MessageUiHandler {
   private transferAll: boolean;
 
   private partySwitchCursor = -1;
+  /**
+   * Local fork (2026-11-20): Q1, the slot of the Pokémon about to be released while the player picks who gets its held
+   * items; `-1` otherwise (release-held-items.ts)
+   */
+  private releaseItemSource = -1;
 
   private lastCursor = 0;
   private lastLeftPokemonCursor = 0;
@@ -308,6 +320,7 @@ export class PartyUiHandler extends MessageUiHandler {
     }
 
     this.partySwitchCursor = -1;
+    this.releaseItemSource = -1;
     this.populatePartySlots();
     // If we are currently transferring items, set the icon to its proper state and reveal the button.
     if (this.isItemManageMode()) {
@@ -442,8 +455,9 @@ export class PartyUiHandler extends MessageUiHandler {
     this.clearOptions();
     ui.playSelect();
     // In release mode, we do not ask for confirmation when clicking release.
+    // Local fork (2026-11-20): Q1, both ways first offer to move its held items (offerReleaseItemTransfer)
     if (this.partyUiMode === PartyUiMode.RELEASE) {
-      this.doRelease(this.cursor);
+      this.offerReleaseItemTransfer(this.cursor);
       return true;
     }
     if (this.cursor >= globalScene.currentBattle.getBattlerCount() || !pokemon.isAllowedInBattle()) {
@@ -451,7 +465,7 @@ export class PartyUiHandler extends MessageUiHandler {
       const options: ConfirmModeConfig = {
         yesHandler: () => {
           ui.setMode(UiMode.PARTY);
-          this.doRelease(this.cursor);
+          this.offerReleaseItemTransfer(this.cursor);
         },
         noHandler: () => {
           ui.setMode(UiMode.PARTY);
@@ -470,6 +484,214 @@ export class PartyUiHandler extends MessageUiHandler {
       this.showText(i18next.t("partyUiHandler:releaseInBattle"), null, () => this.showPartyText(), null, true);
     }
     return true;
+  }
+
+  /**
+   * Local fork (2026-11-20): Q1, before the Pokémon in `slot` is released, offer to move its held items (the user:
+   * "실행" to "놓아줄 때 지닌 도구 옮기기"; release-held-items.ts). Released for a Pokémon being caught
+   * ({@linkcode PartyUiMode.RELEASE}), its items go to that Pokémon by default (the first option); they can also go to
+   * another party member picked on this screen ({@linkcode startReleaseItemTarget}), or be released with it. A
+   * Pokémon with nothing to pass on, or no one to pass it to, is released at once as before.
+   * @param slot - The party slot of the Pokémon to release
+   */
+  private offerReleaseItemTransfer(slot: number): void {
+    const ui = this.getUi();
+    const party = globalScene.getPlayerParty();
+    const pokemon = party[slot];
+    // Released for a catch (the capture sets its target before opening this screen in RELEASE mode)
+    const caught = this.partyUiMode === PartyUiMode.RELEASE ? getCatchReleaseTarget() : null;
+    const hasOthers = party.length > 1;
+    if (getTransferableHeldItems(pokemon).length === 0 || !(caught || hasOthers)) {
+      this.doRelease(slot);
+      return;
+    }
+
+    const options: OptionSelectItem[] = [];
+    if (caught) {
+      options.push({
+        label: i18next.t("partyUiHandler:releaseItemsToCaught", {
+          pokemonName: caught.getNameToRender({ useIllusion: false }),
+        }),
+        handler: () => {
+          ui.setMode(UiMode.PARTY);
+          this.giveReleasedItemsToCaught(slot, caught);
+          return true;
+        },
+      });
+    }
+    if (hasOthers) {
+      options.push({
+        label: i18next.t("partyUiHandler:releaseItemsToOther"),
+        handler: () => {
+          ui.setMode(UiMode.PARTY);
+          this.startReleaseItemTarget(slot);
+          return true;
+        },
+      });
+    }
+    options.push(
+      {
+        label: i18next.t("partyUiHandler:releaseItemsDontMove"),
+        handler: () => {
+          ui.setMode(UiMode.PARTY);
+          this.doRelease(slot);
+          return true;
+        },
+      },
+      {
+        label: i18next.t("partyUiHandler:cancel"),
+        handler: () => {
+          ui.setMode(UiMode.PARTY);
+          this.showPartyText();
+          return true;
+        },
+      },
+    );
+
+    this.blockInput = true;
+    this.showText(
+      i18next.t("partyUiHandler:releaseItemsQuestion", { pokemonName: getPokemonNameWithAffix(pokemon, false) }),
+      null,
+      () => {
+        this.blockInput = false;
+        ui.setModeWithoutClear(UiMode.OPTION_SELECT, { options, yOffset: 48 });
+      },
+    );
+  }
+
+  /**
+   * Local fork (2026-11-20): Q1, released for the Pokémon being caught, the items wait for it
+   * (release-held-items.ts, given in its `addToParty`). What it could not hold is told first.
+   * @param slot - The party slot of the Pokémon to release
+   * @param caught - The Pokémon being caught
+   */
+  private giveReleasedItemsToCaught(slot: number, caught: Pokemon): void {
+    const pokemon = globalScene.getPlayerParty()[slot];
+    const over = countHeldItemsOverLimit(getTransferableHeldItems(pokemon), caught);
+    const release = () => {
+      keepHeldItemsForCaughtPokemon(pokemon, over);
+      this.doRelease(slot);
+    };
+    if (over > 0) {
+      this.confirmReleaseWithItemsOver(over, release);
+      return;
+    }
+    release();
+  }
+
+  /**
+   * Local fork (2026-11-20): Q1, pick on the party screen who gets the items of the Pokémon in `slot` before it is
+   * released. As in the party screen's transfer, each other slot says whether it can take them ("가능 (n)").
+   * @param slot - The party slot of the Pokémon to release
+   */
+  private startReleaseItemTarget(slot: number): void {
+    const party = globalScene.getPlayerParty();
+    const items = getTransferableHeldItems(party[slot]);
+    this.releaseItemSource = slot;
+    this.partySlots[slot].setTransfer(true);
+    party.forEach((member, p) => {
+      if (p === slot || !this.partySlots[p]) {
+        return;
+      }
+      const ableAmount = items.filter(item => globalScene.hasRoomForHeldItem(item, member)).length;
+      let text = i18next.t(ableAmount > 0 ? "partyUiHandler:able" : "partyUiHandler:notAble");
+      if (ableAmount > 0 && items.length > 1) {
+        text += ` (${ableAmount})`;
+      }
+      const partySlot = this.partySlots[p];
+      partySlot.slotHpLabel.setVisible(false);
+      partySlot.slotHpBar.setVisible(false);
+      partySlot.slotHpOverlay.setVisible(false);
+      partySlot.slotHpText.setVisible(false);
+      partySlot.slotDescriptionLabel.setText(text);
+      partySlot.slotDescriptionLabel.setVisible(true);
+    });
+    if (!this.setCursor(slot === 0 ? 1 : 0)) {
+      this.showPartyText();
+    }
+  }
+
+  /** Local fork (2026-11-20): Q1, leave the pick of {@linkcode startReleaseItemTarget} */
+  private clearReleaseItemTarget(): void {
+    if (this.releaseItemSource < 0) {
+      return;
+    }
+    this.partySlots[this.releaseItemSource]?.setTransfer(false);
+    this.releaseItemSource = -1;
+    for (const partySlot of this.partySlots) {
+      partySlot.slotDescriptionLabel.setVisible(false);
+      partySlot.slotHpLabel.setVisible(true);
+      partySlot.slotHpBar.setVisible(true);
+      partySlot.slotHpOverlay.setVisible(true);
+      partySlot.slotHpText.setVisible(true);
+    }
+    this.showPartyText();
+  }
+
+  /**
+   * Local fork (2026-11-20): Q1, the action button while picking who gets a released Pokémon's items: the cancel
+   * button leaves the pick (nothing is released); a member that can take at least one of them gets all it can hold
+   * (`transferAllHeldItems`), then the Pokémon is released, after a warning if some items did not fit.
+   */
+  private processReleaseItemTargetAction(): boolean {
+    const ui = this.getUi();
+    const slot = this.releaseItemSource;
+    if (this.cursor === 6) {
+      this.clearReleaseItemTarget();
+      ui.playSelect();
+      return true;
+    }
+    const party = globalScene.getPlayerParty();
+    const target = party[this.cursor];
+    if (
+      this.cursor === slot
+      || !target
+      || !getTransferableHeldItems(party[slot]).some(item => globalScene.hasRoomForHeldItem(item, target))
+    ) {
+      ui.playError();
+      return false;
+    }
+    ui.playSelect();
+    this.clearReleaseItemTarget();
+    const left = transferAllHeldItems(party[slot], target);
+    // doRelease hands the cursor to the select callback: released for a catch, the caught Pokémon takes that slot
+    this.setCursor(slot);
+    if (left > 0) {
+      this.confirmReleaseWithItemsOver(left, () => this.doRelease(slot));
+      return true;
+    }
+    this.showText(
+      i18next.t("partyUiHandler:releaseItemsMoved", { pokemonName: getPokemonNameWithAffix(target, false) }),
+      null,
+      () => this.doRelease(slot),
+      null,
+      true,
+    );
+    return true;
+  }
+
+  /**
+   * Local fork (2026-11-20): Q1, `over` items cannot go over (the receiver is at its limit for them): say so, and
+   * release only if the player still wants to; they are lost with the released Pokémon
+   * @param over - The number of items that stay behind
+   * @param release - Releases the Pokémon
+   */
+  private confirmReleaseWithItemsOver(over: number, release: () => void): void {
+    const ui = this.getUi();
+    this.blockInput = true;
+    this.showText(i18next.t("partyUiHandler:releaseItemsOverLimit", { amount: over }), null, () => {
+      this.blockInput = false;
+      ui.setModeWithoutClear(UiMode.CONFIRM, {
+        yesHandler: () => {
+          ui.setMode(UiMode.PARTY);
+          release();
+        },
+        noHandler: () => {
+          ui.setMode(UiMode.PARTY);
+          this.showPartyText();
+        },
+      });
+    });
   }
 
   private processRenameOption(pokemon: Pokemon): boolean {
@@ -1041,6 +1263,10 @@ export class PartyUiHandler extends MessageUiHandler {
 
   private processPartyActionInput(): boolean {
     const ui = this.getUi();
+    // Local fork (2026-11-20): Q1, picking who gets a released Pokémon's items
+    if (this.releaseItemSource >= 0) {
+      return this.processReleaseItemTargetAction();
+    }
     if (this.partyUiMode === PartyUiMode.CHECK && this.partySwitchCursor >= 0) {
       if (this.cursor < 6) {
         if (this.cursor === this.partySwitchCursor) {
@@ -1120,6 +1346,12 @@ export class PartyUiHandler extends MessageUiHandler {
 
   private processPartyCancelInput(): boolean {
     const ui = this.getUi();
+    // Local fork (2026-11-20): Q1, leaving the pick of who gets a released Pokémon's items releases nothing
+    if (this.releaseItemSource >= 0) {
+      this.clearReleaseItemTarget();
+      ui.playSelect();
+      return true;
+    }
     if (this.partyUiMode === PartyUiMode.CHECK && this.partySwitchCursor >= 0) {
       this.clearPartySwitchSelection();
       ui.playSelect();
@@ -1393,6 +1625,17 @@ export class PartyUiHandler extends MessageUiHandler {
   }
 
   showPartyText() {
+    // Local fork (2026-11-20): Q1, picking who gets a released Pokémon's items
+    if (this.releaseItemSource >= 0) {
+      const pokemon = globalScene.getPlayerParty()[this.releaseItemSource];
+      this.showText(
+        i18next.t("partyUiHandler:releaseItemsChooseTarget", {
+          pokemonName: getPokemonNameWithAffix(pokemon, false),
+        }),
+        0,
+      );
+      return;
+    }
     switch (this.partyUiMode) {
       case PartyUiMode.MODIFIER_TRANSFER:
         this.showText(i18next.t("partyUiHandler:partyTransfer"), 0);

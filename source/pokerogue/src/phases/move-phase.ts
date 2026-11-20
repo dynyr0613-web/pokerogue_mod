@@ -21,6 +21,7 @@ import { MoveFlags } from "#enums/move-flags";
 import { MoveId } from "#enums/move-id";
 import { MovePhaseTimingModifier } from "#enums/move-phase-timing-modifier";
 import { MoveResult } from "#enums/move-result";
+import { MoveStyle } from "#enums/move-style";
 import { isIgnorePP, isIgnoreStatus, isReflected, isVirtual, MoveUseMode } from "#enums/move-use-mode";
 import { PokemonType } from "#enums/pokemon-type";
 import { StatusEffect } from "#enums/status-effect";
@@ -28,6 +29,7 @@ import { MoveUsedEvent } from "#events/battle-scene";
 import type { Pokemon } from "#field/pokemon";
 import { getVestMoveDeniedText } from "#modifiers/custom-held-items"; // Local fork (2026-11-10)
 import { applyMoveAttrs } from "#moves/apply-attrs";
+import { startMoveStyleUse } from "#moves/move-style"; // Local fork (2026-11-20): S1 move styles
 import { getBaseMoveId } from "#moves/move-transform"; // Local fork (2026-11-16): Z / Max moves
 import type { PokemonMove } from "#moves/pokemon-move";
 import { PokemonPhase } from "#phases/pokemon-phase";
@@ -52,6 +54,12 @@ export class MovePhase extends PokemonPhase {
    * @defaultValue {@linkcode MovePhaseTimingModifier.NORMAL}
    */
   public timingModifier: MovePhaseTimingModifier;
+  /**
+   * Local fork (2026-11-20): S1 move styles (the user: "기술 선택 후 강공 ... 중공(그대로) ... 속공"). The style the
+   * player chose for this move use, set by `TurnStartPhase` on the phase made from the turn command only; 중공 for every
+   * other phase (called and copied moves, Dancer, Instruct, enemies). See `src/data/moves/move-style.ts`.
+   */
+  public moveStyle: MoveStyle = MoveStyle.NORMAL;
   /** Whether the current move should fail but still use PP. */
   protected failed = false;
   /** Whether the current move should fail and retain PP. */
@@ -159,12 +167,22 @@ export class MovePhase extends PokemonPhase {
     const encoreTag = user.getTag(BattlerTagType.ENCORE) as EncoreTag | undefined;
     const override = encoreTag?.tryOverrideMove(user);
     if (override) {
+      // Local fork (2026-11-20): S1 move styles. A move Encore puts in place of the chosen one is 중공
+      if (override[0].moveId !== this.move.moveId) {
+        this.moveStyle = MoveStyle.NORMAL;
+      }
       [this.move, this.targets] = override;
     }
 
     // For the purposes of payback and kin, the pokemon is considered to have acted
     // if it attempted to move at all.
     user.turnData.acted = true;
+
+    // Local fork (2026-11-20): S1 move styles. This move use is in flight in its style until its `MoveEndPhase`; the
+    // attack half of an instant charge keeps the style of its charge
+    if (!this.instantChargeRelease) {
+      startMoveStyleUse(user, this.move.moveId, this.moveStyle);
+    }
 
     // Local fork (2026-11-11): the attack half of an instant charge (instantChargeRelease) skips both checks; the charge
     // already ran them this turn

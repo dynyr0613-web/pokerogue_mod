@@ -869,6 +869,13 @@ and [everyone else](https://github.com/pagefaultgames/pokerogue/graphs/contribut
   (`assets/images/battle_anims/PRAS- Swords Dance (Max).png`) is the sword of `PRAS- Swords Dance + Signal Beam.png`
   with its two colours swapped for Dynamax red and magenta; the drawing is the Pokémon Reborn Team's. Terms: Pokémon
   Reborn's "credit what you borrow" (`assets/LICENSES/LicenseRef-POKEMON-REBORN.txt`).
+- Local fork (2026-11-20), flame colours of Fire moves (blue, white, purple and green, for Pokémon whose flames are
+  not orange): `assets/images/battle_anims/<sheet> (<colour>).png` are copies of nine Pokémon Reborn PRAS sheets
+  (`PRAS- Fire`, `Eruption`, `Fire Spin`, `Magma Storm`, `Shell Trap`, `Fusion Flare`, `Elemental Punch`,
+  `Elemental Fangs`, `Blaze Kick`; credited above under "Move Animations") and of the CFRU `Max Flare` and
+  `G-Max Wildfire` sheets (credited above), with only their flame colours changed by a hue / saturation / brightness
+  mapping and every pixel's alpha kept. The drawings are the original artists'. Terms: those of the sheets they were
+  made from (`assets/LICENSES/LicenseRef-POKEMON-REBORN.txt`, `LICENSES/LicenseRef-CFRU.txt`).
 - Local fork (2026-11-02), the custom Mega Evolution sprites of Mega Charizard Z, Mega Baxcalibur Z, Mega Melmetal and
   Mega Gallade Z (`assets/images/pokemon/6-mega-z`, `998-mega-z`, `809-mega`, `475-mega-z`, their `back/`, `shiny/` and
   `back/shiny/` copies and their party icons) are recoloured and edited from sprites of the

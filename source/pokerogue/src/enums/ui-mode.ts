@@ -49,4 +49,6 @@ export enum UiMode {
   ALERT_MODAL,
   /** Local fork (2026-11-17): the mark Pokédex (mark-dex-ui-handler.ts) */
   MARK_DEX,
+  /** Local fork (2026-11-20): the battle log, Q6 (battle-log-ui-handler.ts) */
+  BATTLE_LOG,
 }

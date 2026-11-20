@@ -414,3 +414,65 @@ path = [
 ]
 SPDX-FileCopyrightText = "The Pokemon Reborn Team https://www.rebornevo.com/pr/index.html/"
 SPDX-License-Identifier = "LicenseRef-POKEMON-REBORN"
+
+# Local fork (2026-11-20, items V1 / V2): colour copies of the flame sheets of Fire move animations (blue, white,
+# purple, green), only their flame colours changed (hue / saturation / brightness), every pixel's alpha kept. The PRAS
+# sheets are Pokemon Reborn's (assets/battle-anims/REUSE.toml's "Battle animations from pokemon reborn"); same source
+# and terms. The user: "V1 실행", "V2 - 실행", "V4 - x, 메가리자몽 y가 쓰는 불 기술 정도만 흰색 변환"
+[[annotations]]
+path = [
+    "assets/images/battle_anims/PRAS- Fire (blue).png",
+    "assets/images/battle_anims/PRAS- Fire (white).png",
+    "assets/images/battle_anims/PRAS- Fire (purple).png",
+    "assets/images/battle_anims/PRAS- Fire (green).png",
+    "assets/images/battle_anims/PRAS- Eruption (blue).png",
+    "assets/images/battle_anims/PRAS- Eruption (white).png",
+    "assets/images/battle_anims/PRAS- Eruption (purple).png",
+    "assets/images/battle_anims/PRAS- Eruption (green).png",
+    "assets/images/battle_anims/PRAS- Fire Spin (blue).png",
+    "assets/images/battle_anims/PRAS- Fire Spin (white).png",
+    "assets/images/battle_anims/PRAS- Fire Spin (purple).png",
+    "assets/images/battle_anims/PRAS- Fire Spin (green).png",
+    "assets/images/battle_anims/PRAS- Magma Storm (blue).png",
+    "assets/images/battle_anims/PRAS- Magma Storm (white).png",
+    "assets/images/battle_anims/PRAS- Magma Storm (purple).png",
+    "assets/images/battle_anims/PRAS- Magma Storm (green).png",
+    "assets/images/battle_anims/PRAS- Shell Trap (blue).png",
+    "assets/images/battle_anims/PRAS- Shell Trap (white).png",
+    "assets/images/battle_anims/PRAS- Shell Trap (purple).png",
+    "assets/images/battle_anims/PRAS- Shell Trap (green).png",
+    "assets/images/battle_anims/PRAS- Fusion Flare (blue).png",
+    "assets/images/battle_anims/PRAS- Fusion Flare (white).png",
+    "assets/images/battle_anims/PRAS- Fusion Flare (purple).png",
+    "assets/images/battle_anims/PRAS- Fusion Flare (green).png",
+    "assets/images/battle_anims/PRAS- Elemental Punch (blue).png",
+    "assets/images/battle_anims/PRAS- Elemental Punch (white).png",
+    "assets/images/battle_anims/PRAS- Elemental Punch (purple).png",
+    "assets/images/battle_anims/PRAS- Elemental Punch (green).png",
+    "assets/images/battle_anims/PRAS- Elemental Fangs (blue).png",
+    "assets/images/battle_anims/PRAS- Elemental Fangs (white).png",
+    "assets/images/battle_anims/PRAS- Elemental Fangs (purple).png",
+    "assets/images/battle_anims/PRAS- Elemental Fangs (green).png",
+    "assets/images/battle_anims/PRAS- Blaze Kick (blue).png",
+    "assets/images/battle_anims/PRAS- Blaze Kick (white).png",
+    "assets/images/battle_anims/PRAS- Blaze Kick (purple).png",
+    "assets/images/battle_anims/PRAS- Blaze Kick (green).png",
+]
+SPDX-FileCopyrightText = "The Pokemon Reborn Team https://www.rebornevo.com/pr/index.html/"
+SPDX-License-Identifier = "LicenseRef-POKEMON-REBORN"
+
+# Local fork (2026-11-20, items V1 / V2): the same colour copies of the CFRU Max Flare and G-Max Wildfire sheets (CFRU
+# attack particles with PokeRogue's PRAS sheets, as above); same source and terms as those sheets.
+[[annotations]]
+path = [
+    "assets/images/battle_anims/CFRU- Max Flare (blue).png",
+    "assets/images/battle_anims/CFRU- Max Flare (white).png",
+    "assets/images/battle_anims/CFRU- Max Flare (purple).png",
+    "assets/images/battle_anims/CFRU- Max Flare (green).png",
+    "assets/images/battle_anims/CFRU- G-Max Wildfire (blue).png",
+    "assets/images/battle_anims/CFRU- G-Max Wildfire (white).png",
+    "assets/images/battle_anims/CFRU- G-Max Wildfire (purple).png",
+    "assets/images/battle_anims/CFRU- G-Max Wildfire (green).png",
+]
+SPDX-FileCopyrightText = ["Skeli and the Complete FireRed Upgrade team", "The Pokemon Reborn Team https://www.rebornevo.com/pr/index.html/"]
+SPDX-License-Identifier = "LicenseRef-CFRU AND LicenseRef-POKEMON-REBORN"

@@ -48,6 +48,12 @@ enum MenuOptions {
   POKEDEX,
   /** Local fork (2026-11-17): the mark Pokédex (mark-dex-ui-handler.ts) */
   MARK_DEX,
+  /**
+   * Local fork (2026-11-20): the battle log, Q6 (battle-log-ui-handler.ts). Placed with the other fork screens; this
+   * enum is only the menu's order (nothing saves it). In a battle of the offline app (no Log Out) the menu now has 11
+   * entries for its 10 rows, so it scrolls; Save and Quit, the last, is still one press of Up from the top
+   */
+  BATTLE_LOG,
   MANAGE_DATA,
   COMMUNITY,
   SAVE_AND_QUIT,
@@ -619,6 +625,11 @@ export class MenuUiHandler extends OptionSelectUiHandler {
         break;
       case MenuOptions.MARK_DEX:
         ui.setOverlayMode(UiMode.MARK_DEX);
+        success = true;
+        break;
+      case MenuOptions.BATTLE_LOG:
+        // Local fork (2026-11-20): Q6, over the menu like the mark Pokédex; B comes back to the menu
+        ui.setOverlayMode(UiMode.BATTLE_LOG);
         success = true;
         break;
       case MenuOptions.MANAGE_DATA:

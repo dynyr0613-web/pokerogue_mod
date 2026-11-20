@@ -8,6 +8,7 @@ import type { AbilityId } from "#enums/ability-id";
 import type { BerryType } from "#enums/berry-type";
 import type { MoveCategory } from "#enums/move-category";
 import type { MoveId } from "#enums/move-id";
+import type { MoveStyle } from "#enums/move-style";
 import type { Nature } from "#enums/nature";
 import type { PokemonType, RegularPokemonType } from "#enums/pokemon-type";
 import type { SpeciesId } from "#enums/species-id";
@@ -421,6 +422,12 @@ export class PokemonTurnData {
    * (Rough Skin, Iron Barbs, protection moves, Aftermath …) agree on whether the move made contact.
    */
   public moveUseCategories: { move: MoveId; byTarget: Map<number, MoveCategory> } | undefined;
+  /**
+   * Local fork (2026-11-20): S1 move styles (강공 / 속공; the user: "기술 선택 후 강공 ... 속공"). The style of this
+   * Pokémon's move use in flight, set by its `MovePhase` and cleared by its `MoveEndPhase`; `undefined` for 중공 or when
+   * nothing is in flight. `Move.getPriority` and `Move.calculateBattlePower` read it (`src/data/moves/move-style.ts`).
+   */
+  public moveStyleUse: { move: MoveId; style: MoveStyle } | undefined;
 
   // #endregion Move usage-related properties
 

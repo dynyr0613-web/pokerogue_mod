@@ -151,12 +151,17 @@ export class TurnStartPhase extends FieldPhase {
       globalScene.phaseManager.unshiftNew("MoveHeaderPhase", pokemon, move);
     }
 
-    globalScene.phaseManager.pushNew(
+    const movePhase = globalScene.phaseManager.create(
       "MovePhase",
       pokemon,
       turnCommand.targets ?? queuedMove.targets,
       move,
       queuedMove.useMode,
     );
+    // Local fork (2026-11-20): S1 move styles. The style chosen in this command goes to this phase only (players only)
+    if (turnCommand.moveStyle != null && pokemon.isPlayer()) {
+      movePhase.moveStyle = turnCommand.moveStyle;
+    }
+    globalScene.phaseManager.pushPhase(movePhase);
   }
 }

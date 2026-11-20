@@ -3,6 +3,7 @@ import { globalScene } from "#app/global-scene";
 import type { BattlerIndex } from "#enums/battler-index";
 import { BattlerTagLapseType } from "#enums/battler-tag-lapse-type";
 import type { Pokemon } from "#field/pokemon";
+import { endMoveStyleUse } from "#moves/move-style"; // Local fork (2026-11-20): S1 move styles
 import { PokemonPhase } from "#phases/pokemon-phase";
 
 export class MoveEndPhase extends PokemonPhase {
@@ -32,6 +33,7 @@ export class MoveEndPhase extends PokemonPhase {
     // which this Phase would promptly destroy
     if (pokemon) {
       pokemon.turnData.hitsLeft = -1;
+      endMoveStyleUse(pokemon); // Local fork (2026-11-20): S1 move styles. The styled move use is over
     }
 
     if (!this.wasFollowUp && pokemon?.isActive(true)) {

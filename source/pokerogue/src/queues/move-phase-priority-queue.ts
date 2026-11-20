@@ -110,5 +110,7 @@ function getPriorityModifiersForMP(mp: MovePhase): MovePriorityInBracket {
  */
 function getPriorityForMP(mp: MovePhase): number {
   const move = mp.move.getMove();
-  return move.getPriority(mp.pokemon, true);
+  // Local fork (2026-11-20): S1 move styles. The queued phase's own style (강공 -1 / 속공 +1), not the one of a move
+  // use of the same Pokémon that may be in flight
+  return move.getPriority(mp.pokemon, true, mp.moveStyle);
 }

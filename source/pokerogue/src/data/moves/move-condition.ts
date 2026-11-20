@@ -15,6 +15,7 @@ import { PokemonType } from "#enums/pokemon-type";
 import { StatusEffect } from "#enums/status-effect";
 import type { Pokemon } from "#field/pokemon";
 import type { Move, MoveConditionFunc, UserMoveConditionFunc } from "#moves/move";
+import { getCommandedMoveStyle } from "#moves/move-style"; // Local fork (2026-11-20): S1 move styles
 import { getCounterAttackTarget } from "#moves/move-utils";
 import { BooleanHolder } from "#utils/common";
 import { inSpeedOrder } from "#utils/speed-order-generator";
@@ -181,7 +182,12 @@ export const upperHandCondition = new MoveCondition((_user, target) => {
       .getMoveset()
       .find(m => m.moveId === commandMoveId)
       ?.getMove() ?? allMoves[commandMoveId];
-  return move.category !== MoveCategory.STATUS && move.getPriority(target) > 0;
+  // Local fork (2026-11-20): S1 move styles. The target's chosen style counts (속공 Tackle is a priority attack, 강공
+  // Quick Attack is not)
+  return (
+    move.category !== MoveCategory.STATUS
+    && move.getPriority(target, true, getCommandedMoveStyle(target, commandMoveId)) > 0
+  );
 });
 
 /**

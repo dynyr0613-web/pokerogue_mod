@@ -27,5 +27,8 @@
   "moveUpGacha": "Move UP!",
   "shinyUpGacha": "Shiny UP!",
   "legendaryUpGacha": "UP!",
-  "vouchersExceedEggCap": "All vouchers exceed Egg cap!"
+  "vouchersExceedEggCap": "All vouchers exceed Egg cap!",
+  "pullAll": "Pull All",
+  "pullAllChooseVoucher": "Use up which vouchers?",
+  "pullAllStoppedAtLimit": "Stopped at the Egg limit (99).\nVouchers left: {{amount}}"
 }

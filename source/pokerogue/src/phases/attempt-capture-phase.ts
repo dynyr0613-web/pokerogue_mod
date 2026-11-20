@@ -1,22 +1,17 @@
 import { PLAYER_PARTY_MAX_SIZE } from "#app/constants";
 import { audioManager } from "#app/global-audio-manager";
-import { timedEventManager } from "#app/global-event-manager";
 import { globalScene } from "#app/global-scene";
 import { IS_TEST, isBeta, isDev } from "#constants/app-constants";
 import { SubstituteTag } from "#data/battler-tags";
+import { getCaptureOdds } from "#data/capture-chance"; // Local fork (2026-11-20)
 import { isRaidBoss, RAID_HP_MULTIPLIER } from "#data/endless-raid"; // Local fork (2026-11-17)
 import { prepareBattleFormCapture } from "#data/enemy-battle-forms"; // Local fork (2026-11-10)
 import { prepareEnemyDynamaxCapture } from "#data/enemy-dynamax"; // Local fork (2026-11-18)
 import { Gender } from "#data/gender";
-import {
-  doPokeballBounceAnim,
-  getCriticalCaptureChance,
-  getPokeballAtlasKey,
-  getPokeballCatchMultiplier,
-  getPokeballTintColor,
-} from "#data/pokeball";
+import { doPokeballBounceAnim, getPokeballAtlasKey, getPokeballTintColor } from "#data/pokeball";
 import { rollDestinyMark } from "#data/pokemon-marks";
-import { getStatusEffectCatchRateMultiplier } from "#data/status-effect";
+// Local fork (2026-11-20)
+import { giveKeptHeldItemsTo, setCatchReleaseTarget, showLostKeptItemsNotice } from "#data/release-held-items";
 import { BattlerIndex } from "#enums/battler-index";
 import { ChallengeType } from "#enums/challenge-type";
 import { PartyUiMode } from "#enums/party-ui-mode";
@@ -68,17 +63,17 @@ export class AttemptCapturePhase extends PokemonPhase {
 
     this.originalY = pokemon.y;
 
-    const _3m = 3 * pokemon.getMaxHp();
-    const _2h = 2 * pokemon.hp;
-    const catchRate = pokemon.species.catchRate;
-    const pokeballMultiplier = getPokeballCatchMultiplier(this.pokeballType);
-    const statusMultiplier = pokemon.status ? getStatusEffectCatchRateMultiplier(pokemon.status.effect) : 1;
-    const shinyMultiplier = pokemon.isShiny() ? timedEventManager.getShinyCatchMultiplier() : 1;
-    const modifiedCatchRate = Math.round(
-      (((_3m - _2h) * catchRate * pokeballMultiplier) / _3m) * statusMultiplier * shinyMultiplier,
-    );
-    const shakeProbability = Math.round(65536 / Math.pow(255 / modifiedCatchRate, 0.1875)); // Formula taken from gen 6
-    const criticalCaptureChance = getCriticalCaptureChance(modifiedCatchRate);
+    // Local fork (2026-11-20): the math is in capture-chance.ts, which the ball menu's chance also uses (Q3; the user:
+    // "실행" to "볼 고를 때 포획 확률 표시"); unchanged
+    const {
+      catchRate,
+      pokeballMultiplier,
+      statusMultiplier,
+      shinyMultiplier,
+      modifiedCatchRate,
+      shakeProbability,
+      criticalCaptureChance,
+    } = getCaptureOdds(pokemon, this.pokeballType);
 
     if ((isBeta || isDev) && !IS_TEST) {
       console.log(
@@ -334,13 +329,17 @@ export class AttemptCapturePhase extends PokemonPhase {
             globalScene.validateAchv(achvs.SHINY_PARTY);
           }
           Promise.all(modifiers.map(m => globalScene.addModifier(m, true))).then(() => {
+            // Local fork (2026-11-20): Q1, with the held items of the Pokémon released for it, and a word on any
+            // that did not fit and were not announced before the release (release-held-items.ts)
+            const lostItems = giveKeptHeldItemsTo(newPokemon);
+            const finish = () => showLostKeptItemsNotice(lostItems, end);
             globalScene.updateModifiers(true);
             removePokemon();
             if (newPokemon) {
               newPokemon.leaveField(true, true, false);
-              newPokemon.loadAssets().then(end);
+              newPokemon.loadAssets().then(finish);
             } else {
-              end();
+              finish();
             }
           });
         };
@@ -416,6 +415,8 @@ export class AttemptCapturePhase extends PokemonPhase {
                 {
                   label: i18next.t("menu:yes"),
                   handler: () => {
+                    // Local fork (2026-11-20): Q1, the one released can give its items to this one
+                    setCatchReleaseTarget(pokemon);
                     ui.setMode(
                       UiMode.PARTY,
                       PartyUiMode.RELEASE,

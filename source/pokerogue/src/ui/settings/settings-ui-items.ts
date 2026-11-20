@@ -156,6 +156,12 @@ export const generalSettingsUiItems: SettingsUiItem<GeneralSettingsKey>[] = [
     label: t("settings:commandCursorMemory"),
     options: useOnOffOptions(),
   },
+  // Local fork (2026-11-20): S1 move styles. Whether the fight menu asks 강공 / 중공 / 속공 (on by default)
+  {
+    key: "moveStyleChoice",
+    label: t("settings:moveStyleChoice"),
+    options: useOnOffOptions(),
+  },
   {
     key: "enableRetries",
     label: t("settings:enableRetries"),

@@ -39,6 +39,7 @@ const defaultGeneralSettings: GeneralSettings = {
   hpBarSpeed: HpBarSpeed.DEFAULT,
   levelMoveConfirmation: true,
   manualMessageClear: false,
+  moveStyleChoice: true, // Local fork (2026-11-20): S1 move styles, on by default
   partyExpNotificationMode: ExpNotification.DEFAULT,
   playerGender: PlayerGender.UNSET,
   preferBatonPass: false,

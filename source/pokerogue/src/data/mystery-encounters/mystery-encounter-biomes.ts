@@ -41,6 +41,7 @@ import { TrashToTreasureEncounter } from "#mystery-encounters/trash-to-treasure-
 import { UncommonBreedEncounter } from "#mystery-encounters/uncommon-breed-encounter";
 import { VendingMachineEncounter } from "#mystery-encounters/vending-machine-encounter"; // Local fork (2026-11-08)
 import { WeirdDreamEncounter } from "#mystery-encounters/weird-dream-encounter";
+import { WishOnAStarEncounter } from "#mystery-encounters/wish-on-a-star-encounter"; // Local fork (2026-11-20)
 import { getBiomeName } from "#utils/common";
 
 export const EXTREME_ENCOUNTER_BIOMES = [
@@ -257,7 +258,11 @@ export const mysteryEncountersByBiome = new Map<BiomeId, MysteryEncounterType[]>
   ], // Local fork (2026-11-08)
   [
     BiomeId.SPACE,
-    [MysteryEncounterType.THE_EXPERT_POKEMON_BREEDER, MysteryEncounterType.DARK_GLOBAL_TRADE_SYSTEM], // Local fork (2026-11-08)
+    [
+      MysteryEncounterType.THE_EXPERT_POKEMON_BREEDER,
+      MysteryEncounterType.DARK_GLOBAL_TRADE_SYSTEM, // Local fork (2026-11-08)
+      MysteryEncounterType.WISH_ON_A_STAR, // Local fork (2026-11-20): "별에게 소원을", Space only as the proposal (#4477)
+    ],
   ],
   [BiomeId.CONSTRUCTION_SITE, [MysteryEncounterType.TINKATON_FORGE, MysteryEncounterType.SCRAP_TREASURE]], // Local fork (2026-11-08, 2026-11-19)
   [BiomeId.JUNGLE, [MysteryEncounterType.SAFARI_ZONE]],
@@ -313,6 +318,7 @@ export function initMysteryEncounters() {
   allMysteryEncounters[MysteryEncounterType.DARK_STRONG_STUFF] = DarkStrongStuffEncounter; // Local fork (2026-11-08)
   allMysteryEncounters[MysteryEncounterType.ALPHA_ENCOUNTER] = AlphaEncounter; // Local fork (2026-11-18)
   allMysteryEncounters[MysteryEncounterType.SCRAP_TREASURE] = ScrapTreasureEncounter; // Local fork (2026-11-19)
+  allMysteryEncounters[MysteryEncounterType.WISH_ON_A_STAR] = WishOnAStarEncounter; // Local fork (2026-11-20)
 
   // Add extreme encounters to biome map
   extremeBiomeEncounters.forEach(encounter => {

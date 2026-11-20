@@ -36,6 +36,9 @@ export class SettingsHelper extends GameManagerHelper {
     settings.update("general", "enableTutorials", false);
     settings.update("general", "battleStyle", BattleStyle.SET);
     settings.update("general", "playerGender", PlayerGender.MALE);
+    // Local fork (2026-11-20): S1 move styles. Tests that press A on a move in the fight menu choose it at once, as
+    // before; the style choice's own tests turn this back on
+    settings.update("general", "moveStyleChoice", false);
     audioManager.setVolume(VolumeSetting.BGM, 0);
     audioManager.setVolume(VolumeSetting.FIELD, 0);
     audioManager.setVolume(VolumeSetting.MAIN, 0);

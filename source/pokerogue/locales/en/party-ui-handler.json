@@ -57,5 +57,13 @@
   "illNeverForgetYou": "I’ll never forget you, {{pokemonName}}!",
   "untilWeMeetAgain": "Until we meet again, {{pokemonName}}!",
   "sayonara": "Sayonara, {{pokemonName}}!",
-  "smellYaLater": "Smell ya later, {{pokemonName}}!"
+  "smellYaLater": "Smell ya later, {{pokemonName}}!",
+  "releaseItemsQuestion": "{{pokemonName}} is holding items.\nMove them before releasing it?",
+  "releaseItemsToCaught": "Give to {{pokemonName}}",
+  "releaseItemsToOther": "Give to another Pokémon",
+  "releaseItemsDontMove": "Release without moving",
+  "releaseItemsChooseTarget": "Choose who gets {{pokemonName}}’s items.",
+  "releaseItemsMoved": "The items went to {{pokemonName}}!",
+  "releaseItemsOverLimit": "{{amount}} item(s) can’t be moved: the stack is full.\nThey’ll be lost. Release anyway?",
+  "releaseItemsLost": "{{amount}} item(s) couldn’t be moved and were lost."
 }

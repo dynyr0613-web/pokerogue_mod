@@ -6,19 +6,35 @@ import { BattleType } from "#enums/battle-type";
 import { Button } from "#enums/buttons";
 import { Command } from "#enums/command";
 import { MoveCategory } from "#enums/move-category";
+import { MoveStyle } from "#enums/move-style";
 import { MoveUseMode } from "#enums/move-use-mode";
 import { PokemonType } from "#enums/pokemon-type";
 import { TextStyle } from "#enums/text-style";
 import { TypeHints } from "#enums/type-hints";
 import { UiMode } from "#enums/ui-mode";
 import type { EnemyPokemon, Pokemon } from "#field/pokemon";
+// Local fork (2026-11-20): S1 move styles
+import {
+  getMoveStylePowerMultiplier,
+  isMoveStyleOffered,
+  MOVE_STYLE_DEFAULT,
+  MOVE_STYLE_MENU_ORDER,
+} from "#moves/move-style";
 import type { PokemonMove } from "#moves/pokemon-move";
 import type { CommandPhase } from "#phases/command-phase";
+import type { OptionSelectItem } from "#types/ui-types";
 import { MoveInfoOverlay } from "#ui/move-info-overlay";
 import { addTextObject, getTextColor } from "#ui/text";
 import { UiHandler } from "#ui/ui-handler";
 import { fixedInt, getLocalizedSpriteKey, padInt } from "#utils/common";
 import i18next from "i18next";
+
+/** Local fork (2026-11-20): S1 move styles. The label of each style in the style choice (fight-ui-handler.json) */
+const MOVE_STYLE_LABEL_KEYS: Readonly<Record<MoveStyle, string>> = Object.freeze({
+  [MoveStyle.STRONG]: "fightUiHandler:moveStyleStrong",
+  [MoveStyle.NORMAL]: "fightUiHandler:moveStyleNormal",
+  [MoveStyle.AGILE]: "fightUiHandler:moveStyleAgile",
+});
 
 export class FightUiHandler extends UiHandler implements InfoToggle {
   public static readonly MOVES_CONTAINER_NAME = "moves";
@@ -152,6 +168,11 @@ export class FightUiHandler extends UiHandler implements InfoToggle {
 
     switch (button) {
       case Button.ACTION:
+        // Local fork (2026-11-20): S1 move styles. A damaging move asks 강공 / 중공 / 속공 before it is chosen
+        if (this.tryShowMoveStyleChoice(cursor)) {
+          success = true;
+          break;
+        }
         if (
           (globalScene.phaseManager.getCurrentPhase() as CommandPhase).handleCommand(
             this.fromCommand,
@@ -200,6 +221,67 @@ export class FightUiHandler extends UiHandler implements InfoToggle {
     }
 
     return success;
+  }
+
+  /**
+   * Local fork (2026-11-20): S1 move styles (the user: "기술 선택 후 강공(위력 1.5배 ... 선공기일 경우 우선도 -1에 위력
+   * 2배), 중공(그대로), 속공(위력 0.8배, 우선도 +1)"). For a usable move that takes a style (`isMoveStyleOffered`), and
+   * while the setting "기술 스타일 선택" is on, show the small choice 강공 / 중공 / 속공 / 취소 over the fight menu, the
+   * cursor on 중공. The highlighted style's power shows in the move info; a style chooses the move in it, 취소 (or
+   * cancel) goes back to the move list.
+   * @param cursor - The chosen move slot
+   * @returns Whether the choice was shown (else the move is chosen as before)
+   */
+  private tryShowMoveStyleChoice(cursor: number): boolean {
+    if (!settings.general.moveStyleChoice) {
+      return false;
+    }
+    const phase = globalScene.phaseManager.getCurrentPhase() as CommandPhase;
+    const pokemon = phase.getPokemon();
+    const slot = pokemon.getMoveset()[cursor];
+    // An unusable move goes the usual way (its message, or Struggle)
+    if (slot == null || !pokemon.trySelectMove(cursor)[0] || !isMoveStyleOffered(pokemon, slot)) {
+      return false;
+    }
+
+    const ui = this.getUi();
+    const fromCommand = this.fromCommand;
+    const options: OptionSelectItem[] = MOVE_STYLE_MENU_ORDER.map(style => ({
+      label: i18next.t(MOVE_STYLE_LABEL_KEYS[style]),
+      handler: () => {
+        ui.revertMode();
+        if (!phase.handleCommand(fromCommand, cursor, MoveUseMode.NORMAL, undefined, style)) {
+          ui.playError();
+        }
+        return true;
+      },
+      onHover: () => this.showMoveStylePower(slot, style),
+    }));
+    options.push({
+      label: i18next.t("menu:cancel"),
+      handler: () => {
+        ui.revertMode();
+        this.showMoveStylePower(slot, MoveStyle.NORMAL);
+        return true;
+      },
+      onHover: () => this.showMoveStylePower(slot, MoveStyle.NORMAL),
+    });
+
+    ui.setOverlayMode(UiMode.OPTION_SELECT, {
+      options,
+      initialCursor: MOVE_STYLE_MENU_ORDER.indexOf(MOVE_STYLE_DEFAULT),
+      // Above the player's HP box (seen in the game 11-20: at 48 it hid the level and HP numbers, at 83 still the top of the
+      // level)
+      yOffset: 86,
+    });
+    return true;
+  }
+
+  /** Local fork (2026-11-20): S1 move styles. Show `slot`'s power in `style` in the move info */
+  private showMoveStylePower(slot: PokemonMove, style: MoveStyle): void {
+    const move = slot.getMove();
+    const power = move.power;
+    this.powerText.setText(power >= 0 ? `${Math.floor(power * getMoveStylePowerMultiplier(style, move))}` : "---");
   }
 
   /**

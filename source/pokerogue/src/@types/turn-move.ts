@@ -1,6 +1,7 @@
 import type { BattlerIndex } from "#enums/battler-index";
 import type { MoveId } from "#enums/move-id";
 import type { MoveResult } from "#enums/move-result";
+import type { MoveStyle } from "#enums/move-style";
 import type { MoveUseMode } from "#enums/move-use-mode";
 import type { PokemonType } from "#enums/pokemon-type";
 
@@ -28,4 +29,10 @@ export interface TurnMove {
    * otherwise. Conversion 2 reads it (the user: "e2 구현"). Saved with the move history; older saves simply lack it.
    */
   moveType?: PokemonType | undefined;
+  /**
+   * Local fork (2026-11-20): S1 move styles. Only on the attack turn a two-turn move queues after its charging turn
+   * (`MoveChargePhase`), so that turn keeps the style the player chose (강공 / 속공); `undefined` everywhere else (중공).
+   * Saved with the move queue; older saves simply lack it.
+   */
+  moveStyle?: MoveStyle | undefined;
 }

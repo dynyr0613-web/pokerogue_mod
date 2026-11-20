@@ -219,12 +219,14 @@ export class MoveEffectPhase extends PokemonPhase {
           target.getBattlerIndex(),
           // Some moves used in mystery encounters should be played even on an empty field
           globalScene.currentBattle?.mysteryEncounter?.hasBattleAnimationsWithoutTargets ?? false,
-        ).play(move.hitsSubstitute(user, target), () => {
-          animationsLeft--;
-          if (animationsLeft === 0) {
-            this.postAnimCallback(user, targets);
-          }
-        });
+        )
+          .withMoveType(user.getMoveType(move)) // Local fork (2026-11-20, items V1 / V2): flame colours of Fire moves
+          .play(move.hitsSubstitute(user, target), () => {
+            animationsLeft--;
+            if (animationsLeft === 0) {
+              this.postAnimCallback(user, targets);
+            }
+          });
       }
       return;
     }

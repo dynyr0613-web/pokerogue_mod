@@ -2,12 +2,14 @@ import { audioManager } from "#app/global-audio-manager";
 import { globalScene } from "#app/global-scene";
 import { settings } from "#app/global-settings-manager";
 import { allMoves } from "#data/data-lists";
+import { getMoveFlameGraphicKey, loadFlameGraphic, queueFlameGraphic } from "#data/flame-anim-colors";
 import type { BattlerIndex } from "#enums/battler-index";
 import { BattlerTagType } from "#enums/battler-tag-type";
 import { EncounterAnim } from "#enums/encounter-anims";
 import { AnimBlendType, AnimFocus, AnimFrameTarget, ChargeAnim, CommonAnim } from "#enums/move-anims-common";
 import { MoveFlags } from "#enums/move-flags";
 import { MoveId } from "#enums/move-id";
+import type { PokemonType } from "#enums/pokemon-type";
 import type { Pokemon } from "#field/pokemon";
 import type { nil } from "#types/common";
 import { coerceArray } from "#utils/array";
@@ -624,6 +626,28 @@ export function loadMoveAnimAssets(moveIds: MoveId[], startLoad?: boolean): Prom
   });
 }
 
+/**
+ * Local fork (2026-11-20, items V1 / V2): queues the flame colour copies `user` needs for the animations of `moveIds`
+ * (initialised already): those of its Fire moves (by the animation move's own type; a move whose type changes in
+ * battle loads its copy when it plays) whose sheet has copies, when `user` is in `FLAME_COLOR_TABLE`. The caller
+ * starts the loader, as for `loadMoveAnimAssets` without `startLoad`.
+ */
+export function queueFlameAnimAssets(moveIds: MoveId[], user: Pokemon): void {
+  const keys = new Set<string>();
+  for (const moveId of moveIds) {
+    const anims = moveAnims.get(moveId);
+    for (const anim of anims ? coerceArray(anims) : []) {
+      const key = getMoveFlameGraphicKey(anim.graphic, user, allMoves[moveId]?.type);
+      if (key) {
+        keys.add(key);
+      }
+    }
+  }
+  for (const key of keys) {
+    queueFlameGraphic(key);
+  }
+}
+
 function loadAnimAssets(anims: AnimConfig[], startLoad?: boolean): Promise<void> {
   return new Promise(resolve => {
     const backgrounds = new Set<string>();
@@ -752,6 +776,14 @@ export abstract class BattleAnim {
   abstract getAnim(): AnimConfig | null;
 
   abstract isOppAnim(): boolean;
+
+  /**
+   * The texture key the graphic cels of `anim` are drawn with.
+   * Local fork (2026-11-20, items V1 / V2): `MoveAnim` swaps it for a flame colour copy.
+   */
+  protected getGraphicKey(anim: AnimConfig): string {
+    return anim.graphic;
+  }
 
   protected isHideUser(): boolean {
     return false;
@@ -952,7 +984,9 @@ export abstract class BattleAnim {
           if (frame.target === AnimFrameTarget.GRAPHIC) {
             const sprites = spriteCache[AnimFrameTarget.GRAPHIC];
             if (g === sprites.length) {
-              const newSprite: Phaser.GameObjects.Sprite = globalScene.addFieldSprite(0, 0, anim!.graphic, 1); // TODO: is the bang correct?
+              // Local fork (2026-11-20, items V1 / V2): a Fire move's sheet may be swapped for a flame colour copy
+              const graphicKey = this.getGraphicKey(anim!); // TODO: is the bang correct?
+              const newSprite: Phaser.GameObjects.Sprite = globalScene.addFieldSprite(0, 0, graphicKey, 1);
               sprites.push(newSprite);
               globalScene.field.add(newSprite);
               spritePriorities.push(1);
@@ -1345,12 +1379,53 @@ export class CommonBattleAnim extends BattleAnim {
 
 export class MoveAnim extends BattleAnim {
   public move: MoveId;
+  /**
+   * Local fork (2026-11-20, items V1 / V2): the type the move was used as (`Pokemon.getMoveType`), set by
+   * `MoveEffectPhase` through {@linkcode withMoveType}. A Fire move of a Pokémon in `FLAME_COLOR_TABLE` draws its
+   * flame sheet in that Pokémon's colour; unset (charge animations, encounter animations), nothing is swapped.
+   */
+  public moveType?: PokemonType;
 
   constructor(move: MoveId, user: Pokemon, target: BattlerIndex, playOnEmptyField = false) {
     // Set target to the user pokemon if no target is found to avoid crashes
     super(user, globalScene.getField()[target] ?? user, playOnEmptyField);
 
     this.move = move;
+  }
+
+  /** Local fork (2026-11-20, items V1 / V2): sets {@linkcode moveType} */
+  withMoveType(moveType: PokemonType): this {
+    this.moveType = moveType;
+    return this;
+  }
+
+  /**
+   * Local fork (2026-11-20, items V1 / V2): the flame colour copy this use of the animation wants (whether loaded or
+   * not), or `undefined` for the original sheet
+   */
+  getFlameGraphicKey(): string | undefined {
+    return getMoveFlameGraphicKey(this.getAnim()?.graphic, this.user, this.moveType);
+  }
+
+  /** Local fork (2026-11-20, items V1 / V2): the copy when it is loaded, else the original sheet */
+  protected override getGraphicKey(anim: AnimConfig): string {
+    const key = getMoveFlameGraphicKey(anim.graphic, this.user, this.moveType);
+    return key && globalScene.textures.exists(key) ? key : anim.graphic;
+  }
+
+  /**
+   * Local fork (2026-11-20, items V1 / V2): when the flame colour copy this use wants is not loaded yet (a move learned
+   * or called in battle, a type change, a form change whose load is still running), loads it first. The animation then
+   * plays with the copy, or with the original sheet if the load failed.
+   */
+  override play(onSubstitute?: boolean, callback?: () => void): void {
+    const shown = settings.display.enableMoveAnimations || this.playRegardlessOfIssues;
+    const key = shown ? this.getFlameGraphicKey() : undefined;
+    if (key && !globalScene.textures.exists(key)) {
+      loadFlameGraphic(key).then(() => super.play(onSubstitute, callback));
+      return;
+    }
+    super.play(onSubstitute, callback);
   }
 
   getAnim(): AnimConfig {

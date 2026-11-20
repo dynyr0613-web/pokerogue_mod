@@ -4,10 +4,12 @@ import type { BattlerIndex } from "#enums/battler-index";
 import { BattlerTagType } from "#enums/battler-tag-type";
 import { MovePhaseTimingModifier } from "#enums/move-phase-timing-modifier";
 import { MoveResult } from "#enums/move-result";
+import { MoveStyle } from "#enums/move-style";
 import type { MoveUseMode } from "#enums/move-use-mode";
 import type { Pokemon } from "#field/pokemon";
 import { tryPowerHerbCharge } from "#modifiers/battle-held-items"; // Local fork (2026-11-11): Power Herb
 import { applyMoveChargeAttrs } from "#moves/apply-attrs";
+import { getActiveMoveStyle } from "#moves/move-style"; // Local fork (2026-11-20): S1 move styles
 import type { PokemonMove } from "#moves/pokemon-move";
 import { PokemonPhase } from "#phases/pokemon-phase";
 import type { ChargingMove } from "#types/move-types";
@@ -95,7 +97,14 @@ export class MoveChargePhase extends PokemonPhase {
         MovePhaseTimingModifier.FIRST,
       );
     } else {
-      user.pushMoveQueue({ move: move.id, targets: [this.targetIndex], useMode: this.useMode });
+      // Local fork (2026-11-20): S1 move styles. The attack turn keeps the style the charging turn was chosen in
+      const moveStyle = getActiveMoveStyle(user, move);
+      user.pushMoveQueue({
+        move: move.id,
+        targets: [this.targetIndex],
+        useMode: this.useMode,
+        ...(moveStyle === MoveStyle.NORMAL ? {} : { moveStyle }),
+      });
     }
 
     // Add this move's charging phase to the user's move history

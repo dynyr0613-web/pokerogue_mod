@@ -15,6 +15,7 @@ import { BattlerIndex } from "#enums/battler-index";
 import { BiomeId } from "#enums/biome-id";
 import type { Command } from "#enums/command";
 import { MoveId } from "#enums/move-id";
+import type { MoveStyle } from "#enums/move-style";
 import { MysteryEncounterMode } from "#enums/mystery-encounter-mode";
 import type { MysteryEncounterType } from "#enums/mystery-encounter-type";
 import type { PokeballType } from "#enums/pokeball";
@@ -52,6 +53,12 @@ export interface TurnCommand {
   targets?: BattlerIndex[];
   skip?: boolean;
   args?: any[];
+  /**
+   * Local fork (2026-11-20): S1 move styles. The style the player chose for this FIGHT command's move (강공 / 속공; the
+   * user: "기술 선택 후 강공 ... 속공"); `undefined` for 중공. Only the `MovePhase` made from this command uses it
+   * (`TurnStartPhase`; `src/data/moves/move-style.ts`).
+   */
+  moveStyle?: MoveStyle | undefined;
 }
 
 export interface FaintLogEntry {

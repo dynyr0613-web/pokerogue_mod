@@ -447,6 +447,8 @@ export class TouchChoicePanel {
         return this.buildParty(handler);
       case UiMode.SAVE_SLOT:
         return this.buildSaveSlots(handler);
+      case UiMode.BATTLE_LOG:
+        return this.buildBattleLog(handler);
       default:
         return null;
     }
@@ -561,10 +563,12 @@ export class TouchChoicePanel {
     const counts = globalScene.pokeballCounts as Record<number, number>;
     const types = Object.keys(counts).map(Number);
     const cursor = h.getCursor();
+    // Local fork (2026-11-20): Q3, the capture chance the ball menu shows, after the count (BallUiHandler.chanceLabels)
+    const chances: Record<number, string> = h.chanceLabels ?? {};
     const choices: Choice[] = types.map(type => ({
       key: `b${type}`,
       label: getPokeballName(type),
-      sub: `×${counts[type]}`,
+      sub: chances[type] ? `×${counts[type]} · ${chances[type]}` : `×${counts[type]}`,
       disabled: counts[type] <= 0,
       selected: cursor === type,
       run: () => {
@@ -1020,6 +1024,37 @@ export class TouchChoicePanel {
     });
     choices.push({ key: "cancel", label: i18next.t("menu:cancel"), run: () => this.confirm(Button.CANCEL) });
     return { id: "SAVE_SLOT", columns: 2, choices };
+  }
+
+  /**
+   * Local fork (2026-11-20): the battle log (Q6, battle-log-ui-handler.ts): a page and a line up or down, and back.
+   * The D-pad scrolls it too; these are the big buttons of the portrait layout. Short lock, so that taps can follow
+   * each other while reading.
+   */
+  private buildBattleLog(h: any): Model | null {
+    if (!h.active) {
+      return null;
+    }
+    const up = !!h.canScrollUp?.();
+    const down = !!h.canScrollDown?.();
+    const button = (key: string, label: string, pressed: Button, enabled: boolean): Choice => ({
+      key,
+      label,
+      disabled: !enabled,
+      run: () => this.confirm(pressed),
+    });
+    return {
+      id: "BATTLE_LOG",
+      columns: 2,
+      lockMs: 100,
+      choices: [
+        button("pageUp", i18next.t("battleLog:pageUp"), Button.LEFT, up),
+        button("pageDown", i18next.t("battleLog:pageDown"), Button.RIGHT, down),
+        button("lineUp", i18next.t("battleLog:lineUp"), Button.UP, up),
+        button("lineDown", i18next.t("battleLog:lineDown"), Button.DOWN, down),
+        { ...button("back", own("back"), Button.CANCEL, true), wide: true },
+      ],
+    };
   }
 
   /** Scrolls the party option list one page by walking the cursor past the edge. */

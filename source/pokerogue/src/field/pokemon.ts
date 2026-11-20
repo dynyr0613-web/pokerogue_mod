@@ -942,7 +942,13 @@ export abstract class Pokemon extends Phaser.GameObjects.Container {
     const loadPromises: Promise<void>[] = [];
     // Assets for moves
     // Local fork (2026-11-16): Z / Max moves. A converted slot plays the base move's (or its own) animation
-    loadPromises.push(loadMoveAnimations(this.getMoveset().map(m => getAnimMoveId(m.getMove()))));
+    // Local fork (2026-11-20, items V1 / V2): plus the flame colour copies of this Pokémon's Fire moves
+    loadPromises.push(
+      loadMoveAnimations(
+        this.getMoveset().map(m => getAnimMoveId(m.getMove())),
+        this,
+      ),
+    );
 
     /** alias for `this.summonData.illusion`; bangs on this are safe when guarded with `useIllusion` being true   */
     const illusion = this.summonData.illusion;

@@ -17,6 +17,8 @@ import {
 import { CustomPokemonData } from "#data/pokemon-data";
 import { rollDestinyMark } from "#data/pokemon-marks"; // Local fork (2026-11-18)
 import type { PokemonSpecies } from "#data/pokemon-species";
+// Local fork (2026-11-20)
+import { giveKeptHeldItemsTo, setCatchReleaseTarget, showLostKeptItemsNotice } from "#data/release-held-items";
 import { getStatusEffectCatchRateMultiplier } from "#data/status-effect";
 import type { AbilityId } from "#enums/ability-id";
 import { ChallengeType } from "#enums/challenge-type";
@@ -712,12 +714,15 @@ export async function catchPokemon(
           globalScene.validateAchv(achvs.SHINY_PARTY);
         }
         Promise.all(modifiers.map(m => globalScene.addModifier(m, true))).then(() => {
+          // Local fork (2026-11-20): Q1, as in AttemptCapturePhase.catch (release-held-items.ts)
+          const lostItems = giveKeptHeldItemsTo(newPokemon);
+          const finish = () => showLostKeptItemsNotice(lostItems, end);
           globalScene.updateModifiers(true);
           removePokemon();
           if (newPokemon) {
-            newPokemon.loadAssets().then(end);
+            newPokemon.loadAssets().then(finish);
           } else {
-            end();
+            finish();
           }
         });
       };
@@ -780,6 +785,8 @@ export async function catchPokemon(
               {
                 label: i18next.t("menu:yes"),
                 handler: () => {
+                  // Local fork (2026-11-20): Q1, the one released can give its items to this one
+                  setCatchReleaseTarget(pokemon);
                   ui.setMode(UiMode.PARTY, PartyUiMode.RELEASE, 0, (slotIndex: number, _option: PartyOption) => {
                     ui.setMode(UiMode.MESSAGE).then(() => {
                       if (slotIndex < 6) {

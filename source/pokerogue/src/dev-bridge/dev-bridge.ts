@@ -30,6 +30,7 @@ import { GameModes } from "#enums/game-modes";
 import { GameSpeed } from "#enums/game-speed";
 import { HpBarSpeed } from "#enums/hp-bar-speed";
 import { MoveId } from "#enums/move-id";
+import { MoveStyle } from "#enums/move-style";
 import { MysteryEncounterTier } from "#enums/mystery-encounter-tier";
 import { MysteryEncounterType } from "#enums/mystery-encounter-type";
 import { Nature } from "#enums/nature";
@@ -40,9 +41,12 @@ import { StatusEffect } from "#enums/status-effect";
 import { UiMode } from "#enums/ui-mode";
 import { WeatherType } from "#enums/weather-type";
 import type { Pokemon } from "#field/pokemon";
+import { MOVE_STYLE_MENU_ORDER } from "#moves/move-style"; // Local fork (2026-11-20): S1 move styles
+import { getAnimMoveId } from "#moves/move-transform";
 import { PokemonMove } from "#moves/pokemon-move";
 import { allMysteryEncounters } from "#mystery-encounters/mystery-encounter-biomes";
 import { SelectStarterPhase } from "#phases/select-starter-phase";
+import { loadMoveAnimations } from "#sprites/pokemon-asset-loader";
 import type { Starter, StarterMoveset } from "#types/save-data";
 import type { StarterSpeciesId } from "#types/starter-species-id";
 import { MessageUiHandler } from "#ui/message-ui-handler";
@@ -707,6 +711,16 @@ function startRun(spec: RunSpec): string {
     }
     if (starterSpec.moves) {
       pokemon.moveset = starterSpec.moves.slice(0, 4).map(m => new PokemonMove(resolveMove(m)));
+      // Local fork (2026-11-20): `initBattle` already queued the animations of the moves the starter had; load the
+      // given moves' animations (and their flame colour copies) too, else they play nothing in the first battles
+      void loadMoveAnimations(
+        pokemon.getMoveset().map(m => getAnimMoveId(m.getMove())),
+        pokemon,
+      ).then(() => {
+        if (!globalScene.load.isLoading()) {
+          globalScene.load.start();
+        }
+      });
     } else if (pokemon.moveset.length === 0) {
       pokemon.generateAndPopulateMoveset();
     }
@@ -823,8 +837,23 @@ function encounter(type: number | string | null): string {
 
 // #endregion forced encounter
 
-/** In the command menu, pick a move by index (and a target in doubles) through the real UI handlers */
-async function useMove(moveIndex: number, targetIndex?: number): Promise<string> {
+/** Local fork (2026-11-20): S1 move styles. The names `useMove` takes for a style */
+const BRIDGE_MOVE_STYLES = Object.freeze({
+  strong: MoveStyle.STRONG,
+  normal: MoveStyle.NORMAL,
+  agile: MoveStyle.AGILE,
+});
+
+/**
+ * In the command menu, pick a move by index (and a target in doubles) through the real UI handlers.
+ * Local fork (2026-11-20): S1 move styles. When the fight menu asks 강공 / 중공 / 속공, `style` is picked there
+ * ("normal", 중공, when left out).
+ */
+async function useMove(
+  moveIndex: number,
+  targetIndex?: number,
+  style: keyof typeof BRIDGE_MOVE_STYLES = "normal",
+): Promise<string> {
   const ui = globalScene.ui;
   if (currentMode() !== UiMode.COMMAND) {
     throw new Error(`not in the command menu (mode ${modeName()}, phase ${phaseName()})`);
@@ -840,6 +869,13 @@ async function useMove(moveIndex: number, targetIndex?: number): Promise<string>
   fight.setCursor(moveIndex);
   fight.processInput(Button.ACTION);
   await sleep(150);
+  if (currentMode() === UiMode.OPTION_SELECT) {
+    const styleIndex = MOVE_STYLE_MENU_ORDER.indexOf(BRIDGE_MOVE_STYLES[style] ?? MoveStyle.NORMAL);
+    const choice: any = ui.getHandler();
+    choice.setCursor(Math.max(styleIndex, 0));
+    choice.processInput(Button.ACTION);
+    await sleep(150);
+  }
   if (currentMode() === UiMode.TARGET_SELECT) {
     const target: any = ui.getHandler();
     if (targetIndex != null) {
@@ -925,7 +961,7 @@ function help(): string[] {
     "state() / party() / enemies()    battle and party dump",
     "speciesInfo(species, form=0)     base and custom passive, abilities, evolutions",
     'keys("ACTION DOWN*2 wait:300")   press buttons (Button names, USE/A/OK/B/BACK/START, *n, wait:ms)',
-    "useMove(index, target?)          pick a move in the command menu",
+    'useMove(index, target?, style?)  pick a move in the command menu (style "strong" / "normal" / "agile")',
     'wait("CommandPhase" | "mode:OPTION_SELECT" | "js expr", timeoutMs)',
     "settle(quietMs)                  wait until nothing changes",
     'shot("name") / live(ms)          screenshots into Bridge/shots and Bridge/live.png',

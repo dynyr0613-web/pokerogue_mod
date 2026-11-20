@@ -168,8 +168,10 @@ describe("Custom mystery encounter - 우두머리! (ALPHA_ENCOUNTER)", { timeout
 
       expect(MysteryEncounterType.ALPHA_ENCOUNTER).toBe(MysteryEncounterType.DARK_STRONG_STUFF + 1);
       // Local fork (2026-11-19): "고철 속 보물" (SCRAP_TREASURE) came after it; only later types follow it, so its id stays
+      // Local fork (2026-11-20): then "별에게 소원을" (WISH_ON_A_STAR)
       expect(getEnumValues(MysteryEncounterType).filter(t => t > MysteryEncounterType.ALPHA_ENCOUNTER)).toEqual([
         MysteryEncounterType.SCRAP_TREASURE,
+        MysteryEncounterType.WISH_ON_A_STAR,
       ]);
       expect(allMysteryEncounters[MysteryEncounterType.ALPHA_ENCOUNTER]).toBe(AlphaEncounter);
       expect(AlphaEncounter.encounterType).toBe(MysteryEncounterType.ALPHA_ENCOUNTER);

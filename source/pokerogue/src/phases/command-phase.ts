@@ -1,13 +1,10 @@
 import type { TurnCommand } from "#app/battle";
 import { globalScene } from "#app/global-scene";
 import { settings } from "#app/global-settings-manager";
-import { speciesDataRegistry } from "#app/global-species-data-registry";
 import { getPokemonNameWithAffix } from "#app/messages";
 import { TrappedTag } from "#data/battler-tags";
-import { getDailyEventSeedBoss } from "#data/daily-run";
-import { isDailyFinalBoss } from "#data/daily-seed-utils";
+import { getBallFieldBlockKey, getBossBallBlockKey } from "#data/capture-chance"; // Local fork (2026-11-20)
 import { allAbilities } from "#data/data-lists";
-import { isEndlessRaidWave } from "#data/endless-raid";
 import { AbilityId } from "#enums/ability-id";
 import { ArenaTagSide } from "#enums/arena-tag-side";
 import { ArenaTagType } from "#enums/arena-tag-type";
@@ -17,11 +14,12 @@ import { BiomeId } from "#enums/biome-id";
 import { Command } from "#enums/command";
 import { FieldPosition } from "#enums/field-position";
 import { MoveId } from "#enums/move-id";
+import { MoveStyle } from "#enums/move-style";
 import { isIgnorePP, isVirtual, MoveUseMode } from "#enums/move-use-mode";
 import { MysteryEncounterMode } from "#enums/mystery-encounter-mode";
-import { PokeballType } from "#enums/pokeball";
 import { UiMode } from "#enums/ui-mode";
 import type { PlayerPokemon } from "#field/pokemon";
+import { isMoveStyleOffered } from "#moves/move-style"; // Local fork (2026-11-20): S1 move styles
 import { getSlotMove } from "#moves/move-transform"; // Local fork (2026-11-16): Z / Max moves
 import { getMoveTargets } from "#moves/move-utils";
 import { FieldPhase } from "#phases/field-phase";
@@ -242,12 +240,14 @@ export class CommandPhase extends FieldPhase {
    * @param cursor - The index that the cursor is placed on, or -1 if no move can be selected.
    * @param ignorePP - Whether to ignore PP when checking if the move can be used.
    * @param move - The move to force the command to use, if any.
+   * @param moveStyle - Local fork (2026-11-20): S1 move styles. The style chosen in the fight menu, if any
    */
   private handleFightCommand(
     command: Command.FIGHT | Command.TERA,
     cursor: number,
     useMode: MoveUseMode = MoveUseMode.NORMAL,
     move?: TurnMove,
+    moveStyle?: MoveStyle,
   ): boolean {
     const playerPokemon = this.getPokemon();
     const ignorePP = isIgnorePP(useMode);
@@ -271,6 +271,20 @@ export class CommandPhase extends FieldPhase {
       move: { move: moveId, targets: [], useMode },
       args: [useMode, move],
     };
+    // Local fork (2026-11-20): S1 move styles (the user: "기술 선택 후 강공 ... 속공"). The style chosen in the fight menu,
+    // or the one the charging turn of a two-turn move queued; recorded only for a move that takes a style
+    const style = moveStyle ?? move?.moveStyle;
+    if (
+      style != null
+      && style !== MoveStyle.NORMAL
+      && !useStruggle
+      && isMoveStyleOffered(
+        playerPokemon,
+        playerPokemon.getMoveset().find(m => m.moveId === moveId),
+      )
+    ) {
+      turnCommand.moveStyle = style;
+    }
     const preTurnCommand: TurnCommand = {
       command,
       targets: [this.fieldIndex],
@@ -359,54 +373,14 @@ export class CommandPhase extends FieldPhase {
    * @returns Whether a pokeball can be thrown
    */
   private checkCanUseBall(): boolean {
-    const { arena, currentBattle, gameData, gameMode } = globalScene;
-    const { battleType } = currentBattle;
-    const { biomeId } = arena;
-    const { isClassic, isEndless, isDaily } = gameMode;
-    const { dexData } = gameData;
-
-    const isClassicFinalBoss = gameMode.isBattleClassicFinalBoss(globalScene.currentBattle.waveIndex);
-    const isEndlessMinorBoss = gameMode.isEndlessMinorBoss(globalScene.currentBattle.waveIndex);
-    const isFullFreshStart = gameMode.isFullFreshStartChallenge();
-    const someUncaughtSpeciesOnField = globalScene
-      .getEnemyField()
-      .some(p => p.isActive() && !dexData[p.species.speciesId].caughtAttr);
-    const missingMultipleStarters =
-      gameData.getStarterCount(d => !!d.caughtAttr) < speciesDataRegistry.getAllStarters().length - 1;
-    const isCatchableDailyBoss = isDailyFinalBoss() && (getDailyEventSeedBoss()?.catchable ?? false);
-
-    // Local fork (2026-11-17): the raid's boss can always be caught, in the END biome too (endless-raid.ts)
-    if (isEndlessRaidWave(gameMode, currentBattle.waveIndex) && battleType === BattleType.WILD) {
-      return true;
+    // Local fork (2026-11-20): the rules moved unchanged to capture-chance.ts, which the ball menu's capture chance also
+    // reads (Q3; the user: "실행" to "볼 고를 때 포획 확률 표시")
+    const blockKey = getBallFieldBlockKey();
+    if (blockKey) {
+      this.queueShowText(blockKey);
+      return false;
     }
-    if (biomeId === BiomeId.END && battleType === BattleType.WILD) {
-      if (
-        (isClassic && !isClassicFinalBoss && someUncaughtSpeciesOnField)
-        || (isFullFreshStart && !isClassicFinalBoss)
-        || (isEndless && !isEndlessMinorBoss)
-      ) {
-        // Uncatchable paradox mons in classic and endless
-        this.queueShowText("battle:noPokeballForce");
-      } else if (
-        (isClassic && isClassicFinalBoss && missingMultipleStarters)
-        || (isFullFreshStart && isClassicFinalBoss)
-        || (isEndless && isEndlessMinorBoss)
-        || (isDaily && !isCatchableDailyBoss)
-      ) {
-        // Uncatchable final boss in classic, endless and daily
-        this.queueShowText("battle:noPokeballForceFinalBoss");
-      } else {
-        return true;
-      }
-    } else if (battleType === BattleType.TRAINER) {
-      this.queueShowText("battle:noPokeballTrainer");
-    } else if (currentBattle.isBattleMysteryEncounter() && !currentBattle.mysteryEncounter!.catchAllowed) {
-      this.queueShowText("battle:noPokeballMysteryEncounter");
-    } else {
-      return true;
-    }
-
-    return false;
+    return true;
   }
 
   /**
@@ -430,32 +404,14 @@ export class CommandPhase extends FieldPhase {
       return false;
     }
 
-    const isChallengeActive = globalScene.gameMode.hasAnyChallenges();
-    const isFinalBoss = globalScene.gameMode.isBattleClassicFinalBoss(globalScene.currentBattle.waveIndex);
-    const isCatchableDailyBoss = isDailyFinalBoss() && (getDailyEventSeedBoss()?.catchable ?? false);
-
     const numBallTypes = 5;
     if (cursor < numBallTypes) {
-      const targetPokemon = globalScene.getEnemyPokemon(false);
-      if (
-        targetPokemon?.isBoss()
-        && targetPokemon?.bossSegmentIndex >= 1 // TODO: Decouple this hardcoded exception for wonder guard and just check the target...
-        && !targetPokemon?.hasAbility(AbilityId.WONDER_GUARD, false, true)
-      ) {
-        // When facing the final boss, it must be weakened unless a Master Ball is used AND no challenges are active.
-        // The message is customized for the final boss.
-        if (
-          isFinalBoss
-          && (cursor < PokeballType.MASTER_BALL || (cursor === PokeballType.MASTER_BALL && isChallengeActive))
-        ) {
-          this.queueShowText("battle:noPokeballForceFinalBossCatchable");
-          return false;
-        }
-        // When facing any other boss, Master Ball can always be used, and we use the standard message.
-        if (isCatchableDailyBoss || cursor < PokeballType.MASTER_BALL) {
-          this.queueShowText("battle:noPokeballStrong");
-          return false;
-        }
+      // Local fork (2026-11-20): the boss rule moved unchanged to capture-chance.ts, which the ball menu's capture chance
+      // also reads (Q3)
+      const bossBlockKey = getBossBallBlockKey(cursor);
+      if (bossBlockKey) {
+        this.queueShowText(bossBlockKey);
+        return false;
       }
 
       globalScene.currentBattle.turnCommands[this.fieldIndex] = {
@@ -679,23 +635,46 @@ export class CommandPhase extends FieldPhase {
    * @param move - For {@linkcode Command.FIGHT}, the move to use
    * @returns Whether the command was successful
    */
-  handleCommand(command: Command.FIGHT | Command.TERA, cursor: number, useMode?: MoveUseMode, move?: TurnMove): boolean;
+  handleCommand(
+    command: Command.FIGHT | Command.TERA,
+    cursor: number,
+    useMode?: MoveUseMode,
+    move?: TurnMove,
+    moveStyle?: MoveStyle,
+  ): boolean;
   handleCommand(command: Command.POKEMON, cursor: number, useBaton: boolean): boolean;
   handleCommand(command: Command.BALL | Command.RUN, cursor: number): boolean;
-  handleCommand(command: Command, cursor: number, useMode?: boolean | MoveUseMode, move?: TurnMove): boolean;
+  handleCommand(
+    command: Command,
+    cursor: number,
+    useMode?: boolean | MoveUseMode,
+    move?: TurnMove,
+    moveStyle?: MoveStyle,
+  ): boolean;
 
+  /**
+   * @param moveStyle - Local fork (2026-11-20): S1 move styles. For {@linkcode Command.FIGHT} / {@linkcode Command.TERA},
+   *   the style the player chose in the fight menu (강공 / 중공 / 속공); left out for 중공
+   */
   public handleCommand(
     command: Command,
     cursor: number,
     useMode: boolean | MoveUseMode = false,
     move?: TurnMove,
+    moveStyle?: MoveStyle,
   ): boolean {
     let success = false;
 
     switch (command) {
       case Command.TERA:
       case Command.FIGHT:
-        success = this.handleFightCommand(command, cursor, typeof useMode === "boolean" ? undefined : useMode, move);
+        success = this.handleFightCommand(
+          command,
+          cursor,
+          typeof useMode === "boolean" ? undefined : useMode,
+          move,
+          moveStyle,
+        );
         break;
       case Command.BALL:
         success = this.handleBallCommand(cursor);

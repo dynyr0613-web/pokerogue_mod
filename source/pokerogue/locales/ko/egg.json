@@ -27,5 +27,8 @@
   "moveUpGacha": "알 기술 UP!",
   "shinyUpGacha": "색이 다른\n포켓몬 UP!",
   "legendaryUpGacha": "UP!",
-  "vouchersExceedEggCap": "바우처가 알 상한을 초과했습니다!"
+  "vouchersExceedEggCap": "바우처가 알 상한을 초과했습니다!",
+  "pullAll": "전부 뽑기",
+  "pullAllChooseVoucher": "어느 바우처를 전부 쓰겠습니까?",
+  "pullAllStoppedAtLimit": "알이 상한(99개)에 닿아 멈췄습니다.\n남은 바우처: {{amount}}장"
 }

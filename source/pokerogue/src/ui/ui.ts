@@ -14,6 +14,7 @@ import { SettingsAudioUiHandler } from "#ui/audio-settings-ui-handler";
 import { AutoCompleteUiHandler } from "#ui/autocomplete-ui-handler";
 import { AwaitableUiHandler } from "#ui/awaitable-ui-handler";
 import { BallUiHandler } from "#ui/ball-ui-handler";
+import { BattleLogUiHandler } from "#ui/battle-log-ui-handler";
 import { BattleMessageUiHandler } from "#ui/battle-message-ui-handler";
 import type { BgmBar } from "#ui/bgm-bar";
 import { GameChallengesUiHandler } from "#ui/challenges-select-ui-handler";
@@ -96,6 +97,7 @@ const noTransitionModes = [
   UiMode.SETTINGS_KEYBOARD,
   UiMode.ACHIEVEMENTS,
   UiMode.MARK_DEX,
+  UiMode.BATTLE_LOG,
   UiMode.GAME_STATS,
   UiMode.POKEDEX_SCAN,
   UiMode.LOGIN_FORM,
@@ -188,6 +190,8 @@ export class UI extends Phaser.GameObjects.Container {
       new AlertModalUiHandler(),
       // Local fork (2026-11-17): the mark Pokédex, opened from the menu
       new MarkDexUiHandler(),
+      // Local fork (2026-11-20): the battle log, Q6, opened from the menu
+      new BattleLogUiHandler(),
     ];
   }
 

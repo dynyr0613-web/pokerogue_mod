@@ -48,4 +48,6 @@ export enum MysteryEncounterType {
   ALPHA_ENCOUNTER,
   /** Local fork (2026-11-19): ROGUE-tier "고철 속 보물" (Treasure in the Scrap): G-Max Melmetal boss or a dig for a vest; appended last so saved ids stay put */
   SCRAP_TREASURE,
+  /** Local fork (2026-11-20): ROGUE-tier "별에게 소원을" (Wish on a Star, official proposal #4477): wake a sleeping Jirachi for a wish, or battle it angry; appended last so saved ids stay put */
+  WISH_ON_A_STAR,
 }

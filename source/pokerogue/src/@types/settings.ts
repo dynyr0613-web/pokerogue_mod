@@ -47,6 +47,11 @@ export interface GeneralSettings {
   hpBarSpeed: HpBarSpeed;
   levelMoveConfirmation: boolean;
   manualMessageClear: boolean;
+  /**
+   * Local fork (2026-11-20): S1 move styles. Whether the fight menu asks 강공 / 중공 / 속공 after a damaging move is
+   * picked ("기술 스타일 선택"); off means every move is 중공
+   */
+  moveStyleChoice: boolean;
   partyExpNotificationMode: ExpNotification;
   playerGender: PlayerGender;
   preferBatonPass: boolean;

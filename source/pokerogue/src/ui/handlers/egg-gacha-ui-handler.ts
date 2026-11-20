@@ -9,14 +9,34 @@ import { Button } from "#enums/buttons";
 import { EggTier } from "#enums/egg-type";
 import { GachaType } from "#enums/gacha-types";
 import { TextStyle } from "#enums/text-style";
+import { UiMode } from "#enums/ui-mode";
 import { VoucherType } from "#enums/voucher-type";
-import { getVoucherTypeIcon } from "#system/voucher";
+import { getVoucherTypeIcon, getVoucherTypeName } from "#system/voucher";
+import type { OptionSelectItem } from "#types/ui-types";
 import { MessageUiHandler } from "#ui/message-ui-handler";
 import { addTextObject, getEggTierTextTint, getTextStyleOptions } from "#ui/text";
 import { addWindow } from "#ui/ui-theme";
 import { fixedInt, randSeedShuffle } from "#utils/common";
 import { getEnumValues } from "#utils/enums";
 import i18next from "i18next";
+
+/** Local fork (2026-11-20): Q11, the most Eggs the player may hold, the menu's own check */
+const EGG_LIMIT = 99;
+/** Local fork (2026-11-20): Q11, the cursor of the "전부 뽑기" row, just above Cancel */
+const PULL_ALL_CURSOR = 5;
+/**
+ * Local fork (2026-11-20): Q11, the most Eggs one "pull all" batch drops and lists in its summary, as many as a Golden
+ * voucher's pull (the most the summary shows for one pull)
+ */
+export const PULL_ALL_BATCH_EGGS = 25;
+
+/** Local fork (2026-11-20): Q11, one batch of a "pull all" (EggGachaUiHandler.planPullAll) */
+export interface PullAllBatch {
+  /** The vouchers it uses */
+  readonly vouchers: number;
+  /** Its pulls, each as the menu makes it on its own: the Eggs of each (a 10-pull's 10, a Plus voucher's 5...) */
+  readonly pulls: readonly number[];
+}
 
 export class EggGachaUiHandler extends MessageUiHandler {
   private eggGachaContainer: Phaser.GameObjects.Container;
@@ -48,6 +68,13 @@ export class EggGachaUiHandler extends MessageUiHandler {
 
   private readonly legendaryExpiration = addTextObject(0, 0, "", TextStyle.WINDOW_ALT);
   private playTimeTimer: Phaser.Time.TimerEvent | null;
+
+  /** Local fork (2026-11-20): Q11, the voucher a "pull all" uses */
+  private pullAllVoucherType: VoucherType = VoucherType.REGULAR;
+  /** Local fork (2026-11-20): Q11, the batches of the "pull all" still to come after the summary now shown */
+  private pullAllQueue: PullAllBatch[] = [];
+  /** Local fork (2026-11-20): Q11, the vouchers the "pull all" leaves because the Egg limit is reached, told at the end */
+  private pullAllVouchersLeft = 0;
 
   private setupGachaType(key: keyof typeof GachaType, gachaType: GachaType): void {
     const gachaTypeKey = key.toLowerCase();
@@ -215,7 +242,9 @@ export class EggGachaUiHandler extends MessageUiHandler {
         eggGachaOptionSelectWidth = 96;
     }
 
-    this.eggGachaOptionSelectBg = addWindow(0, 0, eggGachaOptionSelectWidth, 16 + 576 * this.scale).setOrigin(1);
+    // Local fork (2026-11-20): Q11, a 7th row ("전부 뽑기"), the window 2 px less than a row's 16 taller so that its
+    // top stays clear of the voucher counts above it (16 + 576 * scale was 6 rows)
+    this.eggGachaOptionSelectBg = addWindow(0, 0, eggGachaOptionSelectWidth, 14 + 672 * this.scale).setOrigin(1);
     this.eggGachaOptionsContainer = globalScene.add
       .container(globalScene.scaledCanvas.width, 148)
       .add(this.eggGachaOptionSelectBg);
@@ -265,7 +294,13 @@ export class EggGachaUiHandler extends MessageUiHandler {
       })
       .join("\n");
 
-    const optionText = addTextObject(0, 0, `${pullOptionsText}\n${i18next.t("menu:cancel")}`, TextStyle.WINDOW)
+    // Local fork (2026-11-20): Q11, "전부 뽑기" above Cancel, written like it (PULL_ALL_CURSOR)
+    const optionText = addTextObject(
+      0,
+      0,
+      `${pullOptionsText}\n${i18next.t("egg:pullAll")}\n${i18next.t("menu:cancel")}`,
+      TextStyle.WINDOW,
+    )
       .setLineSpacing(28)
       .setFontSize("80px")
       .setPositionRelative(this.eggGachaOptionSelectBg, 16, 9);
@@ -497,14 +532,18 @@ export class EggGachaUiHandler extends MessageUiHandler {
   /**
    * Handle pulling eggs from the gacha machine; plays the animations, adds the eggs, and saves game data
    * @param pullCount - The number of eggs to pull
+   * @param pulls - Local fork (2026-11-20): Q11, a "pull all" batch instead: several pulls, each one made as on its own
+   * (its Eggs, with its own guaranteed tier), dropped and listed together
    */
-  async pull(pullCount = 0): Promise<void> {
+  async pull(pullCount = 0, pulls?: readonly number[]): Promise<void> {
     if (activeOverrides.EGG_GACHA_PULL_COUNT_OVERRIDE) {
       pullCount = activeOverrides.EGG_GACHA_PULL_COUNT_OVERRIDE;
+      pulls = undefined;
     }
 
     // Set the eggs
-    const eggs = this.pullEggs(pullCount);
+    const eggs = pulls ? pulls.flatMap(count => this.pullEggs(count)) : this.pullEggs(pullCount);
+    pullCount = eggs.length;
 
     this.eggGachaOptionsContainer.setVisible(false);
     this.setTransitioning(true);
@@ -514,6 +553,7 @@ export class EggGachaUiHandler extends MessageUiHandler {
       : globalScene.gameData.saveSystem()
     ).then(success => {
       if (!success) {
+        this.pullAllQueue = []; // Local fork (2026-11-20): Q11
         globalScene.reset(true);
         return false;
       }
@@ -634,9 +674,144 @@ export class EggGachaUiHandler extends MessageUiHandler {
         this.eggGachaSummaryContainer.setVisible(false).setAlpha(1).removeAll(true);
         this.setTransitioning(false);
         this.summaryFinished = false;
+        // Local fork (2026-11-20): Q11, a "pull all" goes on with its next batch, and says at its end if the Egg
+        // limit stopped it
+        if (this.pullAllQueue.length > 0) {
+          this.pullNextBatch();
+          return;
+        }
         this.eggGachaOptionsContainer.setVisible(true);
+        if (this.pullAllVouchersLeft > 0) {
+          this.showError(i18next.t("egg:pullAllStoppedAtLimit", { amount: this.pullAllVouchersLeft }));
+          this.pullAllVouchersLeft = 0;
+        }
       },
     });
+  }
+
+  /**
+   * Local fork (2026-11-20): Q11, plan "전부 뽑기" with `voucherType` (the user: "실행"; the official request #5768):
+   * all the vouchers, pulled as the menu would one pull at a time (for regular vouchers the 10-pull, then single
+   * pulls), as long as the Eggs fit under the limit; the pulls are dropped in batches of up to
+   * {@linkcode PULL_ALL_BATCH_EGGS} Eggs, each with its own summary.
+   * @param voucherType - The voucher to use up
+   * @param vouchers - How many the player has
+   * @param eggRoom - How many more Eggs the player may hold
+   * @returns The batches, and the vouchers left because the Eggs would not fit
+   */
+  static planPullAll(
+    voucherType: VoucherType,
+    vouchers: number,
+    eggRoom: number,
+  ): { batches: PullAllBatch[]; vouchersLeft: number } {
+    const menuPulls: [number, number][] = [];
+    for (let cursor = 0; cursor < PULL_ALL_CURSOR; cursor++) {
+      const voucher = EggGachaUiHandler.cursorToVoucher(cursor);
+      if (voucher?.[0] === voucherType) {
+        menuPulls.push([voucher[1], voucher[2]]);
+      }
+    }
+    // The pull that uses the most vouchers first (the 10-pull before the single pull)
+    menuPulls.sort((a, b) => b[0] - a[0]);
+
+    const batches: { vouchers: number; pulls: number[]; eggs: number }[] = [];
+    let vouchersLeft = vouchers;
+    let room = eggRoom;
+    for (const [cost, eggs] of menuPulls) {
+      while (vouchersLeft >= cost && room >= eggs) {
+        let batch = batches.at(-1);
+        if (!batch || batch.eggs + eggs > PULL_ALL_BATCH_EGGS) {
+          batch = { vouchers: 0, pulls: [], eggs: 0 };
+          batches.push(batch);
+        }
+        batch.vouchers += cost;
+        batch.pulls.push(eggs);
+        batch.eggs += eggs;
+        vouchersLeft -= cost;
+        room -= eggs;
+      }
+    }
+    return { batches: batches.map(({ vouchers: used, pulls }) => ({ vouchers: used, pulls })), vouchersLeft };
+  }
+
+  /**
+   * Local fork (2026-11-20): Q11, the "전부 뽑기" row: pick the voucher to use up, among those the player has
+   * @returns `true` if the menu opened, `false` (with a message) if nothing can be pulled
+   */
+  private openPullAllMenu(): boolean {
+    const ui = this.getUi();
+    const freePulls = activeOverrides.EGG_FREE_GACHA_PULLS_OVERRIDE;
+    if (!freePulls && globalScene.gameData.eggs.length >= EGG_LIMIT) {
+      this.showError(i18next.t("egg:tooManyEggs"));
+      return false;
+    }
+    const owned = getEnumValues(VoucherType).filter(type => globalScene.gameData.voucherCounts[type] > 0);
+    if (owned.length === 0) {
+      this.showError(i18next.t("egg:noVouchers"));
+      return false;
+    }
+
+    const options: OptionSelectItem[] = owned.map(voucherType => ({
+      label: `${getVoucherTypeName(voucherType)} x${globalScene.gameData.voucherCounts[voucherType]}`,
+      handler: () => {
+        ui.revertMode().then(() => {
+          if (!this.startPullAll(voucherType)) {
+            ui.playError();
+          }
+        });
+        return true;
+      },
+    }));
+    options.push({
+      label: i18next.t("menu:cancel"),
+      handler: () => {
+        ui.revertMode().then(() => this.showText(this.defaultText));
+        return true;
+      },
+    });
+
+    this.showText(i18next.t("egg:pullAllChooseVoucher"));
+    ui.setOverlayMode(UiMode.OPTION_SELECT, {
+      options,
+      xOffset: this.eggGachaOptionSelectBg.displayWidth,
+      yOffset: this.eggGachaMessageBox.displayHeight + 1,
+    });
+    return true;
+  }
+
+  /**
+   * Local fork (2026-11-20): Q11, use up the `voucherType` vouchers ({@linkcode planPullAll}), one batch after the
+   * other: the next starts when the summary of the last one is closed ({@linkcode hideSummary})
+   * @returns Whether anything is pulled (if not, the reason is shown)
+   */
+  private startPullAll(voucherType: VoucherType): boolean {
+    const freePulls = activeOverrides.EGG_FREE_GACHA_PULLS_OVERRIDE;
+    const owned = globalScene.gameData.voucherCounts[voucherType];
+    const eggRoom = freePulls ? Number.MAX_SAFE_INTEGER : EGG_LIMIT - globalScene.gameData.eggs.length;
+    const { batches, vouchersLeft } = EggGachaUiHandler.planPullAll(voucherType, owned, eggRoom);
+    if (batches.length === 0) {
+      this.showError(i18next.t(owned > 0 ? "egg:tooManyEggs" : "egg:notEnoughVouchers"));
+      return false;
+    }
+    this.showText(this.defaultText);
+    this.pullAllVoucherType = voucherType;
+    this.pullAllQueue = batches;
+    this.pullAllVouchersLeft = vouchersLeft;
+    this.pullNextBatch();
+    return true;
+  }
+
+  /** Local fork (2026-11-20): Q11, the next batch of the "pull all": its vouchers are used, then its Eggs pulled */
+  private pullNextBatch(): void {
+    const batch = this.pullAllQueue.shift();
+    if (!batch) {
+      return;
+    }
+    if (!activeOverrides.EGG_FREE_GACHA_PULLS_OVERRIDE) {
+      this.consumeVouchers(this.pullAllVoucherType, batch.vouchers);
+    }
+    // TODO: Remove this dangling promise if necessary when the UI's input event handling supports async functions
+    void this.pull(0, batch.pulls);
   }
 
   /**
@@ -738,8 +913,12 @@ export class EggGachaUiHandler extends MessageUiHandler {
    */
   private handleVoucherSelectAction(cursor: number): boolean | undefined {
     // Cursors that are out of range should not be processed
-    if (cursor < 0 || cursor > 5) {
+    // Local fork (2026-11-20): Q11, 7 rows, "전부 뽑기" above Cancel
+    if (cursor < 0 || cursor > PULL_ALL_CURSOR + 1) {
       return;
+    }
+    if (cursor === PULL_ALL_CURSOR) {
+      return this.openPullAllMenu();
     }
     const ui = this.getUi();
     const voucher = EggGachaUiHandler.cursorToVoucher(cursor);
@@ -809,7 +988,8 @@ export class EggGachaUiHandler extends MessageUiHandler {
         }
         break;
       case Button.DOWN:
-        if (this.cursor < 5) {
+        // Local fork (2026-11-20): Q11, down to the 7th row (Cancel, below "전부 뽑기")
+        if (this.cursor < PULL_ALL_CURSOR + 1) {
           success = this.setCursor(this.cursor + 1);
         }
         break;
@@ -929,6 +1109,9 @@ export class EggGachaUiHandler extends MessageUiHandler {
 
   clear(): void {
     super.clear();
+    // Local fork (2026-11-20): Q11, no "pull all" goes on after the gacha is closed
+    this.pullAllQueue = [];
+    this.pullAllVouchersLeft = 0;
     this.setGachaCursor(-1);
     this.eggGachaContainer.setVisible(false);
     if (this.playTimeTimer) {

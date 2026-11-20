@@ -3,20 +3,37 @@ import { settings } from "#app/global-settings-manager";
 import { Button } from "#enums/buttons";
 import { getStatKey, PERMANENT_STATS } from "#enums/stat";
 import { TextStyle } from "#enums/text-style";
+import { recordBattleMessage } from "#ui/battle-log";
 import { MessageUiHandler } from "#ui/message-ui-handler";
 import { addBBCodeTextObject, addTextObject, getTextColor } from "#ui/text";
 import { addWindow } from "#ui/ui-theme";
 import i18next from "i18next";
 import type BBCodeText from "phaser4-rex-plugins/plugins/bbcodetext";
 
+/**
+ * Local fork (2026-11-20): Q8, after each IV the scanner shows that is higher than the player's record for the species
+ * (the dex IVs, which IV Candies raise too); the user: "내 개체보다 높은 개체값을 (+)로 표시"
+ */
+export const IV_SCANNER_BETTER_MARK = " (+)";
+
+/** Local fork (2026-11-20): Q8, the least space between the stat names and the values of the stats window */
+const LEVEL_UP_STATS_MIN_GAP = 4;
+
 export class BattleMessageUiHandler extends MessageUiHandler {
   private levelUpStatsContainer: Phaser.GameObjects.Container;
   private levelUpStatsIncrContent: Phaser.GameObjects.Text;
   private levelUpStatsValuesContent: BBCodeText;
+  /** Local fork (2026-11-20): Q8, the stat names and window, widened to the left when the values need the room */
+  private levelUpStatsLabelsContent: Phaser.GameObjects.Text;
+  private levelUpStatsBg: Phaser.GameObjects.NineSlice;
+  private levelUpStatsLabelsX: number;
+  private levelUpStatsBgWidth: number;
 
   public bg: Phaser.GameObjects.Sprite;
   public commandWindow: Phaser.GameObjects.NineSlice;
   public movesWindowContainer: Phaser.GameObjects.Container;
+  /** Local fork (2026-11-20): Q6, the speaker of the dialogue line being shown, for the battle log */
+  private battleLogSpeaker: string | undefined;
 
   setup(): void {
     const ui = this.getUi();
@@ -92,6 +109,12 @@ export class BattleMessageUiHandler extends MessageUiHandler {
 
     levelUpStatsContainer.add(levelUpStatsLabelsContent);
 
+    // Local fork (2026-11-20): Q8, kept to widen the window for the IV scanner's "(+)" (`fitLevelUpStatsWindow`)
+    this.levelUpStatsLabelsContent = levelUpStatsLabelsContent;
+    this.levelUpStatsBg = levelUpStatsBg;
+    this.levelUpStatsLabelsX = levelUpStatsLabelsContent.x;
+    this.levelUpStatsBgWidth = levelUpStatsBg.width;
+
     const levelUpStatsIncrContent = addTextObject(
       globalScene.scaledCanvas.width - 50,
       -94,
@@ -152,6 +175,9 @@ export class BattleMessageUiHandler extends MessageUiHandler {
     prompt?: boolean | null,
     promptDelay?: number | null,
   ) {
+    // Local fork (2026-11-20): Q6, the battle log keeps every battle message this box shows (the one place they are
+    // shown), with the speaker of a dialogue line (src/ui/utils/battle-log.ts)
+    recordBattleMessage(text, this.battleLogSpeaker);
     this.hideNameText();
     super.showText(text, delay, callback, callbackDelay, prompt, promptDelay);
   }
@@ -165,7 +191,13 @@ export class BattleMessageUiHandler extends MessageUiHandler {
     prompt?: boolean,
     promptDelay?: number,
   ) {
-    super.showDialogue(text, name, delay, callback, callbackDelay, prompt, promptDelay);
+    // Local fork (2026-11-20): Q6, the dialogue goes through showText above, which logs it with this speaker
+    this.battleLogSpeaker = name;
+    try {
+      super.showDialogue(text, name, delay, callback, callbackDelay, prompt, promptDelay);
+    } finally {
+      this.battleLogSpeaker = undefined;
+    }
   }
 
   promptLevelUpStats(partyMemberIndex: number, prevStats: number[], showTotals: boolean): Promise<void> {
@@ -179,6 +211,7 @@ export class BattleMessageUiHandler extends MessageUiHandler {
         levelUpStatsValuesText += `${showTotals ? newStats[s] : newStats[s] - prevStats[s]}\n`;
       }
       this.levelUpStatsValuesContent.text = levelUpStatsValuesText;
+      this.fitLevelUpStatsWindow(); // Local fork (2026-11-20): Q8, back to its own width after the IV scanner
       this.levelUpStatsIncrContent.setVisible(!showTotals);
       this.levelUpStatsContainer.setVisible(true);
       this.awaitingActionInput = true;
@@ -200,6 +233,7 @@ export class BattleMessageUiHandler extends MessageUiHandler {
           levelUpStatsValuesText += `${this.getIvDescriptor(ivs[s], s, pokemonId)}\n`;
         }
         this.levelUpStatsValuesContent.text = levelUpStatsValuesText;
+        this.fitLevelUpStatsWindow(); // Local fork (2026-11-20): Q8, room for "(+)"
         this.levelUpStatsIncrContent.setVisible(false);
         this.levelUpStatsContainer.setVisible(true);
         this.awaitingActionInput = true;
@@ -209,6 +243,25 @@ export class BattleMessageUiHandler extends MessageUiHandler {
         };
       }, pokemonId);
     });
+  }
+
+  /**
+   * Local fork (2026-11-20): Q8, the stats window at its own width, widened to the left (stat names with it) when the
+   * values, such as the IV scanner's words with "(+)", would come closer than {@linkcode LEVEL_UP_STATS_MIN_GAP} to the
+   * stat names
+   */
+  private fitLevelUpStatsWindow(): void {
+    const labels = this.levelUpStatsLabelsContent;
+    const bg = this.levelUpStatsBg;
+    labels.setX(this.levelUpStatsLabelsX);
+    bg.setSize(this.levelUpStatsBgWidth, bg.height);
+    const values = this.levelUpStatsValuesContent;
+    const valuesLeft = values.x - values.displayWidth;
+    const shortfall = labels.x + labels.displayWidth + LEVEL_UP_STATS_MIN_GAP - valuesLeft;
+    if (shortfall > 0) {
+      labels.setX(labels.x - shortfall);
+      bg.setSize(this.levelUpStatsBgWidth + shortfall, bg.height);
+    }
   }
 
   getIvDescriptor(value: number, typeIv: number, pokemonId: number): string {
@@ -228,7 +281,10 @@ export class BattleMessageUiHandler extends MessageUiHandler {
         textStyle = TextStyle.WINDOW;
       }
       const color = getTextColor(textStyle, false);
-      return `[color=${color}][shadow=${getTextColor(textStyle, true)}]${text}[/shadow][/color]`;
+      // Local fork (2026-11-20): Q8, "(+)" after an IV higher than the player's record, besides the colour (the user:
+      // "내 개체보다 높은 개체값을 (+)로 표시")
+      const mark = isBetter ? IV_SCANNER_BETTER_MARK : "";
+      return `[color=${color}][shadow=${getTextColor(textStyle, true)}]${text}${mark}[/shadow][/color]`;
     };
 
     if (value > 30) {

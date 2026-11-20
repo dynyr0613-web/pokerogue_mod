@@ -173,6 +173,8 @@ const PINNED_ENUMS: Readonly<Record<string, PinnedEnum>> = {
       ALPHA_ENCOUNTER: 38,
       // 2026-11-19: 1.2.0 D7, "고철 속 보물"
       SCRAP_TREASURE: 39,
+      // 2026-11-20: 1.2.0 C2, "별에게 소원을"
+      WISH_ON_A_STAR: 40,
     },
   },
   TrainerType: {

@@ -1,0 +1,47 @@
+{
+  "intro": "Deep in space, you find something glowing.$It hums with a serene sound…\nUp close, it’s a sleeping Jirachi!",
+  "title": "Wish on a Star",
+  "description": "Jirachi, said to wake for only seven days every thousand years, is fast asleep. Wake it gently with a song, and it might grant you a wish.\nA Pokémon that knows {{wishMoveName}} or {{healingWishMoveName}} makes the wish even bigger.",
+  "query": "What will you do?",
+  "option": {
+    "1": {
+      "label": "Sing It Awake",
+      "tooltip": "(+) {{option1PrimaryName}}’s {{option1PrimaryWakeSound}}\n(+) Jirachi Grants a Wish",
+      "disabledTooltip": "A Pokémon needs a song, a sound or a waking move (or such an ability) to choose this.",
+      "selected": "Jirachi begins to shine\nlike a star…",
+      "sleep": "Its wish granted, Jirachi\nfalls back into a deep sleep…"
+    },
+    "2": {
+      "label": "Shake It Awake",
+      "tooltip": "(-) Hard Battle with an Angry Jirachi\n(+) Special Rewards",
+      "selected": "You shake the sleeping Jirachi\nuntil it wakes up!$Jirachi opens its eyes, furious!",
+      "statBoost": "Jirachi is furious at being woken up!"
+    },
+    "3": {
+      "label": "Leave",
+      "tooltip": "(-) No Rewards",
+      "selected": "You quietly walk away so as\nnot to wake the sleeping Jirachi."
+    }
+  },
+  "wishPrompt": "{{option1PrimaryName}}’s {{option1PrimaryWakeSound}} woke Jirachi!\nWhat will you wish for?",
+  "wish": {
+    "bonus": "{{wishPokemon}}’s {{wishMove}} shines along!\nThe wish grows bigger!",
+    "wealth": {
+      "label": "Wish for Wealth",
+      "tooltip": "Receive {{wealthMoney}}.",
+      "result": "Money comes raining down from the sky!\nYou received {{wealthMoney}}!"
+    },
+    "power": {
+      "label": "Wish for Power",
+      "tooltip": "One Pokémon you pick gets IV Candies\nfor {{powerStats}} of its stats.",
+      "full": "{{pokemonName}} can’t take\nany more IV Candies!",
+      "received": "{{selectedPokemon}} received\n{{count}} {{itemName}}!"
+    },
+    "health": {
+      "label": "Wish for Health",
+      "tooltip": "Fully heal your party.",
+      "tooltipBonus": "Fully heal your party and\nreceive a {{healingCharm}}.",
+      "result": "Jirachi’s light wraps around your party!\nAll your Pokémon are healed!"
+    }
+  }
+}

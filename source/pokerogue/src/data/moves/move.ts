@@ -65,6 +65,7 @@ import { MoveId } from "#enums/move-id";
 import { MovePhaseTimingModifier } from "#enums/move-phase-timing-modifier";
 import { MovePriorityInBracket } from "#enums/move-priority-in-bracket";
 import { MoveResult } from "#enums/move-result";
+import type { MoveStyle } from "#enums/move-style";
 import { MoveTarget } from "#enums/move-target";
 import { isVirtual, MoveUseMode } from "#enums/move-use-mode";
 import { MultiHitType } from "#enums/multi-hit-type";
@@ -130,6 +131,8 @@ import {
   upperHandCondition,
   userSleptOrComatoseCondition,
 } from "#moves/move-condition";
+// Local fork (2026-11-20): S1 move styles (move-style.ts imports nothing from this module at run time)
+import { getActiveMoveStyle, getMoveStylePowerMultiplier, getMoveStylePriorityShift } from "#moves/move-style";
 // Local fork (2026-11-16): Z / Max moves (getReceivedAttackCategory)
 import { getCounterAttackTarget, getMoveTargets, getReceivedAttackCategory } from "#moves/move-utils";
 import { PokemonMove } from "#moves/pokemon-move";
@@ -1279,6 +1282,10 @@ export abstract class Move implements Localizable {
       power.value *= 1.5;
     }
 
+    // Local fork (2026-11-20): S1 move styles (the user: "강공(위력 1.5배 ... 선공기일 경우 ... 위력 2배) ... 속공(위력
+    // 0.8배"), on every hit of the player's move use in flight, as a plain multiplier next to Helping Hand
+    power.value *= getMoveStylePowerMultiplier(getActiveMoveStyle(source, this), this);
+
     power.value *= (source.getTag(BattlerTagType.SUPREME_OVERLORD) as SupremeOverlordTag | undefined)?.getBoost() ?? 1;
 
     // Local fork (2026-11-14): custom moves. Grass moves also get x1.3 from a Garden (정원), once with Grassy Terrain
@@ -1295,10 +1302,16 @@ export abstract class Move implements Localizable {
     return power.value;
   }
 
-  getPriority(user: Pokemon, simulated = true): number {
+  /**
+   * @param moveStyle - Local fork (2026-11-20): S1 move styles. The style to count (강공 -1 / 속공 +1, relative); by
+   *   default the style of `user`'s move use in flight when it is this move (`src/data/moves/move-style.ts`). The move
+   *   order passes the queued `MovePhase`'s style and Upper Hand the target's commanded one.
+   */
+  getPriority(user: Pokemon, simulated = true, moveStyle: MoveStyle = getActiveMoveStyle(user, this)): number {
     const priority = new ValueHolder(this.priority);
     applyMoveAttrs("IncrementMovePriorityAttr", user, null, this, priority);
     applyAbAttrs("ChangeMovePriorityAbAttr", { pokemon: user, simulated, move: this, priority });
+    priority.value += getMoveStylePriorityShift(moveStyle); // Local fork (2026-11-20): S1 move styles
 
     return priority.value;
   }

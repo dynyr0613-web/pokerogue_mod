@@ -57,5 +57,13 @@
   "illNeverForgetYou": "잊지 못할거야, {{pokemonName}}!",
   "untilWeMeetAgain": "다시 만날 때까지, {{pokemonName}}!",
   "sayonara": "사요나라, {{pokemonName}}!",
-  "smellYaLater": "또 보자, {{pokemonName}}!"
+  "smellYaLater": "또 보자, {{pokemonName}}!",
+  "releaseItemsQuestion": "{{pokemonName}}[[는]] 도구를 지니고 있다.\n놓아주기 전에 도구를 옮기겠습니까?",
+  "releaseItemsToCaught": "{{pokemonName}}에게 옮긴다",
+  "releaseItemsToOther": "다른 포켓몬에게 옮긴다",
+  "releaseItemsDontMove": "옮기지 않고 놓아준다",
+  "releaseItemsChooseTarget": "{{pokemonName}}의 도구를 받을\n포켓몬을 선택하세요.",
+  "releaseItemsMoved": "{{pokemonName}}에게 도구를 옮겼다!",
+  "releaseItemsOverLimit": "도구 {{amount}}개는 상한이 차서 옮길 수 없다.\n놓아주면 사라진다. 그래도 놓아주겠습니까?",
+  "releaseItemsLost": "도구 {{amount}}개는 상한이 차서 옮기지 못하고 사라졌다."
 }

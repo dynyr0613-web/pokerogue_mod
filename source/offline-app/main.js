@@ -764,7 +764,8 @@ async function runSelfTest(win) {
   let statsBefore = null;
   let markDexShot = null;
   // the menu from the command menu, opened fresh so its cursor is on its first entry (MenuOptions in
-  // menu-ui-handler.ts: 0 게임 설정, 1 업적, ... 6 증표도감, ... 9 저장하고 나가기; 로그아웃 is left out offline)
+  // menu-ui-handler.ts: 0 게임 설정, 1 업적, ... 6 증표도감, 7 전투 기록, ... 10 저장하고 나가기; 로그아웃 is left out
+  // offline; since 2026-11-20 (전투 기록, Q6) the 11 entries scroll in the menu's 10 rows, Down still walks to the last)
   const openMenuEntry = async (index, mode) => {
     const back = await backToCommand();
     if (back !== true) {
@@ -1009,7 +1010,7 @@ async function runSelfTest(win) {
     [
       "seeded-save-quit",
       async () => {
-        const opened = await openMenuEntry(9, null);
+        const opened = await openMenuEntry(10, null); // 저장하고 나가기 (9 before 전투 기록 came in, 2026-11-20)
         if (opened !== true) {
           return opened;
         }
