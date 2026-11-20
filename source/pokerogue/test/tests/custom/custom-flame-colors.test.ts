@@ -182,7 +182,7 @@ function flameClass(r: number, g: number, b: number): "flame" | "other" | "edge"
 }
 
 /** The hues a colour's flames must have (where saturated enough to have a hue) */
-const HUE_RANGES: Record<Exclude<FlameColor, "white">, [number, number]> = {
+const HUE_RANGES: Record<Exclude<FlameColor, "white" | "skywhite">, [number, number]> = {
   blue: [180, 245],
   purple: [260, 310],
   green: [70, 145],
@@ -192,11 +192,11 @@ const HUE_RANGES: Record<Exclude<FlameColor, "white">, [number, number]> = {
 
 describe("Flame colours of Fire moves 2026-11-20 (V1 / V2)", () => {
   describe("the table", () => {
-    it("gives Mega Charizard X blue, Mega Charizard Y white and other Charizard forms nothing", () => {
+    it("gives Mega Charizard X blue, Mega Charizard Y white, Mega Charizard Z sky white and other forms nothing", () => {
       expect(getSpeciesFlameColor(SpeciesId.CHARIZARD, SpeciesFormKey.MEGA_X)).toBe("blue");
       expect(getSpeciesFlameColor(SpeciesId.CHARIZARD, SpeciesFormKey.MEGA_Y)).toBe("white");
       expect(getSpeciesFlameColor(SpeciesId.CHARIZARD, "")).toBeUndefined();
-      expect(getSpeciesFlameColor(SpeciesId.CHARIZARD, SpeciesFormKey.MEGA_Z)).toBeUndefined();
+      expect(getSpeciesFlameColor(SpeciesId.CHARIZARD, SpeciesFormKey.MEGA_Z)).toBe("skywhite");
       expect(getSpeciesFlameColor(SpeciesId.CHARIZARD, SpeciesFormKey.GIGANTAMAX)).toBeUndefined();
     });
 
@@ -232,7 +232,7 @@ describe("Flame colours of Fire moves 2026-11-20 (V1 / V2)", () => {
           ).toContain(row.formKey);
         }
       }
-      expect(FLAME_COLOR_TABLE.length).toBe(8);
+      expect(FLAME_COLOR_TABLE.length).toBe(9);
     });
   });
 
@@ -270,7 +270,11 @@ describe("Flame colours of Fire moves 2026-11-20 (V1 / V2)", () => {
       expect(FLAME_RECOLOR_GRAPHICS.size).toBe(11);
     });
 
-    it("has a copy of every sheet in every colour: same size and alpha, only the flame colours changed", () => {
+    // Reads every copy pixel by pixel (55 sheets since Mega Charizard Z's sky white): ~10 s alone, past the default 20 s
+    // when the full suite shares the machine with a build (seen 11-20)
+    it("has a copy of every sheet in every colour: same size and alpha, only the flame colours changed", {
+      timeout: 60_000,
+    }, () => {
       for (const sheet of FLAME_RECOLOR_GRAPHICS) {
         const original = readPng(`${SHEETS}/${sheet}.png`);
         for (const color of FLAME_COLORS) {
@@ -306,6 +310,17 @@ describe("Flame colours of Fire moves 2026-11-20 (V1 / V2)", () => {
               expect(luma(r2, g2, b2) + 1 / 255, `${path}: lighter than ${[r, g, b]}`).toBeGreaterThanOrEqual(
                 luma(r, g, b),
               );
+            } else if (color === "skywhite") {
+              // white with a light sky-blue tint (Mega Charizard Z): pale, and sky blue where tinted at all; the tint
+              // keeps the lightest cores a shade under the original's pale yellow (0.956 for 0.963), so 0.02 is allowed
+              expect(s2, `${path}: ${[r2, g2, b2]} is pale`).toBeLessThanOrEqual(0.36);
+              expect(luma(r2, g2, b2) + 0.02, `${path}: about as light as ${[r, g, b]}`).toBeGreaterThanOrEqual(
+                luma(r, g, b),
+              );
+              if (s2 >= 0.06) {
+                expect(h2, `${path}: ${[r2, g2, b2]} is sky blue`).toBeGreaterThanOrEqual(185);
+                expect(h2, `${path}: ${[r2, g2, b2]} is sky blue`).toBeLessThanOrEqual(212);
+              }
             } else if (s2 >= 0.2) {
               hued++;
               const [lo, hi] = HUE_RANGES[color];
@@ -314,7 +329,7 @@ describe("Flame colours of Fire moves 2026-11-20 (V1 / V2)", () => {
           }
           expect(flamePixels, path).toBeGreaterThan(50);
           expect(changed, path).toBe(flamePixels);
-          if (color !== "white") {
+          if (color !== "white" && color !== "skywhite") {
             expect(inRange / hued, `${path}: share of ${color} hues`).toBeGreaterThan(0.98);
           }
         }
@@ -393,6 +408,33 @@ describe("Flame colours of Fire moves 2026-11-20 (V1 / V2)", () => {
       expect(getMoveFlameGraphicKey("PRAS- Fire", enemy, PokemonType.FIRE)).toBeUndefined();
       expect(getMoveFlameGraphicKey(undefined, megaX, PokemonType.FIRE)).toBeUndefined();
       expect(getMoveFlameGraphicKey("PRAS- Fire", megaX, undefined)).toBeUndefined();
+      // a Fire move whose type changed: no swap for Mega Charizard X (its row has no ownFireTypeToo)
+      expect(getMoveFlameGraphicKey("PRAS- Fire", megaX, PokemonType.ICE, PokemonType.FIRE)).toBeUndefined();
+    });
+
+    it("gives Mega Charizard Z's Frostfire-made Ice moves its sky white flames (the user: 흰색/약간의 하늘색)", async () => {
+      game.override
+        .ability(AbilityId.FROSTFIRE)
+        .starterForms({ [SpeciesId.CHARIZARD]: formIndex(SpeciesId.CHARIZARD, SpeciesFormKey.MEGA_Z) });
+      await game.classicMode.startBattle(SpeciesId.CHARIZARD);
+      const megaZ = game.field.getPlayerPokemon();
+      const enemy = game.field.getEnemyPokemon();
+      expect(megaZ.getFormKey()).toBe(SpeciesFormKey.MEGA_Z);
+      expect(megaZ.hasAbility(AbilityId.FROSTFIRE)).toBe(true);
+      // Frostfire: Flamethrower is used as an Ice move
+      expect(megaZ.getMoveType(allMoves[MoveId.FLAMETHROWER])).toBe(PokemonType.ICE);
+
+      await useRealAnims(MoveId.FLAMETHROWER, MoveId.OUTRAGE);
+      const flamethrower = new MoveAnim(MoveId.FLAMETHROWER, megaZ, enemy.getBattlerIndex()).withMoveType(
+        PokemonType.ICE,
+      );
+      expect(flamethrower.getFlameGraphicKey()).toBe("PRAS- Fire (skywhite)");
+      expect(getMoveFlameGraphicKey("PRAS- Fire", megaZ, PokemonType.FIRE)).toBe("PRAS- Fire (skywhite)");
+      // a move that is not Fire on its own stays as it is (Outrage draws "PRAS- Fire" too)
+      const outrage = new MoveAnim(MoveId.OUTRAGE, megaZ, enemy.getBattlerIndex()).withMoveType(PokemonType.DRAGON);
+      expect(outrage.getFlameGraphicKey()).toBeUndefined();
+      // no move type (charge / encounter animations): nothing swapped
+      expect(new MoveAnim(MoveId.FLAMETHROWER, megaZ, enemy.getBattlerIndex()).getFlameGraphicKey()).toBeUndefined();
     });
 
     it("reads a fusion's head, a transformed Pokémon's copied form and an Illusion's disguise", async () => {

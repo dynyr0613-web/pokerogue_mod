@@ -4,10 +4,11 @@
  * 정도만 흰색 변환".
  *
  * - Who: {@linkcode FLAME_COLOR_TABLE}, one row per species (or one form of it). Edit it there: any of the four
- *   {@linkcode FLAME_COLORS} works at once; a fifth colour needs its sheet copies made first (a Pillow recolour script
- *   kept outside the repository) and its name added to `FlameColor`.
+ *   {@linkcode FLAME_COLORS} works at once; a new colour needs its sheet copies made first (the Pillow recolour script
+ *   tools/port/flame_colors.py, kept outside this repository) and its name added to `FlameColor`.
  * - What: a move whose ACTUAL type (`Pokemon.getMoveType`: Weather Ball in sun, -ate abilities, Normalize, Electrify,
- *   Tera Blast... all count) is Fire, used by a Pokémon whose current species / form is in the table (a fusion: its
+ *   Tera Blast... all count) is Fire (or, for a row with `ownFireTypeToo`, whose own type is Fire: Mega Charizard Z's
+ *   Frostfire makes them Ice), used by a Pokémon whose current species / form is in the table (a fusion: its
  *   head, `Pokemon.species`; a transformed Pokémon: the form it copied; under Illusion: the disguise), draws the
  *   graphic cels of its animation from the colour copy of its sheet when the sheet is one of
  *   {@linkcode FLAME_RECOLOR_GRAPHICS}. Max / G-Max / Z Fire moves follow the same rule (Inferno Overdrive draws from
@@ -29,10 +30,10 @@ import type { Pokemon } from "#field/pokemon";
 import Phaser from "phaser";
 
 /** The flame colours that have sheet copies */
-export type FlameColor = "blue" | "white" | "purple" | "green";
+export type FlameColor = "blue" | "white" | "purple" | "green" | "skywhite";
 
 /** Every {@linkcode FlameColor}, in the order the copies were made */
-export const FLAME_COLORS: readonly FlameColor[] = Object.freeze(["blue", "white", "purple", "green"]);
+export const FLAME_COLORS: readonly FlameColor[] = Object.freeze(["blue", "white", "purple", "green", "skywhite"]);
 
 /** A row of {@linkcode FLAME_COLOR_TABLE} */
 export interface FlameColorEntry {
@@ -40,17 +41,24 @@ export interface FlameColorEntry {
   /** The form's key (`SpeciesFormKey` or the form's own); left out, the row is for every form of the species */
   readonly formKey?: string;
   readonly color: FlameColor;
+  /**
+   * Also a move whose OWN type is Fire when its type changed for this use. Mega Charizard Z's 빙염 (Frostfire) makes
+   * its Fire moves Ice moves; they still play the flame animation, and the user asked for its flames in this colour.
+   */
+  readonly ownFireTypeToo?: boolean;
 }
 
 /**
  * Who uses which flame colour. One row per species or form; a row with a `formKey` wins over the species' row.
  * Mega Charizard X: the user's example (V1). Mega Charizard Y: the user's V4 note. The user left V2's other species to
  * Claude (any row may be changed): the Litwick line, Hisuian Typhlosion and Ceruledge burn with purple flames, Alolan
- * Marowak with green ones.
+ * Marowak with green ones. Mega Charizard Z (the fork's Ice / Flying Mega): white with a light sky-blue tint, the user
+ * (2026-11-20): "메가리자몽 z의 불꽃 기술 색은 흰색/약간의 하늘색 으로 해둡시다".
  */
 export const FLAME_COLOR_TABLE: readonly FlameColorEntry[] = Object.freeze([
   { species: SpeciesId.CHARIZARD, formKey: SpeciesFormKey.MEGA_X, color: "blue" },
   { species: SpeciesId.CHARIZARD, formKey: SpeciesFormKey.MEGA_Y, color: "white" },
+  { species: SpeciesId.CHARIZARD, formKey: SpeciesFormKey.MEGA_Z, color: "skywhite", ownFireTypeToo: true },
   { species: SpeciesId.LITWICK, color: "purple" },
   { species: SpeciesId.LAMPENT, color: "purple" },
   { species: SpeciesId.CHANDELURE, color: "purple" },
@@ -87,8 +95,8 @@ export function getFlameGraphicKey(graphic: string, color: FlameColor): string {
   return `${graphic} (${color})`;
 }
 
-/** The flame colour of `species` in the form `formKey`, or `undefined` for orange flames */
-export function getSpeciesFlameColor(species: SpeciesId, formKey: string): FlameColor | undefined {
+/** The {@linkcode FLAME_COLOR_TABLE} row of `species` in the form `formKey`, or `undefined` for orange flames */
+export function getSpeciesFlameEntry(species: SpeciesId, formKey: string): FlameColorEntry | undefined {
   let speciesRow: FlameColorEntry | undefined;
   for (const row of FLAME_COLOR_TABLE) {
     if (row.species !== species) {
@@ -97,10 +105,15 @@ export function getSpeciesFlameColor(species: SpeciesId, formKey: string): Flame
     if (row.formKey === undefined) {
       speciesRow ??= row;
     } else if (row.formKey === formKey) {
-      return row.color;
+      return row;
     }
   }
-  return speciesRow?.color;
+  return speciesRow;
+}
+
+/** The flame colour of `species` in the form `formKey`, or `undefined` for orange flames */
+export function getSpeciesFlameColor(species: SpeciesId, formKey: string): FlameColor | undefined {
+  return getSpeciesFlameEntry(species, formKey)?.color;
 }
 
 /**
@@ -109,24 +122,36 @@ export function getSpeciesFlameColor(species: SpeciesId, formKey: string): Flame
  * flames.
  */
 export function getPokemonFlameColor(pokemon: Pokemon): FlameColor | undefined {
+  return getPokemonFlameEntry(pokemon)?.color;
+}
+
+/** The {@linkcode FLAME_COLOR_TABLE} row of `pokemon` as it looks now (see {@linkcode getPokemonFlameColor}) */
+export function getPokemonFlameEntry(pokemon: Pokemon): FlameColorEntry | undefined {
   const form = pokemon.getSpeciesForm(false, true);
-  return getSpeciesFlameColor(form.speciesId, form.getFormKey());
+  return getSpeciesFlameEntry(form.speciesId, form.getFormKey());
 }
 
 /**
  * The colour copy a move animation drawing `graphic` uses when `user` uses it as a `moveType` move, or `undefined` for
- * the original sheet
+ * the original sheet. `ownType`, the move's own type, counts for a row with `ownFireTypeToo` (Mega Charizard Z's
+ * Frostfire turns its Fire moves into Ice moves).
  */
 export function getMoveFlameGraphicKey(
   graphic: string | undefined,
   user: Pokemon | null | undefined,
   moveType: PokemonType | undefined,
+  ownType?: PokemonType,
 ): string | undefined {
-  if (!graphic || !user || moveType !== PokemonType.FIRE || !FLAME_RECOLOR_GRAPHICS.has(graphic)) {
+  if (!graphic || !user || !FLAME_RECOLOR_GRAPHICS.has(graphic)) {
     return;
   }
-  const color = getPokemonFlameColor(user);
-  return color ? getFlameGraphicKey(graphic, color) : undefined;
+  const row = getPokemonFlameEntry(user);
+  if (!row) {
+    return;
+  }
+  const isFire =
+    moveType === PokemonType.FIRE || (!!row.ownFireTypeToo && moveType != null && ownType === PokemonType.FIRE);
+  return isFire ? getFlameGraphicKey(graphic, row.color) : undefined;
 }
 
 /** Queues the copy `key` the way `loadAnimAssets` queues a sheet (96x96 frames); the caller starts the loader */

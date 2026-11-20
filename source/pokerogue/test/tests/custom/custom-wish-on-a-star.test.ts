@@ -2,6 +2,7 @@ import type { BattleScene } from "#app/battle-scene";
 import { CLASSIC_MODE_MYSTERY_ENCOUNTER_WAVES } from "#app/constants";
 import { getGameMode } from "#app/game-mode";
 import { speciesDataRegistry } from "#app/global-species-data-registry";
+import { AnimConfig, commonAnims } from "#data/battle-anims";
 import { allAbilities, allMoves, modifierTypes } from "#data/data-lists";
 import { AbilityId } from "#enums/ability-id";
 import { BattlerTagType } from "#enums/battler-tag-type";
@@ -9,6 +10,7 @@ import { BiomeId } from "#enums/biome-id";
 import { Button } from "#enums/buttons";
 import { GameModes } from "#enums/game-modes";
 import { ModifierTier } from "#enums/modifier-tier";
+import { CommonAnim } from "#enums/move-anims-common";
 import { MoveId } from "#enums/move-id";
 import { MysteryEncounterOptionMode } from "#enums/mystery-encounter-option-mode";
 import { MysteryEncounterTier } from "#enums/mystery-encounter-tier";
@@ -31,14 +33,20 @@ import {
   getWishOnAStarCandiesHeld,
   getWishOnAStarCandyRoom,
   getWishOnAStarCandyStep,
+  getWishOnAStarSleepEffect,
+  getWishOnAStarSleepLettersY,
+  getWishOnAStarSleepSteps,
   getWishOnAStarWakeSound,
   getWishOnAStarWealthMoney,
   getWishOnAStarWishMoveHolder,
+  isWishOnAStarIntroAsleep,
   rollWishOnAStarCandies,
   WISH_ON_A_STAR_ANGRY_STATS,
   WISH_ON_A_STAR_BOSS_MOVES,
   WISH_ON_A_STAR_POWER_BONUS_STATS,
   WISH_ON_A_STAR_POWER_STATS,
+  WISH_ON_A_STAR_SLEEP_REST_STEPS,
+  WISH_ON_A_STAR_SLEEP_TOP_ROOM,
   WISH_ON_A_STAR_SONG_MOVES,
   WISH_ON_A_STAR_SOUND_MOVES,
   WISH_ON_A_STAR_WAKE_ABILITIES,
@@ -64,10 +72,11 @@ import { ModifierSelectUiHandler } from "#ui/modifier-select-ui-handler";
 import type { MysteryEncounterUiHandler } from "#ui/mystery-encounter-ui-handler";
 import type { OptionSelectUiHandler } from "#ui/option-select-ui-handler";
 import type { PartyUiHandler } from "#ui/party-ui-handler";
+import { getFrameMs } from "#utils/common";
 import { getEnumValues } from "#utils/enums";
 import i18next from "i18next";
 import Phaser from "phaser";
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
 const namespace = "mysteryEncounters/wishOnAStar";
 const defaultParty = [SpeciesId.LAPRAS, SpeciesId.GENGAR, SpeciesId.ABRA];
@@ -76,6 +85,16 @@ const defaultWave = 45;
 const ALL_31: [number, number, number, number, number, number] = [31, 31, 31, 31, 31, 31];
 const koFiles = import.meta.glob("../../../locales/ko/**/*.json", { eager: true, import: "default" });
 const dialogueFiles = import.meta.glob("../../../locales/*/mystery-encounters/wish-on-a-star-dialogue.json", {
+  eager: true,
+  import: "default",
+});
+/** The game's sleep status animation (the tests' fetch serves no animation files) */
+const sleepAnimFiles = import.meta.glob("../../../assets/battle-anims/common-sleep.json", {
+  eager: true,
+  import: "default",
+});
+/** Jirachi's front sprite atlas (its frame height places the letters) */
+const jirachiAtlasFiles = import.meta.glob("../../../assets/images/pokemon/385.json", {
   eager: true,
   import: "default",
 });
@@ -234,12 +253,13 @@ describe("Custom mystery encounter - Wish on a Star (WISH_ON_A_STAR)", () => {
       expect(WishOnAStarEncounter.dialogue.encounterOptionsDialogue?.description).toBe(`${namespace}:description`);
       expect(WishOnAStarEncounter.dialogue.encounterOptionsDialogue?.query).toBe(`${namespace}:query`);
 
-      // the existing Jirachi sprite, held still while it sleeps
+      // the existing Jirachi sprite, held still while it sleeps; its idle animation loops once it wakes
       expect(WishOnAStarEncounter.spriteConfigs).toHaveLength(1);
       expect(WishOnAStarEncounter.spriteConfigs[0]).toMatchObject({
         species: SpeciesId.JIRACHI,
         hasShadow: true,
         disableAnimation: true,
+        repeat: true,
       });
 
       expect(i18next.t(`${namespace}:title`)).toBe("Wish on a Star");
@@ -659,6 +679,210 @@ describe("Custom mystery encounter - Wish on a Star (WISH_ON_A_STAR)", () => {
       expect(newPhase.mock.calls.some(([name]) => name === "SelectModifierPhase")).toBe(false);
       expect(scene.money).toBe(money);
       expect(party.flatMap(p => p.getHeldItems())).toHaveLength(0);
+    });
+  });
+
+  /**
+   * Local fork (2026-11-20), the user: "조우 화면에서 지라치 자는 스프라이트 있으면 그거 넣어두고, 깨우면 깬 모습이 보이게
+   * 바꿔두고". No sleeping Jirachi sprite exists in the art the fork may use, so the intro holds the sprite still under
+   * the letters of the game's sleep status animation; options 1 and 2 wake it (its idle animation plays, the letters
+   * stop), option 3 leaves it asleep.
+   */
+  describe("intro - asleep, then awake", () => {
+    const sleepJson = sleepAnimFiles["../../../assets/battle-anims/common-sleep.json"];
+    let sleepAnim: AnimConfig;
+    /** The letters' counter tweens, in order, as stand-ins with a `remove` spy */
+    let sleepTweens: { config: Phaser.Types.Tweens.NumberTweenBuilderConfig; remove: Mock }[];
+
+    beforeEach(() => {
+      expect(sleepJson).toBeDefined();
+      sleepAnim = new AnimConfig(structuredClone(sleepJson));
+      const getAnim = commonAnims.get.bind(commonAnims);
+      vi.spyOn(commonAnims, "get").mockImplementation(anim => (anim === CommonAnim.SLEEP ? sleepAnim : getAnim(anim)));
+      // the graphic, loaded with the other common animations in the game
+      const exists = scene.textures.exists.bind(scene.textures);
+      vi.spyOn(scene.textures, "exists").mockImplementation(key => key === sleepAnim.graphic || exists(key));
+      sleepTweens = [];
+      const addCounter = scene.tweens.addCounter.bind(scene.tweens);
+      vi.spyOn(scene.tweens, "addCounter").mockImplementation(config => {
+        if (config.repeat === -1 && config.duration === getFrameMs(3)) {
+          const tween = { config, remove: vi.fn() };
+          sleepTweens.push(tween);
+          return tween as unknown as Phaser.Tweens.Tween;
+        }
+        return addCounter(config);
+      });
+    });
+
+    const visualsOf = () => scene.currentBattle.mysteryEncounter!.introVisuals!;
+    const frames = (sprites: readonly Phaser.GameObjects.Sprite[]) => sprites.map(s => (s as any).frame);
+    /** Whether a mocked container or sprite is shown (the sprite mock keeps it on its Phaser sprite) */
+    const shown = (obj: Phaser.GameObjects.GameObject) =>
+      ((obj as any).phaserSprite?.visible ?? (obj as any).visible) as boolean;
+
+    it("steps through the sleep animation's letters, then rests", () => {
+      expect(sleepAnim.graphic).toBe("PRAS- Status");
+      expect(sleepAnim.frames).toHaveLength(17);
+      const steps = getWishOnAStarSleepSteps();
+      expect(WISH_ON_A_STAR_SLEEP_REST_STEPS).toBe(10);
+      expect(steps).toHaveLength(17 + WISH_ON_A_STAR_SLEEP_REST_STEPS);
+      // a small z from the middle of the Pokémon, as in battle
+      expect(steps[0]).toEqual([{ x: 20, y: -32, frame: 17, alpha: 200 / 255 }]);
+      // the big Z with its faint copy a pixel lower
+      expect(steps[2]).toEqual([
+        { x: 28, y: -39, frame: 18, alpha: 150 / 255 },
+        { x: 28, y: -40, frame: 18, alpha: 1 },
+      ]);
+      expect(steps.slice(17).every(step => step.length === 0)).toBe(true);
+    });
+
+    // Review (2026-11-20): from the middle of the 1.25x Jirachi the highest big Z went past the top of the screen
+    it("keeps the highest letter on the screen", async () => {
+      const steps = getWishOnAStarSleepSteps();
+      const highest = Math.min(...steps.flat().map(letter => letter.y));
+      expect(highest).toBe(-40);
+      // the big Z's glyph reaches 5 pixels above its middle (rows 43-52 of its 96-pixel cell)
+      const glyphTop = 5;
+
+      await startEncounter();
+      const visualsY = visualsOf().y;
+      expect(visualsY).toBe(76);
+      const atlas = jirachiAtlasFiles["../../../assets/images/pokemon/385.json"] as any;
+      const frame = atlas.textures[0].frames.find((f: any) => f.filename === "0001.png");
+      const { scale, y } = WishOnAStarEncounter.spriteConfigs[0];
+      const middle = y! - (frame.sourceSize.h * scale!) / 2;
+      // from the middle as in battle, the top of the Z was above the screen
+      expect(visualsY + middle + highest - glyphTop).toBeLessThan(0);
+
+      const lettersY = getWishOnAStarSleepLettersY(middle, visualsY, steps);
+      expect(lettersY).toBe(WISH_ON_A_STAR_SLEEP_TOP_ROOM - highest - visualsY);
+      expect(visualsY + lettersY + highest - glyphTop).toBe(1);
+      // lowered only that far (3.375 pixels)
+      expect(lettersY).toBeGreaterThan(middle);
+      expect(lettersY - middle).toBeLessThan(4);
+      // a middle low enough already stays as in battle
+      expect(getWishOnAStarSleepLettersY(-20, visualsY, steps)).toBe(-20);
+    });
+
+    it("shows nothing over it while the animation is not loaded", async () => {
+      vi.mocked(commonAnims.get).mockImplementation(() => new AnimConfig());
+      expect(getWishOnAStarSleepSteps()).toEqual([]);
+      await startEncounter();
+      expect(isWishOnAStarIntroAsleep(visualsOf())).toBe(true);
+      expect(getWishOnAStarSleepEffect(visualsOf())).toBeUndefined();
+      expect(sleepTweens).toHaveLength(0);
+    });
+
+    it("shows Jirachi asleep: held still, the letters looping over it", async () => {
+      await startEncounter();
+      const visuals = visualsOf();
+      expect(isWishOnAStarIntroAsleep(visuals)).toBe(true);
+      expect(visuals.spriteConfigs[0]).toMatchObject({ disableAnimation: true, repeat: true });
+      const effect = getWishOnAStarSleepEffect(visuals)!;
+      expect(effect).toBeDefined();
+      expect(visuals.exists(effect.letters)).toBe(true);
+      expect(shown(effect.letters)).toBe(true);
+      expect(effect.sprites).toHaveLength(2);
+      expect(frames(effect.sprites)[0]).toBe(17);
+      expect(effect.sprites.map(shown)).toEqual([true, false]);
+
+      // one loop, stepping 3 frames at a time like the battle animations, back to the start after the rest
+      expect(sleepTweens).toHaveLength(1);
+      const [{ config }] = sleepTweens;
+      config.onRepeat!({} as any, {} as any, "value" as any, 0, 0);
+      config.onRepeat!({} as any, {} as any, "value" as any, 0, 0);
+      expect(frames(effect.sprites)).toEqual([18, 18]);
+      expect(effect.sprites.map(shown)).toEqual([true, true]);
+      for (let i = 2; i < 17; i++) {
+        config.onRepeat!({} as any, {} as any, "value" as any, 0, 0);
+      }
+      expect(effect.sprites.map(shown)).toEqual([false, false]);
+      for (let i = 0; i < WISH_ON_A_STAR_SLEEP_REST_STEPS; i++) {
+        config.onRepeat!({} as any, {} as any, "value" as any, 0, 0);
+      }
+      expect(frames(effect.sprites)[0]).toBe(17);
+      expect(effect.sprites.map(shown)).toEqual([true, false]);
+
+      // gone with the intro: the loop removes itself
+      (effect.letters as any).active = false;
+      config.onRepeat!({} as any, {} as any, "value" as any, 0, 0);
+      expect(sleepTweens[0].remove).toHaveBeenCalledTimes(1);
+      expect(effect.counter).toBeUndefined();
+    });
+
+    it("wakes as option 1's wish menu opens, and sleeps again when the menu is cancelled", async () => {
+      await startEncounter();
+      const visuals = visualsOf();
+      const effect = getWishOnAStarSleepEffect(visuals)!;
+      const playAnim = vi.spyOn(visuals, "playAnim");
+      const initSprite = vi.spyOn(visuals, "initSprite");
+
+      await runSelectMysteryEncounterOption(game, 1);
+      await vi.waitFor(() => expect(optionLabels()).toContain(wishLabel("power")));
+      expect(logsInclude("woke Jirachi!")).toBe(true);
+      expect(isWishOnAStarIntroAsleep(visuals)).toBe(false);
+      expect(playAnim).toHaveBeenCalledTimes(1);
+      expect(sleepTweens[0].remove).toHaveBeenCalledTimes(1);
+      expect(effect.counter).toBeUndefined();
+      expect(shown(effect.letters)).toBe(false);
+
+      await pick(i18next.t("menu:cancel"));
+      await vi.waitFor(() => expect(scene.ui.mode).toBe(UiMode.MYSTERY_ENCOUNTER));
+      expect(isWishOnAStarIntroAsleep(visuals)).toBe(true);
+      expect(initSprite).toHaveBeenCalledTimes(1);
+      expect(getWishOnAStarSleepEffect(visuals)).toBe(effect);
+      expect(shown(effect.letters)).toBe(true);
+      expect(sleepTweens).toHaveLength(2);
+      expect(effect.counter).toBe(sleepTweens[1]);
+    });
+
+    it("stays awake through a wish, and the wish and its end are unchanged", async () => {
+      await startEncounter();
+      const visuals = visualsOf();
+      const playAnim = vi.spyOn(visuals, "playAnim");
+      const money = scene.money;
+
+      await makeWish("wealth");
+
+      expect(isWishOnAStarIntroAsleep(visuals)).toBe(false);
+      expect(playAnim).toHaveBeenCalledTimes(1);
+      expect(scene.money).toBe(money + getWishOnAStarWealthMoney(false));
+      expect(logsInclude("falls back into a deep sleep")).toBe(true);
+    });
+
+    it("wakes as option 2 is picked, before the boss battle, which starts as before", async () => {
+      await startEncounter();
+      const visuals = visualsOf();
+      const effect = getWishOnAStarSleepEffect(visuals)!;
+      const playAnim = vi.spyOn(visuals, "playAnim");
+      const battle = vi.spyOn(EncounterPhaseUtils, "initBattleWithEnemyConfig");
+
+      await runMysteryEncounterToEnd(game, 2, undefined, true);
+
+      expect(isWishOnAStarIntroAsleep(visuals)).toBe(false);
+      expect(playAnim).toHaveBeenCalledTimes(1);
+      expect(battle).toHaveBeenCalledTimes(1);
+      expect(playAnim.mock.invocationCallOrder[0]).toBeLessThan(battle.mock.invocationCallOrder[0]);
+      expect(sleepTweens[0].remove).toHaveBeenCalledTimes(1);
+      expect(shown(effect.letters)).toBe(false);
+      expect(game).toBeAtPhase("CommandPhase");
+      const [jirachi] = scene.getEnemyField();
+      expect(jirachi.species.speciesId).toBe(SpeciesId.JIRACHI);
+      expect(jirachi.isBoss()).toBe(true);
+    });
+
+    it("stays asleep with option 3", async () => {
+      await startEncounter();
+      const visuals = visualsOf();
+      const playAnim = vi.spyOn(visuals, "playAnim");
+
+      await runMysteryEncounterToEnd(game, 3);
+
+      expect(isWishOnAStarIntroAsleep(visuals)).toBe(true);
+      expect(playAnim).not.toHaveBeenCalled();
+      // the loop stops itself once the intro is gone
+      expect(sleepTweens).toHaveLength(1);
+      expect(sleepTweens[0].remove).not.toHaveBeenCalled();
     });
   });
 

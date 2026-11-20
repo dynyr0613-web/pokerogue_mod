@@ -18,6 +18,7 @@ import {
   getValueReductionCandyCounts,
   POKERUS_STARTER_COUNT,
 } from "#balance/starters";
+import { EGG_LIMIT } from "#constants/egg-limit";
 import { getStarterAlphaBoost, normalizeAlphaBoost } from "#data/alpha-pokemon";
 import { allAbilities, allMoves } from "#data/data-lists";
 import { Egg } from "#data/egg";
@@ -2226,7 +2227,8 @@ export class StarterSelectUiHandler extends MessageUiHandler {
         label: `×${sameSpeciesEggCost} ${i18next.t("starterSelectUiHandler:sameSpeciesEgg")}`,
         handler: () => {
           if (activeOverrides.FREE_CANDY_UPGRADE_OVERRIDE || candyCount >= sameSpeciesEggCost) {
-            if (globalScene.gameData.eggs.length >= 99 && !activeOverrides.UNLIMITED_EGG_COUNT_OVERRIDE) {
+            // Local fork (2026-11-20): the shared cap, 999 Eggs ("알 최대 갯수를 늘리고")
+            if (globalScene.gameData.eggs.length >= EGG_LIMIT && !activeOverrides.UNLIMITED_EGG_COUNT_OVERRIDE) {
               // Egg list full, show error message at the top of the screen and abort
               this.showText(
                 i18next.t("egg:tooManyEggs"),

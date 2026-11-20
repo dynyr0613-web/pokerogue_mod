@@ -9,10 +9,12 @@
 import { CLASSIC_MODE_MYSTERY_ENCOUNTER_WAVES } from "#app/constants";
 import { globalScene } from "#app/global-scene";
 import { speciesDataRegistry } from "#app/global-species-data-registry";
+import { commonAnims } from "#data/battle-anims";
 import { allAbilities, allMoves, modifierTypes } from "#data/data-lists";
 import { AbilityId } from "#enums/ability-id";
 import { BattlerTagType } from "#enums/battler-tag-type";
 import { ModifierTier } from "#enums/modifier-tier";
+import { AnimFrameTarget, CommonAnim } from "#enums/move-anims-common";
 import { MoveId } from "#enums/move-id";
 import { MysteryEncounterOptionMode } from "#enums/mystery-encounter-option-mode";
 import { MysteryEncounterTier } from "#enums/mystery-encounter-tier";
@@ -20,6 +22,7 @@ import { MysteryEncounterType } from "#enums/mystery-encounter-type";
 import { SpeciesId } from "#enums/species-id";
 import { PERMANENT_STATS, type PermanentStat, Stat } from "#enums/stat";
 import { UiMode } from "#enums/ui-mode";
+import type { MysteryEncounterIntroVisuals } from "#field/mystery-encounter-intro";
 import type { PlayerPokemon, Pokemon } from "#field/pokemon";
 import type { PokemonHeldItemModifier } from "#modifiers/modifier";
 import type { PokemonHeldItemModifierType } from "#modifiers/modifier-type";
@@ -39,9 +42,10 @@ import { MysteryEncounterOptionBuilder } from "#mystery-encounters/mystery-encou
 import { EncounterPokemonRequirement } from "#mystery-encounters/mystery-encounter-requirements";
 import type { OptionSelectItem, OptionSelectModeConfig } from "#types/ui-types";
 import type { PokemonSelectFilter } from "#ui/party-ui-handler";
-import { randSeedShuffle } from "#utils/common";
+import { getFrameMs, randSeedShuffle } from "#utils/common";
 import { groupStatChange } from "#utils/stat-change";
 import i18next from "i18next";
+import type Phaser from "phaser";
 
 /** the i18n namespace for the encounter */
 const namespace = "mysteryEncounters/wishOnAStar";
@@ -283,6 +287,175 @@ async function giveWishOnAStarCandies(pokemon: PlayerPokemon, gifts: readonly Wi
   await globalScene.updateModifiers(true);
 }
 
+/*
+ * Local fork (2026-11-20): the intro's sleeping and awake looks. The user: "조우 화면에서 지라치 자는 스프라이트 있으면
+ * 그거 넣어두고, 깨우면 깬 모습이 보이게 바꿔두고". No sleeping Jirachi sprite exists in the art the fork may use
+ * (searched 11-20: the fork's assets, upstream pokerogue-assets, Essentials, PokéSprite, PKHeX, CFRU, Cobblemon), so it
+ * sleeps with the game's own art: the Jirachi sprite held still, with the "z" letters of the sleep status animation
+ * (CommonAnim.SLEEP on "PRAS- Status", the same frames and offsets a sleeping Pokémon gets in battle) rising over it in
+ * a loop. Awake, its idle animation plays and the letters stop. Its brightness stays: the intro text finds it shining.
+ */
+
+/** Empty steps after each play of the sleep animation's letters, so they rise in calm puffs (a step is 3 frames) */
+export const WISH_ON_A_STAR_SLEEP_REST_STEPS = 10;
+
+/**
+ * Review (2026-11-20): field pixels from the top of the screen to the middle of the highest letter. The intro stands
+ * higher than a battler (y 76, feet at 72) and draws Jirachi 1.25x, so from its middle the animation's highest big Z
+ * (40 up, its glyph 5 above its own middle) went past the top of the screen (its top at y -2.4); 6 keeps a pixel clear.
+ */
+export const WISH_ON_A_STAR_SLEEP_TOP_ROOM = 6;
+
+/** One letter of a sleep step: offset from the middle of the Jirachi sprite, frame of the graphic, opacity */
+export interface WishOnAStarSleepLetter {
+  readonly x: number;
+  readonly y: number;
+  readonly frame: number;
+  readonly alpha: number;
+}
+
+/**
+ * Where the letters' middle goes inside the intro (y): the middle of the Jirachi sprite as in battle, lowered only as
+ * far as needed for the highest letter of `steps` to stay on the screen with the intro at `visualsY`.
+ */
+export function getWishOnAStarSleepLettersY(
+  spriteMiddleY: number,
+  visualsY: number,
+  steps: readonly (readonly WishOnAStarSleepLetter[])[],
+): number {
+  const highest = Math.min(0, ...steps.flat().map(letter => letter.y));
+  return Math.max(spriteMiddleY, WISH_ON_A_STAR_SLEEP_TOP_ROOM - highest - visualsY);
+}
+
+/** The letters over one intro, kept to stop them when Jirachi wakes and to restart them if it sleeps again */
+export interface WishOnAStarSleepEffect {
+  readonly letters: Phaser.GameObjects.Container;
+  readonly sprites: readonly Phaser.GameObjects.Sprite[];
+  counter: Phaser.Tweens.Tween | undefined;
+}
+
+const sleepEffects = new WeakMap<MysteryEncounterIntroVisuals, WishOnAStarSleepEffect>();
+
+/**
+ * The steps of the letters over the sleeping Jirachi: each frame of the sleep status animation (its graphic's visible
+ * letters, placed from the Pokémon's middle as in battle), then {@linkcode WISH_ON_A_STAR_SLEEP_REST_STEPS} empty
+ * ones. Empty while the animation is not loaded.
+ */
+export function getWishOnAStarSleepSteps(): WishOnAStarSleepLetter[][] {
+  const anim = commonAnims.get(CommonAnim.SLEEP);
+  if (!anim?.graphic || anim.frames.length === 0) {
+    return [];
+  }
+  const steps = anim.frames.map(frame =>
+    frame
+      .filter(f => f.target === AnimFrameTarget.GRAPHIC && f.visible)
+      .map(f => ({ x: f.x, y: f.y, frame: f.graphicFrame, alpha: f.opacity / 255 })),
+  );
+  return [...steps, ...Array.from({ length: WISH_ON_A_STAR_SLEEP_REST_STEPS }, () => [])];
+}
+
+/** The letters shown over `visuals`, once they have started */
+export function getWishOnAStarSleepEffect(visuals: MysteryEncounterIntroVisuals): WishOnAStarSleepEffect | undefined {
+  return sleepEffects.get(visuals);
+}
+
+/** Whether `visuals` show Jirachi asleep: held still, its animation disabled */
+export function isWishOnAStarIntroAsleep(visuals: MysteryEncounterIntroVisuals): boolean {
+  return visuals.spriteConfigs[0]?.disableAnimation === true;
+}
+
+/** Shows the letters of one step and hides the sprites it doesn't use */
+function showSleepStep(effect: WishOnAStarSleepEffect, step: readonly WishOnAStarSleepLetter[]): void {
+  effect.sprites.forEach((sprite, i) => {
+    const letter = step[i];
+    if (letter) {
+      sprite.setFrame(letter.frame).setPosition(letter.x, letter.y).setAlpha(letter.alpha).setVisible(true);
+    } else {
+      sprite.setVisible(false);
+    }
+  });
+}
+
+/** Stops the letters over `visuals` and hides them */
+function stopSleepEffect(visuals: MysteryEncounterIntroVisuals): void {
+  const effect = sleepEffects.get(visuals);
+  if (!effect) {
+    return;
+  }
+  effect.counter?.remove();
+  effect.counter = undefined;
+  effect.letters.setVisible(false);
+}
+
+/**
+ * Starts the letters over the sleeping Jirachi of `visuals`, looping by a counter tween as the battle animations
+ * step (3 frames a step); nothing while the animation or its graphic is not loaded. They stop with the intro.
+ */
+function startSleepEffect(visuals: MysteryEncounterIntroVisuals): void {
+  const anim = commonAnims.get(CommonAnim.SLEEP);
+  const steps = getWishOnAStarSleepSteps();
+  if (!anim || steps.length === 0 || !globalScene.textures.exists(anim.graphic)) {
+    return;
+  }
+  let effect = sleepEffects.get(visuals);
+  if (effect) {
+    stopSleepEffect(visuals);
+  } else {
+    // in front of Jirachi, from the middle of its sprite (origin at its feet), kept below the top of the screen
+    const [jirachi] = visuals.getSpriteAtIndex(0);
+    const middle = jirachi.y - (jirachi.displayHeight || 0) / 2;
+    const letters = globalScene.add.container(jirachi.x, getWishOnAStarSleepLettersY(middle, visuals.y, steps));
+    const sprites = Array.from({ length: Math.max(...steps.map(s => s.length)) }, () =>
+      globalScene.addFieldSprite(0, 0, anim.graphic, 0).setVisible(false),
+    );
+    letters.add(sprites);
+    visuals.add(letters);
+    effect = { letters, sprites, counter: undefined };
+    sleepEffects.set(visuals, effect);
+  }
+  const running = effect;
+  let index = 0;
+  running.letters.setVisible(true);
+  showSleepStep(running, steps[0]);
+  running.counter = globalScene.tweens.addCounter({
+    duration: getFrameMs(3),
+    repeat: -1,
+    onRepeat: () => {
+      // destroyed with the intro (option 3 leaves Jirachi asleep)
+      if (!running.letters.active) {
+        running.counter?.remove();
+        running.counter = undefined;
+        return;
+      }
+      index = (index + 1) % steps.length;
+      showSleepStep(running, steps[index]);
+    },
+  });
+}
+
+/**
+ * Wakes the intro's Jirachi (`awake`: its idle animation plays, the letters stop) or puts it back to sleep (held still
+ * on its first frame, the letters again). Option 1 wakes it as the wish menu opens (its cancel puts it back to sleep),
+ * option 2 as it is picked; option 3 leaves it asleep. Nothing without the intro or when it is already so.
+ */
+export function setWishOnAStarIntroAwake(awake: boolean): void {
+  const visuals = globalScene.currentBattle.mysteryEncounter?.introVisuals;
+  if (!visuals || isWishOnAStarIntroAsleep(visuals) === !awake) {
+    return;
+  }
+  visuals.spriteConfigs[0].disableAnimation = !awake;
+  if (awake) {
+    stopSleepEffect(visuals);
+    visuals.playAnim();
+  } else {
+    for (const sprite of visuals.getSpriteAtIndex(0)) {
+      sprite.anims.stop();
+    }
+    visuals.initSprite();
+    startSleepEffect(visuals);
+  }
+}
+
 /**
  * Option 1's menu after the Jirachi wakes: wealth, power (then the Pokémon; left out while nobody can take a candy),
  * health, cancel. Resolves `true` with the pick in `encounter.misc` ({@linkcode WishOnAStarMisc}); cancel goes back to
@@ -333,6 +506,8 @@ function selectJirachiWish(): Promise<boolean> {
       options.push({
         label: i18next.t("menu:cancel"),
         handler: () => {
+          // Local fork (2026-11-20): back to the options, so asleep again (option 3 leaves it sleeping)
+          setWishOnAStarIntroAwake(false);
           globalScene.ui.clearText();
           globalScene.ui.setMode(modeToSetOnExit);
           resolve(false);
@@ -346,6 +521,8 @@ function selectJirachiWish(): Promise<boolean> {
       globalScene.ui.setMode(UiMode.MESSAGE).then(async () => {
         if (!woken) {
           woken = true;
+          // Local fork (2026-11-20): the song wakes it ("깨우면 깬 모습이 보이게"): it moves from the wake-up text on
+          setWishOnAStarIntroAwake(true);
           await showEncounterText(`${namespace}:wishPrompt`);
         }
         const config: OptionSelectModeConfig = { options, maxOptions: 7, yOffset: 48 };
@@ -463,6 +640,7 @@ function getWishOnAStarBossConfig(): EnemyPartyConfig {
  * 2. Shake it awake: a boss battle against an angry Jirachi with +1 to every stat; it can be caught. Won: a Rogue item,
  *    then ordinary rewards.
  * 3. Leave.
+ * The intro shows it asleep (held still, the sleep letters over it) and awake after options 1 and 2 (it moves).
  * ROGUE tier, the usual encounter waves (no last wave in Endless), in Space only.
  */
 export const WishOnAStarEncounter: MysteryEncounter = MysteryEncounterBuilder.withEncounterType(
@@ -475,12 +653,14 @@ export const WishOnAStarEncounter: MysteryEncounter = MysteryEncounterBuilder.wi
   .withFleeAllowed(false)
   .withIntroSpriteConfigs([
     {
-      // the existing Jirachi art, held still while it sleeps
+      // the existing Jirachi art, held still while it sleeps (with the sleep letters, `startSleepEffect`); its idle
+      // animation loops once it wakes (`setWishOnAStarIntroAwake`)
       species: SpeciesId.JIRACHI,
       spriteKey: "",
       fileRoot: "",
       hasShadow: true,
       disableAnimation: true,
+      repeat: true,
       scale: 1.25,
       y: -4,
     },
@@ -499,6 +679,14 @@ export const WishOnAStarEncounter: MysteryEncounter = MysteryEncounterBuilder.wi
     encounter.enemyPartyConfigs = [getWishOnAStarBossConfig()];
     encounter.setDialogueToken("wishMoveName", allMoves[MoveId.WISH].name);
     encounter.setDialogueToken("healingWishMoveName", allMoves[MoveId.HEALING_WISH].name);
+    return true;
+  })
+  .withOnVisualsStart(() => {
+    // Local fork (2026-11-20): asleep once the field has slid in (the intro isn't shiny: no sparkles to keep)
+    const visuals = globalScene.currentBattle.mysteryEncounter?.introVisuals;
+    if (visuals && isWishOnAStarIntroAsleep(visuals)) {
+      startSleepEffect(visuals);
+    }
     return true;
   })
   .withOption(
@@ -541,6 +729,12 @@ export const WishOnAStarEncounter: MysteryEncounter = MysteryEncounterBuilder.wi
             text: `${namespace}:option.2.selected`,
           },
         ],
+      })
+      .withPreOptionPhase(async () => {
+        // Local fork (2026-11-20): shaken awake as it is picked, so it moves through the option's text before the
+        // intro hides and the battle starts
+        setWishOnAStarIntroAwake(true);
+        return true;
       })
       .withOptionPhase(async () => {
         // The intro is already hidden (auto-hide); the official Slumbering Snorlax's battle start

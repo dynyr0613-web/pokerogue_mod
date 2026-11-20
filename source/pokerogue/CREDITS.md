@@ -869,7 +869,7 @@ and [everyone else](https://github.com/pagefaultgames/pokerogue/graphs/contribut
   (`assets/images/battle_anims/PRAS- Swords Dance (Max).png`) is the sword of `PRAS- Swords Dance + Signal Beam.png`
   with its two colours swapped for Dynamax red and magenta; the drawing is the Pokémon Reborn Team's. Terms: Pokémon
   Reborn's "credit what you borrow" (`assets/LICENSES/LicenseRef-POKEMON-REBORN.txt`).
-- Local fork (2026-11-20), flame colours of Fire moves (blue, white, purple and green, for Pokémon whose flames are
+- Local fork (2026-11-20), flame colours of Fire moves (blue, white, purple, green and sky white, for Pokémon whose flames are
   not orange): `assets/images/battle_anims/<sheet> (<colour>).png` are copies of nine Pokémon Reborn PRAS sheets
   (`PRAS- Fire`, `Eruption`, `Fire Spin`, `Magma Storm`, `Shell Trap`, `Fusion Flare`, `Elemental Punch`,
   `Elemental Fangs`, `Blaze Kick`; credited above under "Move Animations") and of the CFRU `Max Flare` and

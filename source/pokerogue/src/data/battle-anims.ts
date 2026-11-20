@@ -1404,12 +1404,12 @@ export class MoveAnim extends BattleAnim {
    * not), or `undefined` for the original sheet
    */
   getFlameGraphicKey(): string | undefined {
-    return getMoveFlameGraphicKey(this.getAnim()?.graphic, this.user, this.moveType);
+    return getMoveFlameGraphicKey(this.getAnim()?.graphic, this.user, this.moveType, allMoves[this.move]?.type);
   }
 
   /** Local fork (2026-11-20, items V1 / V2): the copy when it is loaded, else the original sheet */
   protected override getGraphicKey(anim: AnimConfig): string {
-    const key = getMoveFlameGraphicKey(anim.graphic, this.user, this.moveType);
+    const key = getMoveFlameGraphicKey(anim.graphic, this.user, this.moveType, allMoves[this.move]?.type);
     return key && globalScene.textures.exists(key) ? key : anim.graphic;
   }
 

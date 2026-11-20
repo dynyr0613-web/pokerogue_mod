@@ -270,9 +270,8 @@ export class FightUiHandler extends UiHandler implements InfoToggle {
     ui.setOverlayMode(UiMode.OPTION_SELECT, {
       options,
       initialCursor: MOVE_STYLE_MENU_ORDER.indexOf(MOVE_STYLE_DEFAULT),
-      // Above the player's HP box (seen in the game 11-20: at 48 it hid the level and HP numbers, at 83 still the top of the
-      // level)
-      yOffset: 86,
+      // The option menus' usual 48 plus 2 px (the user, 11-20: "Hp는 가려도 괜찮고 ... 원래 위치에서 한두픽셀만 올리죠")
+      yOffset: 50,
     });
     return true;
   }

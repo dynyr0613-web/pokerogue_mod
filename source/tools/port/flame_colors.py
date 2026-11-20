@@ -13,10 +13,14 @@ sparks, the blue of an ice frame) stays as it is, and so does the alpha of every
 - white: luma lifted to 1 - 0.62 * (1 - luma) ^ 1.6 (rim ~0.57, body ~0.8, core ~0.95) with a faint cool tint at the
   rim only (hue 215, saturation 0.12 fading to 0 at the core): white flames whose outline still shows on light
   backgrounds.
+- skywhite (2026-11-20, Mega Charizard Z; the user: "메가리자몽 z의 불꽃 기술 색은 흰색/약간의 하늘색 으로 해둡시다"):
+  the white's lifted luma with a light sky-blue tint all through (hue 198, saturation SKYWHITE_SAT at the rim fading
+  to SKYWHITE_SAT_CORE at the core).
 
 Palette sheets keep their palette indices (only the palette entries change); RGBA sheets are mapped pixel by pixel.
 
-Usage: python -I flame_colors.py <pokerogue dir> [<preview dir>]
+Usage: python -I flame_colors.py <pokerogue dir> [<preview dir>] [--colours skywhite,...]
+  (--colours: make only those colours' copies; the other copies are left as they are)
 """
 
 import colorsys
@@ -52,7 +56,11 @@ HUES = {
     "purple": (268, 298),
     "green": (132, 82),
 }
-COLOURS = ["blue", "white", "purple", "green"]
+COLOURS = ["blue", "white", "purple", "green", "skywhite"]
+# skywhite's sky-blue saturation at the rim and at the core (hue SKYWHITE_HUE)
+SKYWHITE_HUE = 198
+SKYWHITE_SAT = 0.34
+SKYWHITE_SAT_CORE = 0.10
 
 
 def luma(r: float, g: float, b: float) -> float:
@@ -74,10 +82,14 @@ def recolour(rgb: tuple[int, int, int], colour: str) -> tuple[int, int, int]:
     deg = h * 360
     signed = deg if deg < 180 else deg - 360  # -30 .. 75
     t = min(1.0, max(0.0, (signed + 15) / 75))  # 0 at the dark red rim, 1 at the yellow core
-    if colour == "white":
-        # near white body, a mid slate-grey rim (a faint cool tint, fading to none at the core) so the outline stays
+    if colour in ("white", "skywhite"):
+        # near white body, a mid slate-grey rim (a faint cool tint, fading to none at the core) so the outline stays;
+        # skywhite: the same lightness with a light sky-blue tint all through
         y2 = 1 - 0.62 * (1 - y) ** 1.6
-        h2, s2 = 215 / 360, 0.12 * (1 - t)
+        if colour == "white":
+            h2, s2 = 215 / 360, 0.12 * (1 - t)
+        else:
+            h2, s2 = SKYWHITE_HUE / 360, SKYWHITE_SAT_CORE + (SKYWHITE_SAT - SKYWHITE_SAT_CORE) * (1 - t)
         # at hue h2, saturation s2: luma(v=1) = 1 - s2 * (1 - luma of the pure hue)
         pure = luma(*colorsys.hsv_to_rgb(h2, 1, 1))
         top = 1 - s2 * (1 - pure)
@@ -176,11 +188,18 @@ def render_flamethrower(root: Path, sheet_name: str, frames: list[int], out_path
 
 
 def main() -> None:
-    root = Path(sys.argv[1])
-    preview = Path(sys.argv[2]) if len(sys.argv) > 2 else None
+    args = sys.argv[1:]
+    only = None
+    if "--colours" in args:
+        i = args.index("--colours")
+        only = args[i + 1].split(",")
+        assert all(c in COLOURS for c in only), only
+        del args[i : i + 2]
+    root = Path(args[0])
+    preview = Path(args[1]) if len(args) > 1 else None
     folder = root / "assets/images/battle_anims"
     for name in SHEETS:
-        for colour in COLOURS:
+        for colour in only or COLOURS:
             make_copy(folder / f"{name}.png", colour, folder / f"{name} ({colour}).png")
     print("sheets ok")
     if preview:
@@ -202,7 +221,7 @@ def main() -> None:
         # every copied sheet next to its original, for checking the other sheets
         for name in SHEETS:
             src = Image.open(folder / f"{name}.png").convert("RGBA")
-            row = Image.new("RGBA", (src.width * 5 + 40, src.height), (52, 60, 76, 255))
+            row = Image.new("RGBA", (src.width * (len(COLOURS) + 1) + 10 * len(COLOURS), src.height), (52, 60, 76, 255))
             row.alpha_composite(src, (0, 0))
             for i, colour in enumerate(COLOURS):
                 row.alpha_composite(Image.open(folder / f"{name} ({colour}).png").convert("RGBA"), ((i + 1) * (src.width + 10), 0))

@@ -1,8 +1,10 @@
 // Local fork (2026-11-20): Q11, "전부 뽑기" in the egg gacha (the user: "실행"; the official request #5768): all the
 // vouchers of the chosen kind, pulled as the menu would one pull at a time (for regular vouchers the 10-pull, then
-// single pulls) while the Eggs fit under the limit of 99, in batches of up to 25 Eggs with a summary each
+// single pulls) while the Eggs fit under the limit (999 since 2026-11-20, EGG_LIMIT; it was 99), in batches of up to 25
+// Eggs with a summary each
 
 import { Tutorial } from "#app/tutorial";
+import { EGG_LIMIT } from "#constants/egg-limit";
 import type { Egg } from "#data/egg";
 import { Button } from "#enums/buttons";
 import { EggTier } from "#enums/egg-type";
@@ -191,7 +193,8 @@ describe("Local fork - Q11, 전부 뽑기 in the egg gacha (2026-11-20)", () => 
     });
 
     it("stops at the Egg limit and says how many vouchers are left", async () => {
-      game.scene.gameData.eggs.push(...Array.from({ length: 79 }, () => ({}) as Egg));
+      // Local fork (2026-11-20): room for 20 under the cap of 999
+      game.scene.gameData.eggs.push(...Array.from({ length: EGG_LIMIT - 20 }, () => ({}) as Egg));
       vouchers()[VoucherType.REGULAR] = 37;
       const { handler, pulls } = await openGacha();
 
@@ -201,13 +204,14 @@ describe("Local fork - Q11, 전부 뽑기 in the egg gacha (2026-11-20)", () => 
       expect(vouchers()[VoucherType.REGULAR]).toBe(17);
       const errors = spyErrors(handler);
       handler.hideSummary();
-      const notice = i18next.t("egg:pullAllStoppedAtLimit", { amount: 17 });
+      const notice = i18next.t("egg:pullAllStoppedAtLimit", { amount: 17, limit: EGG_LIMIT });
       await vi.waitFor(() => expect(errors).toHaveBeenCalledWith(notice), WAIT);
       expect(pulls).toHaveLength(1);
     });
 
     it("pulls nothing with no room or no vouchers", async () => {
-      game.scene.gameData.eggs.push(...Array.from({ length: 90 }, () => ({}) as Egg));
+      // Local fork (2026-11-20): room for 9 under the cap of 999, less than a Premium voucher's 10
+      game.scene.gameData.eggs.push(...Array.from({ length: EGG_LIMIT - 9 }, () => ({}) as Egg));
       vouchers()[VoucherType.PREMIUM] = 2;
       const { handler, pulls } = await openGacha();
       const errors = spyErrors(handler);
@@ -244,6 +248,7 @@ describe("Local fork - Q11, 전부 뽑기 in the egg gacha (2026-11-20)", () => 
         expect(json[key], `${lang} ${key}`).toBeTruthy();
       }
       expect(json.pullAllStoppedAtLimit).toContain("{{amount}}");
+      expect(json.pullAllStoppedAtLimit).toContain("{{limit}}");
     }
   });
 });

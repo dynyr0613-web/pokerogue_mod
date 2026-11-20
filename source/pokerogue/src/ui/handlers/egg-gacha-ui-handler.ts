@@ -3,6 +3,7 @@ import { globalScene } from "#app/global-scene";
 import { speciesDataRegistry } from "#app/global-species-data-registry";
 import { activeOverrides } from "#app/overrides";
 import { handleTutorial, Tutorial } from "#app/tutorial";
+import { EGG_LIMIT } from "#constants/egg-limit";
 import type { IEggOptions } from "#data/egg";
 import { Egg, getLegendaryGachaSpeciesForTimestamp } from "#data/egg";
 import { Button } from "#enums/buttons";
@@ -20,8 +21,6 @@ import { fixedInt, randSeedShuffle } from "#utils/common";
 import { getEnumValues } from "#utils/enums";
 import i18next from "i18next";
 
-/** Local fork (2026-11-20): Q11, the most Eggs the player may hold, the menu's own check */
-const EGG_LIMIT = 99;
 /** Local fork (2026-11-20): Q11, the cursor of the "전부 뽑기" row, just above Cancel */
 const PULL_ALL_CURSOR = 5;
 /**
@@ -682,7 +681,10 @@ export class EggGachaUiHandler extends MessageUiHandler {
         }
         this.eggGachaOptionsContainer.setVisible(true);
         if (this.pullAllVouchersLeft > 0) {
-          this.showError(i18next.t("egg:pullAllStoppedAtLimit", { amount: this.pullAllVouchersLeft }));
+          // Local fork (2026-11-20): the limit named through {{limit}}, 999 since the cap was raised
+          this.showError(
+            i18next.t("egg:pullAllStoppedAtLimit", { amount: this.pullAllVouchersLeft, limit: EGG_LIMIT }),
+          );
           this.pullAllVouchersLeft = 0;
         }
       },
@@ -931,7 +933,8 @@ export class EggGachaUiHandler extends MessageUiHandler {
     let errorKey: string | undefined;
     const freePulls = activeOverrides.EGG_FREE_GACHA_PULLS_OVERRIDE;
 
-    if (!freePulls && globalScene.gameData.eggs.length + pulls > 99) {
+    // Local fork (2026-11-20): the shared cap, 999 Eggs ("알 최대 갯수를 늘리고")
+    if (!freePulls && globalScene.gameData.eggs.length + pulls > EGG_LIMIT) {
       errorKey = "egg:tooManyEggs";
     } else if (!freePulls && globalScene.gameData.voucherCounts[voucherType] < vouchersConsumed) {
       errorKey = "egg:notEnoughVouchers";
