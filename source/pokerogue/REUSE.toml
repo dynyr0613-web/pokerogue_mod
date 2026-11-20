@@ -487,3 +487,21 @@ path = [
 ]
 SPDX-FileCopyrightText = ["Skeli and the Complete FireRed Upgrade team", "The Pokemon Reborn Team https://www.rebornevo.com/pr/index.html/"]
 SPDX-License-Identifier = "LicenseRef-CFRU AND LicenseRef-POKEMON-REBORN"
+
+# Local fork (2026-11-20): the sleeping Jirachi of the Wish on a Star encounter's intro, an edit of PokeRogue's own
+# Jirachi sprite (assets/images/pokemon/385.png, its frame 0005.png) with the eyes drawn closed, made for this fork by
+# the project's owner. The rest of the drawing is that sprite's, so it keeps that sprite's credit (CREDITS.md, "Pokemon
+# Sprites and Animation") and terms: the main series' own art, under the fair-use note PokeRogue's assets give
+# Nintendo / Game Freak / Creatures art (assets/images/REUSE.toml; LICENSES/LicenseRef-FAIR-USE.txt, a copy of
+# assets/LICENSES/LicenseRef-FAIR-USE.txt). The user: "조우 화면에서 지라치 자는 스프라이트 있으면 그거 넣어두고, 깨우면
+# 깬 모습이 보이게 바꿔두고", "지라치 스프라이트를 이 세션에 올리면 제가 수정해올게요"
+[[annotations]]
+path = "assets/images/mystery-encounters/wish_on_a_star_jirachi_sleep.png"
+SPDX-FileCopyrightText = "Nintendo, Game Freak, and Creatures Inc."
+SPDX-License-Identifier = "LicenseRef-FAIR-USE"
+
+# Local fork (2026-11-20): that sprite's one-frame atlas (its 54x47 box, trimmed as Jirachi's frame 0005)
+[[annotations]]
+path = "assets/images/mystery-encounters/wish_on_a_star_jirachi_sleep.json"
+SPDX-FileCopyrightText = "NONE"
+SPDX-License-Identifier = "CC0-1.0"

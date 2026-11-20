@@ -289,12 +289,37 @@ async function giveWishOnAStarCandies(pokemon: PlayerPokemon, gifts: readonly Wi
 
 /*
  * Local fork (2026-11-20): the intro's sleeping and awake looks. The user: "조우 화면에서 지라치 자는 스프라이트 있으면
- * 그거 넣어두고, 깨우면 깬 모습이 보이게 바꿔두고". No sleeping Jirachi sprite exists in the art the fork may use
- * (searched 11-20: the fork's assets, upstream pokerogue-assets, Essentials, PokéSprite, PKHeX, CFRU, Cobblemon), so it
- * sleeps with the game's own art: the Jirachi sprite held still, with the "z" letters of the sleep status animation
- * (CommonAnim.SLEEP on "PRAS- Status", the same frames and offsets a sleeping Pokémon gets in battle) rising over it in
- * a loop. Awake, its idle animation plays and the letters stop. Its brightness stays: the intro text finds it shining.
+ * 그거 넣어두고, 깨우면 깬 모습이 보이게 바꿔두고". No sleeping Jirachi sprite existed in the art the fork may use
+ * (searched 11-20: the fork's assets, upstream pokerogue-assets, Essentials, PokéSprite, PKHeX, CFRU, Cobblemon), so the
+ * user drew one ("지라치 스프라이트를 이 세션에 올리면 제가 수정해올게요"): PokéRogue's Jirachi frame "0005.png" with its eyes
+ * closed, 54x47 like every source frame of Jirachi's atlas. Asleep, the intro shows that sprite with the "z" letters of
+ * the sleep status animation (CommonAnim.SLEEP on "PRAS- Status", the same frames and offsets a sleeping Pokémon gets in
+ * battle) rising over it in a loop. Awake, the Pokémon sprite shows instead, its idle animation plays and the letters
+ * stop. Its brightness stays: the intro text finds it shining.
+ *
+ * The sleeping sprite is a second intro sprite (`WISH_ON_A_STAR_SLEEP_SPRITE_KEY`), shown in turn with the Pokémon one,
+ * rather than a texture swapped onto the Pokémon sprite: the intro loads it with its own assets (`loadAtlas` from
+ * `mystery-encounters`, before the field slides in), places it by the same code with the same scale and offsets, and
+ * `initSprite` resets nothing of it. Phaser sizes a sprite by its frame's source size and draws a trimmed frame at its
+ * trim offset, so both share one 54x47 box with the same origin (bottom middle): the sleeping Jirachi stands pixel for
+ * pixel where the Pokémon sprite does.
+ * Review (2026-11-20): its atlas frame is trimmed exactly as Jirachi's "0005.png" (54x42 from y 5 of the 54x47 box; the
+ * rows above are empty in both), not the whole image: the shadow (render-nodes/sprite.ts) is as wide as the frame's
+ * width minus half of (source height - frame height), so an untrimmed frame drew it 54 wide asleep and 51.5 awake.
  */
+
+/** The intro sprite of the sleeping Jirachi (the user's drawing): `assets/images/mystery-encounters/<key>.png / .json` */
+export const WISH_ON_A_STAR_SLEEP_SPRITE_KEY = "wish_on_a_star_jirachi_sleep";
+/** The scale of both intro sprites (the Pokémon one and the sleeping one) */
+const WISH_ON_A_STAR_INTRO_SCALE = 1.25;
+/** The y offset of both intro sprites */
+const WISH_ON_A_STAR_INTRO_Y = -4;
+/**
+ * Where Jirachi's idle animation starts as it wakes: the index of "0005.png", the frame the sleeping sprite was drawn on,
+ * among the animation's frames ("0001.png" … "0128.png" in order, as the intro makes them), so waking only opens its
+ * eyes (from its first frame, about a pixel lower, the body dropped as it woke)
+ */
+export const WISH_ON_A_STAR_WAKE_START_FRAME = 4;
 
 /** Empty steps after each play of the sleep animation's letters, so they rise in calm puffs (a step is 3 frames) */
 export const WISH_ON_A_STAR_SLEEP_REST_STEPS = 10;
@@ -364,6 +389,22 @@ export function isWishOnAStarIntroAsleep(visuals: MysteryEncounterIntroVisuals):
   return visuals.spriteConfigs[0]?.disableAnimation === true;
 }
 
+/**
+ * Shows the Pokémon sprite of `visuals` (`awake`) or the sleeping one in its place, hiding the other with its tint
+ * sprite (only one Jirachi, one shadow). Without the sleeping sprite the Pokémon one always shows.
+ */
+function showWishOnAStarIntroLook(visuals: MysteryEncounterIntroVisuals, awake: boolean): void {
+  const sleepIndex = visuals.spriteConfigs.findIndex(c => c.spriteKey === WISH_ON_A_STAR_SLEEP_SPRITE_KEY);
+  const [jirachi, jirachiTint] = visuals.getSpriteAtIndex(0);
+  jirachi.setVisible(awake || sleepIndex < 0);
+  if (sleepIndex < 0) {
+    return;
+  }
+  const [sleeping, sleepingTint] = visuals.getSpriteAtIndex(sleepIndex);
+  sleeping.setVisible(!awake);
+  (awake ? sleepingTint : jirachiTint).setVisible(false);
+}
+
 /** Shows the letters of one step and hides the sprites it doesn't use */
 function showSleepStep(effect: WishOnAStarSleepEffect, step: readonly WishOnAStarSleepLetter[]): void {
   effect.sprites.forEach((sprite, i) => {
@@ -401,7 +442,8 @@ function startSleepEffect(visuals: MysteryEncounterIntroVisuals): void {
   if (effect) {
     stopSleepEffect(visuals);
   } else {
-    // in front of Jirachi, from the middle of its sprite (origin at its feet), kept below the top of the screen
+    // in front of Jirachi, from the middle of its sprite (origin at its feet; the sleeping sprite shares its box), kept
+    // below the top of the screen
     const [jirachi] = visuals.getSpriteAtIndex(0);
     const middle = jirachi.y - (jirachi.displayHeight || 0) / 2;
     const letters = globalScene.add.container(jirachi.x, getWishOnAStarSleepLettersY(middle, visuals.y, steps));
@@ -434,9 +476,10 @@ function startSleepEffect(visuals: MysteryEncounterIntroVisuals): void {
 }
 
 /**
- * Wakes the intro's Jirachi (`awake`: its idle animation plays, the letters stop) or puts it back to sleep (held still
- * on its first frame, the letters again). Option 1 wakes it as the wish menu opens (its cancel puts it back to sleep),
- * option 2 as it is picked; option 3 leaves it asleep. Nothing without the intro or when it is already so.
+ * Wakes the intro's Jirachi (`awake`: the Pokémon sprite shows in place of the sleeping one, its idle animation plays,
+ * the letters stop) or puts it back to sleep (the Pokémon sprite stopped on its first frame and hidden, the sleeping
+ * sprite and the letters again). Option 1 wakes it as the wish menu opens (its cancel puts it back to sleep), option 2
+ * as it is picked; option 3 leaves it asleep. Nothing without the intro or when it is already so.
  */
 export function setWishOnAStarIntroAwake(awake: boolean): void {
   const visuals = globalScene.currentBattle.mysteryEncounter?.introVisuals;
@@ -446,12 +489,14 @@ export function setWishOnAStarIntroAwake(awake: boolean): void {
   visuals.spriteConfigs[0].disableAnimation = !awake;
   if (awake) {
     stopSleepEffect(visuals);
+    showWishOnAStarIntroLook(visuals, true);
     visuals.playAnim();
   } else {
     for (const sprite of visuals.getSpriteAtIndex(0)) {
       sprite.anims.stop();
     }
     visuals.initSprite();
+    showWishOnAStarIntroLook(visuals, false);
     startSleepEffect(visuals);
   }
 }
@@ -640,7 +685,8 @@ function getWishOnAStarBossConfig(): EnemyPartyConfig {
  * 2. Shake it awake: a boss battle against an angry Jirachi with +1 to every stat; it can be caught. Won: a Rogue item,
  *    then ordinary rewards.
  * 3. Leave.
- * The intro shows it asleep (held still, the sleep letters over it) and awake after options 1 and 2 (it moves).
+ * The intro shows it asleep (the user's sleeping sprite, the sleep letters over it) and awake after options 1 and 2
+ * (the Pokémon sprite, moving).
  * ROGUE tier, the usual encounter waves (no last wave in Endless), in Space only.
  */
 export const WishOnAStarEncounter: MysteryEncounter = MysteryEncounterBuilder.withEncounterType(
@@ -653,16 +699,29 @@ export const WishOnAStarEncounter: MysteryEncounter = MysteryEncounterBuilder.wi
   .withFleeAllowed(false)
   .withIntroSpriteConfigs([
     {
-      // the existing Jirachi art, held still while it sleeps (with the sleep letters, `startSleepEffect`); its idle
-      // animation loops once it wakes (`setWishOnAStarIntroAwake`)
+      // the existing Jirachi art, hidden while it sleeps (the sleeping sprite below stands in, with the sleep letters,
+      // `startSleepEffect`); shown with its idle animation looping once it wakes (`setWishOnAStarIntroAwake`)
       species: SpeciesId.JIRACHI,
       spriteKey: "",
       fileRoot: "",
       hasShadow: true,
       disableAnimation: true,
       repeat: true,
-      scale: 1.25,
-      y: -4,
+      startFrame: WISH_ON_A_STAR_WAKE_START_FRAME,
+      hidden: true,
+      scale: WISH_ON_A_STAR_INTRO_SCALE,
+      y: WISH_ON_A_STAR_INTRO_Y,
+    },
+    {
+      // Local fork (2026-11-20): the user's sleeping Jirachi, one frame with the same 54x47 box and trim as Jirachi's
+      // "0005.png", with the same scale and offset (no x: both sit at the intro's x 0), so it and its shadow stand
+      // exactly where the Pokémon sprite's do; shown while asleep
+      spriteKey: WISH_ON_A_STAR_SLEEP_SPRITE_KEY,
+      fileRoot: "mystery-encounters",
+      hasShadow: true,
+      disableAnimation: true,
+      scale: WISH_ON_A_STAR_INTRO_SCALE,
+      y: WISH_ON_A_STAR_INTRO_Y,
     },
   ])
   .withIntroDialogue([

@@ -19,6 +19,7 @@ import { SpeciesId } from "#enums/species-id";
 import { PERMANENT_STATS, type PermanentStat, Stat } from "#enums/stat";
 import { StatusEffect } from "#enums/status-effect";
 import { UiMode } from "#enums/ui-mode";
+import { MysteryEncounterIntroVisuals } from "#field/mystery-encounter-intro";
 import type { PlayerPokemon } from "#field/pokemon";
 import { IvCandyModifier } from "#modifiers/custom-held-items";
 import { HealingBoosterModifier, type PokemonHeldItemModifier } from "#modifiers/modifier";
@@ -46,11 +47,13 @@ import {
   WISH_ON_A_STAR_POWER_BONUS_STATS,
   WISH_ON_A_STAR_POWER_STATS,
   WISH_ON_A_STAR_SLEEP_REST_STEPS,
+  WISH_ON_A_STAR_SLEEP_SPRITE_KEY,
   WISH_ON_A_STAR_SLEEP_TOP_ROOM,
   WISH_ON_A_STAR_SONG_MOVES,
   WISH_ON_A_STAR_SOUND_MOVES,
   WISH_ON_A_STAR_WAKE_ABILITIES,
   WISH_ON_A_STAR_WAKE_MOVES,
+  WISH_ON_A_STAR_WAKE_START_FRAME,
   WISH_ON_A_STAR_WAKE_UP_MOVES,
   WISH_ON_A_STAR_WEALTH_BONUS_MULTIPLIER,
   WISH_ON_A_STAR_WEALTH_MULTIPLIER,
@@ -74,6 +77,8 @@ import type { OptionSelectUiHandler } from "#ui/option-select-ui-handler";
 import type { PartyUiHandler } from "#ui/party-ui-handler";
 import { getFrameMs } from "#utils/common";
 import { getEnumValues } from "#utils/enums";
+import { existsSync, readFileSync } from "node:fs";
+import { inflateSync } from "node:zlib";
 import i18next from "i18next";
 import Phaser from "phaser";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
@@ -98,6 +103,149 @@ const jirachiAtlasFiles = import.meta.glob("../../../assets/images/pokemon/385.j
   eager: true,
   import: "default",
 });
+
+// #region PNG reading (the sleeping Jirachi's file against Jirachi's sheet)
+
+/** A PNG's pixels as RGBA, with its colour type and bit depth */
+interface PngImage {
+  width: number;
+  height: number;
+  colorType: number;
+  depth: number;
+  rgba: Uint8Array;
+}
+
+/** One frame of a texture-packer atlas */
+interface AtlasFrame {
+  filename: string;
+  rotated: boolean;
+  sourceSize: { w: number; h: number };
+  spriteSourceSize: { x: number; y: number; w: number; h: number };
+  frame: { x: number; y: number; w: number; h: number };
+}
+
+/** The Paeth predictor of PNG filter 4 */
+function paeth(a: number, b: number, c: number): number {
+  const p = a + b - c;
+  const [pa, pb, pc] = [Math.abs(p - a), Math.abs(p - b), Math.abs(p - c)];
+  if (pa <= pb && pa <= pc) {
+    return a;
+  }
+  return pb <= pc ? b : c;
+}
+
+/** A PNG's chunks by type, up to IEND (anything after it is ignored, as image decoders do) */
+function readPngChunks(path: string): Map<string, Buffer[]> {
+  const file = readFileSync(path);
+  const chunks = new Map<string, Buffer[]>();
+  for (let offset = 8, type = ""; type !== "IEND" && offset + 8 <= file.length; ) {
+    const length = file.readUInt32BE(offset);
+    type = file.toString("latin1", offset + 4, offset + 8);
+    chunks.set(type, [...(chunks.get(type) ?? []), file.subarray(offset + 8, offset + 8 + length)]);
+    offset += 12 + length;
+  }
+  return chunks;
+}
+
+/** What PNG filter `filter` adds back to byte `x` of row `y` (`bpp`: bytes a pixel, at least 1) */
+function pngPredictor(rows: Uint8Array, filter: number, x: number, y: number, stride: number, bpp: number): number {
+  const i = y * stride + x;
+  const a = x >= bpp ? rows[i - bpp] : 0;
+  const b = y > 0 ? rows[i - stride] : 0;
+  const c = x >= bpp && y > 0 ? rows[i - stride - bpp] : 0;
+  const predictor = [0, a, b, (a + b) >> 1, paeth(a, b, c)][filter];
+  if (predictor === undefined) {
+    throw new Error(`PNG filter ${filter}`);
+  }
+  return predictor;
+}
+
+/** The scanlines of inflated PNG image data with their filters undone (`bpp`: bytes a pixel, at least 1) */
+function unfilterPng(raw: Buffer, stride: number, height: number, bpp: number): Uint8Array {
+  const rows = new Uint8Array(stride * height);
+  for (let y = 0; y < height; y++) {
+    const filter = raw[y * (stride + 1)];
+    for (let x = 0; x < stride; x++) {
+      rows[y * stride + x] = (raw[y * (stride + 1) + 1 + x] + pngPredictor(rows, filter, x, y, stride, bpp)) & 255;
+    }
+  }
+  return rows;
+}
+
+/**
+ * A PNG's pixels (not interlaced; palette, 8-bit RGB or 8-bit RGBA): enough for the sleeping Jirachi (8-bit RGBA) and
+ * Jirachi's sheet (4-bit palette)
+ */
+function readPng(path: string): PngImage {
+  const chunks = readPngChunks(path);
+  const header = chunks.get("IHDR")![0];
+  const [width, height, depth, colorType] = [header.readUInt32BE(0), header.readUInt32BE(4), header[8], header[9]];
+  expect(header[12], `${path}: interlaced`).toBe(0);
+  const channels = ({ 2: 3, 3: 1, 6: 4 } as Record<number, number>)[colorType];
+  expect(channels, `${path}: colour type ${colorType}`).toBeDefined();
+  const stride = Math.ceil((width * channels * depth) / 8);
+  const rows = unfilterPng(
+    inflateSync(Buffer.concat(chunks.get("IDAT")!)),
+    stride,
+    height,
+    Math.max(1, (channels * depth) / 8),
+  );
+  const palette = chunks.get("PLTE")?.[0] ?? Buffer.alloc(0);
+  const alphas = chunks.get("tRNS")?.[0] ?? Buffer.alloc(0);
+  const pixel = (x: number, y: number): number[] => {
+    if (colorType !== 3) {
+      const s = y * stride + x * channels;
+      return [rows[s], rows[s + 1], rows[s + 2], channels === 4 ? rows[s + 3] : 255];
+    }
+    const bit = x * depth;
+    const index = (rows[y * stride + (bit >> 3)] >> (8 - depth - (bit & 7))) & ((1 << depth) - 1);
+    return [...palette.subarray(index * 3, index * 3 + 3), index < alphas.length ? alphas[index] : 255];
+  };
+  const rgba = new Uint8Array(width * height * 4);
+  for (let i = 0; i < width * height; i++) {
+    rgba.set(pixel(i % width, Math.floor(i / width)), i * 4);
+  }
+  return { width, height, colorType, depth, rgba };
+}
+
+/** The pixel at (x, y) of `frame`'s source box in `sheet`: transparent outside the frame's trimmed part */
+function sourceFramePixel(sheet: PngImage, frame: AtlasFrame, x: number, y: number): number[] {
+  const [fx, fy] = [x - frame.spriteSourceSize.x, y - frame.spriteSourceSize.y];
+  if (fx < 0 || fy < 0 || fx >= frame.frame.w || fy >= frame.frame.h) {
+    return [0, 0, 0, 0];
+  }
+  const s = ((frame.frame.y + fy) * sheet.width + frame.frame.x + fx) * 4;
+  return [...sheet.rgba.subarray(s, s + 4)];
+}
+
+/**
+ * `image` over the source box of `frame` in `sheet` (both its size): the pixels where one is transparent and the other
+ * is not, how many of the image's pixels are opaque, and how many of those differ in colour
+ */
+function compareWithSourceFrame(
+  image: PngImage,
+  sheet: PngImage,
+  frame: AtlasFrame,
+): { outlineMisses: string[]; opaque: number; changed: number } {
+  const outlineMisses: string[] = [];
+  let opaque = 0;
+  let changed = 0;
+  for (let i = 0; i < image.width * image.height; i++) {
+    const [x, y] = [i % image.width, Math.floor(i / image.width)];
+    const was = sourceFramePixel(sheet, frame, x, y);
+    const now = [...image.rgba.subarray(i * 4, i * 4 + 4)];
+    if (now[3] > 0 !== was[3] > 0) {
+      outlineMisses.push(`${x},${y}`);
+    }
+    if (now[3] > 0) {
+      opaque++;
+      changed += now.some((v, k) => v !== was[k]) ? 1 : 0;
+    }
+  }
+  return { outlineMisses, opaque, changed };
+}
+
+// #endregion PNG reading
 
 /**
  * Local fork (2026-11-20), item C2 of docs/유저_요청_요소_목록_20261120.md (the user: "C2 - 실행"): the ROGUE-tier
@@ -253,14 +401,35 @@ describe("Custom mystery encounter - Wish on a Star (WISH_ON_A_STAR)", () => {
       expect(WishOnAStarEncounter.dialogue.encounterOptionsDialogue?.description).toBe(`${namespace}:description`);
       expect(WishOnAStarEncounter.dialogue.encounterOptionsDialogue?.query).toBe(`${namespace}:query`);
 
-      // the existing Jirachi sprite, held still while it sleeps; its idle animation loops once it wakes
-      expect(WishOnAStarEncounter.spriteConfigs).toHaveLength(1);
-      expect(WishOnAStarEncounter.spriteConfigs[0]).toMatchObject({
+      // the existing Jirachi sprite, hidden while it sleeps, its idle animation looping once it wakes; and the user's
+      // sleeping Jirachi, shown while it sleeps, at the same scale and offsets
+      expect(WishOnAStarEncounter.spriteConfigs).toHaveLength(2);
+      const [pokemonConfig, sleepConfig] = WishOnAStarEncounter.spriteConfigs;
+      expect(pokemonConfig).toMatchObject({
         species: SpeciesId.JIRACHI,
         hasShadow: true,
         disableAnimation: true,
         repeat: true,
+        startFrame: WISH_ON_A_STAR_WAKE_START_FRAME,
+        hidden: true,
       });
+      expect(sleepConfig).toMatchObject({
+        spriteKey: WISH_ON_A_STAR_SLEEP_SPRITE_KEY,
+        fileRoot: "mystery-encounters",
+        hasShadow: true,
+        disableAnimation: true,
+      });
+      expect(WISH_ON_A_STAR_SLEEP_SPRITE_KEY).toBe("wish_on_a_star_jirachi_sleep");
+      expect(sleepConfig.species).toBeUndefined();
+      expect(sleepConfig.isPokemon).toBeFalsy();
+      expect(sleepConfig.isItem).toBeFalsy();
+      expect(sleepConfig.hidden).toBeFalsy();
+      for (const key of ["scale", "x", "y", "yShadow", "alpha"] as const) {
+        expect(sleepConfig[key], key).toBe(pokemonConfig[key]);
+      }
+      expect(pokemonConfig.scale).toBe(1.25);
+      expect(pokemonConfig.y).toBe(-4);
+      expect(pokemonConfig.x).toBeUndefined();
 
       expect(i18next.t(`${namespace}:title`)).toBe("Wish on a Star");
       expect(scene.currentBattle.mysteryEncounter?.encounterType).toBe(MysteryEncounterType.WISH_ON_A_STAR);
@@ -684,9 +853,10 @@ describe("Custom mystery encounter - Wish on a Star (WISH_ON_A_STAR)", () => {
 
   /**
    * Local fork (2026-11-20), the user: "조우 화면에서 지라치 자는 스프라이트 있으면 그거 넣어두고, 깨우면 깬 모습이 보이게
-   * 바꿔두고". No sleeping Jirachi sprite exists in the art the fork may use, so the intro holds the sprite still under
-   * the letters of the game's sleep status animation; options 1 and 2 wake it (its idle animation plays, the letters
-   * stop), option 3 leaves it asleep.
+   * 바꿔두고", then "지라치 스프라이트를 이 세션에 올리면 제가 수정해올게요" with a sleeping Jirachi they drew. Asleep, the
+   * intro shows that sprite (a second intro sprite in the Pokémon sprite's place) under the letters of the game's sleep
+   * status animation; options 1 and 2 wake it (the Pokémon sprite shows instead and its idle animation plays, the
+   * letters stop), the wish menu's cancel puts it back to sleep, option 3 leaves it asleep.
    */
   describe("intro - asleep, then awake", () => {
     const sleepJson = sleepAnimFiles["../../../assets/battle-anims/common-sleep.json"];
@@ -719,6 +889,183 @@ describe("Custom mystery encounter - Wish on a Star (WISH_ON_A_STAR)", () => {
     /** Whether a mocked container or sprite is shown (the sprite mock keeps it on its Phaser sprite) */
     const shown = (obj: Phaser.GameObjects.GameObject) =>
       ((obj as any).phaserSprite?.visible ?? (obj as any).visible) as boolean;
+    /** A mocked sprite's scale (kept on its Phaser sprite) */
+    const scaleOf = (sprite: Phaser.GameObjects.Sprite) => (sprite as any).phaserSprite.scaleX as number;
+
+    /** The intro's Pokémon sprite and sleeping sprite, each with its tint sprite */
+    const looksOf = (visuals: MysteryEncounterIntroVisuals) => {
+      const sleepIndex = visuals.spriteConfigs.findIndex(c => c.spriteKey === WISH_ON_A_STAR_SLEEP_SPRITE_KEY);
+      expect(sleepIndex).toBe(1);
+      const [jirachi, jirachiTint] = visuals.getSpriteAtIndex(0);
+      const [sleeping, sleepingTint] = visuals.getSpriteAtIndex(sleepIndex);
+      return { jirachi, jirachiTint, sleeping, sleepingTint };
+    };
+    /** [the Pokémon sprite is shown, the sleeping sprite is shown] */
+    const looks = ({ jirachi, sleeping }: ReturnType<typeof looksOf>) => [shown(jirachi), shown(sleeping)];
+    const ASLEEP = [false, true];
+    const AWAKE = [true, false];
+    /** The Pokémon sprite's idle animation, as `playAnim` starts it */
+    const idleAnim = (visuals: MysteryEncounterIntroVisuals) =>
+      expect.objectContaining({
+        key: visuals.spriteConfigs[0].spriteKey,
+        repeat: -1,
+        startFrame: WISH_ON_A_STAR_WAKE_START_FRAME,
+      });
+    /**
+     * Records {@linkcode looks} each time the intro starts to leave (the option's auto-hide; once gone, Phaser's destroy
+     * has hidden every sprite)
+     */
+    const recordLooksAtExit = (sprites: ReturnType<typeof looksOf>): boolean[][] => {
+      const seen: boolean[][] = [];
+      const transition = EncounterPhaseUtils.transitionMysteryEncounterIntroVisuals;
+      vi.spyOn(EncounterPhaseUtils, "transitionMysteryEncounterIntroVisuals").mockImplementation((...args) => {
+        seen.push(looks(sprites));
+        return transition(...args);
+      });
+      return seen;
+    };
+
+    it("is the user's 54x47 RGBA drawing on Jirachi's frame 0005, in a one-frame atlas trimmed as that frame", () => {
+      const png = `assets/images/mystery-encounters/${WISH_ON_A_STAR_SLEEP_SPRITE_KEY}.png`;
+      const json = `assets/images/mystery-encounters/${WISH_ON_A_STAR_SLEEP_SPRITE_KEY}.json`;
+      expect(existsSync(png)).toBe(true);
+      expect(existsSync(json)).toBe(true);
+      const sleep = readPng(png);
+      // 8-bit RGBA: transparent around it, opaque on it
+      expect([sleep.width, sleep.height, sleep.colorType, sleep.depth]).toEqual([54, 47, 6, 8]);
+      const alphaOf = (rgba: Uint8Array) => rgba.filter((_, i) => i % 4 === 3);
+      expect(alphaOf(sleep.rgba).some(a => a === 0)).toBe(true);
+      expect(alphaOf(sleep.rgba).some(a => a === 255)).toBe(true);
+
+      // Every frame of Jirachi's atlas has that 54x47 source box: Phaser sizes the sprite (so its origin) by it and draws
+      // a trimmed frame at its trim offset, so both sprites cover the same box
+      const jirachiFrames: AtlasFrame[] = (jirachiAtlasFiles["../../../assets/images/pokemon/385.json"] as any)
+        .textures[0].frames;
+      expect(jirachiFrames.length).toBeGreaterThan(1);
+      for (const frame of jirachiFrames) {
+        expect(frame.sourceSize, frame.filename).toEqual({ w: 54, h: 47 });
+      }
+      const base = jirachiFrames.find(f => f.filename === "0005.png")!;
+      expect(base.rotated).toBe(false);
+
+      // Review (2026-11-20): one frame in the folder's atlas format, trimmed exactly as frame 0005 (the PNG keeps the
+      // whole 54x47 box, the frame its part from the trim offset), so the shadow matches too (next test)
+      expect(base.spriteSourceSize).toEqual({ x: 0, y: 5, w: 54, h: 42 });
+      const atlas = JSON.parse(readFileSync(json, "utf8"));
+      expect(atlas.textures).toHaveLength(1);
+      const [texture] = atlas.textures;
+      expect(texture.image).toBe(`${WISH_ON_A_STAR_SLEEP_SPRITE_KEY}.png`);
+      expect(texture.size).toEqual({ w: 54, h: 47 });
+      expect(texture.frames).toEqual([
+        expect.objectContaining({
+          filename: "0001.png",
+          rotated: false,
+          trimmed: true,
+          sourceSize: { w: 54, h: 47 },
+          spriteSourceSize: base.spriteSourceSize,
+          frame: base.spriteSourceSize,
+        }),
+      ]);
+      // nothing of the drawing is cut off by that trim
+      const { x: tx, y: ty, w: tw, h: th } = base.spriteSourceSize;
+      const cutOff: string[] = [];
+      for (let i = 0; i < sleep.width * sleep.height; i++) {
+        const [x, y] = [i % sleep.width, Math.floor(i / sleep.width)];
+        if (sleep.rgba[i * 4 + 3] > 0 && (x < tx || y < ty || x >= tx + tw || y >= ty + th)) {
+          cutOff.push(`${x},${y}`);
+        }
+      }
+      expect(cutOff).toEqual([]);
+
+      // drawn on frame 0005 in that box: the same outline pixel for pixel, a few pixels changed (the closed eyes)
+      const { outlineMisses, opaque, changed } = compareWithSourceFrame(
+        sleep,
+        readPng("assets/images/pokemon/385.png"),
+        base,
+      );
+      expect(outlineMisses).toEqual([]);
+      expect(opaque).toBeGreaterThan(500);
+      expect(changed).toBeGreaterThan(0);
+      expect(changed).toBeLessThan(opaque * 0.05);
+
+      // Waking starts the idle animation on that frame: the intro makes it of the frames "0001.png" … "0128.png" the
+      // atlas has, in order
+      const animFrames = jirachiFrames
+        .map(f => f.filename)
+        .filter(name => Number(name.slice(0, 4)) >= 1 && Number(name.slice(0, 4)) <= 128)
+        .sort();
+      expect(animFrames.indexOf("0005.png")).toBe(WISH_ON_A_STAR_WAKE_START_FRAME);
+    });
+
+    it("has frame 0005's box, trim and so shadow as Phaser reads both atlases: nothing moves as it wakes", () => {
+      // Review (2026-11-20): the frame was the whole image (untrimmed), which drew the shadow 54 wide asleep and 51.5
+      // awake. Phaser places the quad by the frame's x / y / size in its real (source) box; render-nodes/sprite.ts
+      // centres and sizes the shadow by the frame's x and width and (real height - height)
+      const atlasFrame = (atlas: unknown, size: { w: number; h: number }, name: string): Phaser.Textures.Frame => {
+        const manager = { game: { renderer: null, config: { antialias: false } } };
+        const texture = new Phaser.Textures.Texture(
+          manager as unknown as Phaser.Textures.TextureManager,
+          name,
+          { width: size.w, height: size.h } as HTMLImageElement,
+          size.w,
+          size.h,
+        );
+        // the parser `load.atlas` ends in (not in Phaser's typings)
+        const parsers = Phaser.Textures.Parsers as unknown as {
+          JSONArray: (texture: Phaser.Textures.Texture, sourceIndex: number, json: unknown) => void;
+        };
+        parsers.JSONArray(texture, 0, atlas);
+        expect(texture.has(name), name).toBe(true);
+        return texture.get(name);
+      };
+      const sleepAtlas = JSON.parse(
+        readFileSync(`assets/images/mystery-encounters/${WISH_ON_A_STAR_SLEEP_SPRITE_KEY}.json`, "utf8"),
+      );
+      const jirachiAtlas = jirachiAtlasFiles["../../../assets/images/pokemon/385.json"] as any;
+      const sleeping = atlasFrame(sleepAtlas, sleepAtlas.textures[0].size, "0001.png");
+      const awake = atlasFrame(jirachiAtlas, jirachiAtlas.textures[0].size, "0005.png");
+
+      const geometry = (f: Phaser.Textures.Frame) => ({
+        x: f.x,
+        y: f.y,
+        width: f.width,
+        height: f.height,
+        realWidth: f.realWidth,
+        realHeight: f.realHeight,
+      });
+      expect(geometry(awake)).toEqual({ x: 0, y: 5, width: 54, height: 42, realWidth: 54, realHeight: 47 });
+      expect(geometry(sleeping)).toEqual(geometry(awake));
+      // the shadow's width (sprite.ts: size.x - yOffset / 2, the intro unscaled) and centre offset, the same
+      const shadow = (f: Phaser.Textures.Frame) => ({
+        width: f.width - (f.realHeight - f.height) / 2,
+        centre: -(f.realWidth - f.width) / 2 + f.x,
+      });
+      expect(shadow(sleeping)).toEqual({ width: 51.5, centre: 0 });
+      expect(shadow(sleeping)).toEqual(shadow(awake));
+    });
+
+    it("loads the sleeping sprite with the intro's other assets, from the mystery-encounters folder", async () => {
+      const atlas = vi.spyOn(scene.load, "atlas");
+      const initSprite = vi.spyOn(MysteryEncounterIntroVisuals.prototype, "initSprite");
+      await startEncounter();
+
+      const calls = atlas.mock.calls.filter(([key]) => key === WISH_ON_A_STAR_SLEEP_SPRITE_KEY);
+      expect(calls).toHaveLength(1);
+      const [, pngUrl, jsonUrl] = calls[0];
+      // the dev server serves assets/ at the root, and the build ships the same paths
+      for (const [url, ext] of [
+        [pngUrl, "png"],
+        [jsonUrl, "json"],
+      ] as const) {
+        const path = String(url).split("?")[0];
+        expect(path).toBe(`images/mystery-encounters/${WISH_ON_A_STAR_SLEEP_SPRITE_KEY}.${ext}`);
+        expect(existsSync(`assets/${path}`), path).toBe(true);
+      }
+      // queued before the intro sets its sprites up (after its assets have loaded), as the encounter phase does
+      const queued = atlas.mock.invocationCallOrder[atlas.mock.calls.indexOf(calls[0])];
+      expect(initSprite).toHaveBeenCalled();
+      expect(queued).toBeLessThan(initSprite.mock.invocationCallOrder[0]);
+    });
 
     it("steps through the sleep animation's letters, then rests", () => {
       expect(sleepAnim.graphic).toBe("PRAS- Status");
@@ -773,11 +1120,25 @@ describe("Custom mystery encounter - Wish on a Star (WISH_ON_A_STAR)", () => {
       expect(sleepTweens).toHaveLength(0);
     });
 
-    it("shows Jirachi asleep: held still, the letters looping over it", async () => {
+    it("shows Jirachi asleep: the sleeping sprite in the Pokémon sprite's place, the letters looping over it", async () => {
       await startEncounter();
       const visuals = visualsOf();
       expect(isWishOnAStarIntroAsleep(visuals)).toBe(true);
       expect(visuals.spriteConfigs[0]).toMatchObject({ disableAnimation: true, repeat: true });
+
+      // the user's sprite shows, not the Pokémon one (nor either tint), with the same scale
+      const sprites = looksOf(visuals);
+      expect(sprites.sleeping.texture.key).toBe(WISH_ON_A_STAR_SLEEP_SPRITE_KEY);
+      expect(sprites.jirachi.texture.key).toBe(visuals.spriteConfigs[0].spriteKey);
+      expect(visuals.spriteConfigs[0].spriteKey).toContain("385");
+      expect(looks(sprites)).toEqual(ASLEEP);
+      expect([shown(sprites.jirachiTint), shown(sprites.sleepingTint)]).toEqual([false, false]);
+      expect(scaleOf(sprites.sleeping)).toBe(1.25);
+      expect(scaleOf(sprites.sleeping)).toBe(scaleOf(sprites.jirachi));
+      expect(scaleOf(sprites.sleepingTint)).toBe(scaleOf(sprites.jirachiTint));
+      // only the Pokémon one is a Pokémon sprite (shiny palettes and sparkles stay off: not shiny)
+      expect(visuals.spriteConfigs.map(c => !!c.isPokemon)).toEqual([true, false]);
+
       const effect = getWishOnAStarSleepEffect(visuals)!;
       expect(effect).toBeDefined();
       expect(visuals.exists(effect.letters)).toBe(true);
@@ -814,8 +1175,17 @@ describe("Custom mystery encounter - Wish on a Star (WISH_ON_A_STAR)", () => {
       await startEncounter();
       const visuals = visualsOf();
       const effect = getWishOnAStarSleepEffect(visuals)!;
+      const sprites = looksOf(visuals);
       const playAnim = vi.spyOn(visuals, "playAnim");
       const initSprite = vi.spyOn(visuals, "initSprite");
+      const jirachiPlay = vi.spyOn(sprites.jirachi, "play");
+      const sleepingPlay = vi.spyOn(sprites.sleeping, "play");
+      /** What shows as the idle animation starts */
+      const looksAtPlay: boolean[][] = [];
+      jirachiPlay.mockImplementation(() => {
+        looksAtPlay.push(looks(sprites));
+        return sprites.jirachi;
+      });
 
       await runSelectMysteryEncounterOption(game, 1);
       await vi.waitFor(() => expect(optionLabels()).toContain(wishLabel("power")));
@@ -825,6 +1195,12 @@ describe("Custom mystery encounter - Wish on a Star (WISH_ON_A_STAR)", () => {
       expect(sleepTweens[0].remove).toHaveBeenCalledTimes(1);
       expect(effect.counter).toBeUndefined();
       expect(shown(effect.letters)).toBe(false);
+      // awake: the Pokémon sprite shows in the sleeping one's place and plays its idle animation
+      expect(looks(sprites)).toEqual(AWAKE);
+      expect(jirachiPlay).toHaveBeenCalledTimes(1);
+      expect(jirachiPlay).toHaveBeenCalledWith(idleAnim(visuals));
+      expect(looksAtPlay).toEqual([AWAKE]);
+      expect(sleepingPlay).not.toHaveBeenCalled();
 
       await pick(i18next.t("menu:cancel"));
       await vi.waitFor(() => expect(scene.ui.mode).toBe(UiMode.MYSTERY_ENCOUNTER));
@@ -834,18 +1210,71 @@ describe("Custom mystery encounter - Wish on a Star (WISH_ON_A_STAR)", () => {
       expect(shown(effect.letters)).toBe(true);
       expect(sleepTweens).toHaveLength(2);
       expect(effect.counter).toBe(sleepTweens[1]);
+      // asleep again: the sleeping sprite back in its place, no tint left showing
+      expect(looks(sprites)).toEqual(ASLEEP);
+      expect([shown(sprites.jirachiTint), shown(sprites.sleepingTint)]).toEqual([false, false]);
+    });
+
+    it("stays awake when the power wish's party screen is cancelled, and wakes again after the menu's cancel", async () => {
+      // Review (2026-11-20): every switch of option 1 (the party screen's cancel goes back to the menu, still awake)
+      await startEncounter();
+      const visuals = visualsOf();
+      const sprites = looksOf(visuals);
+      const jirachiPlay = vi.spyOn(sprites.jirachi, "play");
+      const sleepingPlay = vi.spyOn(sprites.sleeping, "play");
+      const partyHandler = scene.ui.handlers[UiMode.PARTY] as PartyUiHandler;
+      const partyShow = vi.spyOn(partyHandler, "show");
+
+      await runSelectMysteryEncounterOption(game, 1);
+      await pick(wishLabel("power"));
+      await vi.waitFor(() => expect(partyShow).toHaveBeenCalled(), { timeout: 5000 });
+      expect(looks(sprites)).toEqual(AWAKE);
+      partyHandler.processInput(Button.CANCEL);
+      await vi.waitFor(() => {
+        expect(scene.ui.mode).toBe(UiMode.OPTION_SELECT);
+        expect(optionLabels()).toContain(wishLabel("power"));
+      });
+      // back in the menu: still awake, its animation not restarted
+      expect(isWishOnAStarIntroAsleep(visuals)).toBe(false);
+      expect(looks(sprites)).toEqual(AWAKE);
+      expect(jirachiPlay).toHaveBeenCalledTimes(1);
+
+      await pick(i18next.t("menu:cancel"));
+      await vi.waitFor(() => expect(scene.ui.mode).toBe(UiMode.MYSTERY_ENCOUNTER));
+      expect(looks(sprites)).toEqual(ASLEEP);
+
+      // option 1 again (still on the encounter's option screen): awake again, its idle animation from the same frame
+      const encounterHandler = scene.ui.getHandler<MysteryEncounterUiHandler>();
+      encounterHandler.unblockInput();
+      encounterHandler.setCursor(0);
+      encounterHandler.processInput(Button.ACTION);
+      await vi.waitFor(() => {
+        expect(scene.ui.mode).toBe(UiMode.OPTION_SELECT);
+        expect(optionLabels()).toContain(wishLabel("power"));
+      });
+      expect(looks(sprites)).toEqual(AWAKE);
+      expect(jirachiPlay).toHaveBeenCalledTimes(2);
+      expect(jirachiPlay).toHaveBeenLastCalledWith(idleAnim(visuals));
+      expect(sleepingPlay).not.toHaveBeenCalled();
+      expect([shown(sprites.jirachiTint), shown(sprites.sleepingTint)]).toEqual([false, false]);
     });
 
     it("stays awake through a wish, and the wish and its end are unchanged", async () => {
       await startEncounter();
       const visuals = visualsOf();
+      const sprites = looksOf(visuals);
       const playAnim = vi.spyOn(visuals, "playAnim");
+      const jirachiPlay = vi.spyOn(sprites.jirachi, "play");
+      const looksAtExit = recordLooksAtExit(sprites);
       const money = scene.money;
 
       await makeWish("wealth");
 
       expect(isWishOnAStarIntroAsleep(visuals)).toBe(false);
       expect(playAnim).toHaveBeenCalledTimes(1);
+      // awake and moving until the intro leaves
+      expect(jirachiPlay).toHaveBeenCalledWith(idleAnim(visuals));
+      expect(looksAtExit).toEqual([AWAKE]);
       expect(scene.money).toBe(money + getWishOnAStarWealthMoney(false));
       expect(logsInclude("falls back into a deep sleep")).toBe(true);
     });
@@ -854,8 +1283,17 @@ describe("Custom mystery encounter - Wish on a Star (WISH_ON_A_STAR)", () => {
       await startEncounter();
       const visuals = visualsOf();
       const effect = getWishOnAStarSleepEffect(visuals)!;
+      const sprites = looksOf(visuals);
       const playAnim = vi.spyOn(visuals, "playAnim");
+      const jirachiPlay = vi.spyOn(sprites.jirachi, "play");
+      const sleepingPlay = vi.spyOn(sprites.sleeping, "play");
+      const looksAtPlay: boolean[][] = [];
+      jirachiPlay.mockImplementation(() => {
+        looksAtPlay.push(looks(sprites));
+        return sprites.jirachi;
+      });
       const battle = vi.spyOn(EncounterPhaseUtils, "initBattleWithEnemyConfig");
+      const looksAtExit = recordLooksAtExit(sprites);
 
       await runMysteryEncounterToEnd(game, 2, undefined, true);
 
@@ -865,6 +1303,11 @@ describe("Custom mystery encounter - Wish on a Star (WISH_ON_A_STAR)", () => {
       expect(playAnim.mock.invocationCallOrder[0]).toBeLessThan(battle.mock.invocationCallOrder[0]);
       expect(sleepTweens[0].remove).toHaveBeenCalledTimes(1);
       expect(shown(effect.letters)).toBe(false);
+      // the Pokémon sprite shown and moving from the wake-up until the intro leaves, the sleeping one hidden
+      expect(jirachiPlay).toHaveBeenCalledWith(idleAnim(visuals));
+      expect(looksAtPlay).toEqual([AWAKE]);
+      expect(looksAtExit).toEqual([AWAKE]);
+      expect(sleepingPlay).not.toHaveBeenCalled();
       expect(game).toBeAtPhase("CommandPhase");
       const [jirachi] = scene.getEnemyField();
       expect(jirachi.species.speciesId).toBe(SpeciesId.JIRACHI);
@@ -874,12 +1317,18 @@ describe("Custom mystery encounter - Wish on a Star (WISH_ON_A_STAR)", () => {
     it("stays asleep with option 3", async () => {
       await startEncounter();
       const visuals = visualsOf();
+      const sprites = looksOf(visuals);
       const playAnim = vi.spyOn(visuals, "playAnim");
+      const jirachiPlay = vi.spyOn(sprites.jirachi, "play");
+      const looksAtExit = recordLooksAtExit(sprites);
 
       await runMysteryEncounterToEnd(game, 3);
 
       expect(isWishOnAStarIntroAsleep(visuals)).toBe(true);
       expect(playAnim).not.toHaveBeenCalled();
+      expect(jirachiPlay).not.toHaveBeenCalled();
+      // the sleeping sprite until the intro leaves
+      expect(looksAtExit).toEqual([ASLEEP]);
       // the loop stops itself once the intro is gone
       expect(sleepTweens).toHaveLength(1);
       expect(sleepTweens[0].remove).not.toHaveBeenCalled();

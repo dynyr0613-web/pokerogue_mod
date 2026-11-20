@@ -893,6 +893,12 @@ and [everyone else](https://github.com/pagefaultgames/pokerogue/graphs/contribut
     the fork's author; the pixels and their shapes are that sprite's.
   - Mega Archaludon has no sprite of its own yet and shows PokéRogue's Archaludon. Of the custom Mega Stone icons, four
     are PokéRogue's own stones recoloured (above); the Melmetalite icon was drawn by the fork's author.
+- Local fork (2026-11-20), the sleeping Jirachi of the "Wish on a Star" encounter's intro
+  (`assets/images/mystery-encounters/wish_on_a_star_jirachi_sleep.png`, with its one-frame atlas `.json`): an edit of
+  PokéRogue's own Jirachi sprite (`assets/images/pokemon/385.png`, its frame `0005.png`, 54x47) with the eyes drawn
+  closed, made for this fork by the project's owner. Everything else in it is that sprite's, so it keeps that sprite's
+  existing credit (the "Pokémon Sprites and Animation" credits above) and terms (Pokémon © Nintendo, Creatures Inc. and
+  GAME FREAK inc.; `assets/LICENSES/LicenseRef-FAIR-USE.txt`).
 - Local fork, an idea credit: the fork's own passives (`src/data/balance/custom-passives.ts`, offered in the starter
   select beside PokéRogue's own) come from the passive sheet of the author's Pokémon Essentials project, whose second
   (passive) ability per species follows the idea of YOUNG's Korean fan game "Pokémon: Another Red". No code or art of

@@ -652,6 +652,7 @@ function loadAnimAssets(anims: AnimConfig[], startLoad?: boolean): Promise<void>
   return new Promise(resolve => {
     const backgrounds = new Set<string>();
     const sounds = new Set<string>();
+    const graphics = new Set<string>();
     for (const a of anims) {
       if (a.frames?.length === 0) {
         continue;
@@ -665,10 +666,19 @@ function loadAnimAssets(anims: AnimConfig[], startLoad?: boolean): Promise<void>
         backgrounds.add(abg);
       }
       if (a.graphic) {
+        graphics.add(a.graphic);
         globalScene.loadSpritesheet(a.graphic, "battle_anims", 96);
       }
     }
+    // Local fork (2026-11-20): a background whose name is also one of these animations' sheets is not loaded a second
+    // time as an image (Lick's enemy-side animation names its sheet "PRAS- Sketch + Lick" as a background; Psychic's
+    // sheet "PRAS- Psychic BG" is its own background): both loads used the same texture key, and the later one logged
+    // "Texture key already in use" (the offline app's self-test, an enemy that knew Lick). The background then draws
+    // from the sheet's texture (its whole image, as a spritesheet's base frame), which the earlier load left anyway.
     for (const bg of backgrounds) {
+      if (graphics.has(bg)) {
+        continue;
+      }
       globalScene.loadImage(bg, "battle_anims");
     }
     for (const s of sounds) {
