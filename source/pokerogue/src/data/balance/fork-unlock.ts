@@ -10,7 +10,9 @@
  * - Locked = the original game:
  *   1. the reward pools offer none of {@linkcode FORK_UNLOCK}.gatedItems (weight 0 in
  *      `regenerateModifierPoolThresholds`, modifier-type.ts; the fork's own Mega Stones are left out of the form change
- *      item generator, `FormChangeItemModifierTypeGenerator`);
+ *      item generator, `FormChangeItemModifierTypeGenerator`); local fork (2026-11-20), F1 Q6: Max Mushrooms are offered
+ *      and given only to a G-Max species, and no player's Pokémon is in the Dynamax state (the 11-18 "any Pokémon"
+ *      Dynamax, max-mushroom-offer.ts; not a `gatedItems` line, which would also take the G-Max species' own away);
  *   2. enemies roll none of the fork items (`rollEnemyCustomItems`, enemy-custom-items.ts);
  *   3. every Pokémon uses the base game's passive (`Pokemon.usesCustomPassive`): the starter menu's passive choice is
  *      closed (it says when it opens) and the enemies' 1-in-8 roll of our passive is off. The saved choices

@@ -55,6 +55,15 @@
   "prevoMovePrompt": "{{pokemonName}}[[는]]\n{{moveName}}[[를]] 떠올렸다!",
   "countdownPoof": "@d{32}1, @d{15}2, @d{15}… @d{15}… @d{30}@s{se/pb_bounce_1}짠!",
   "learnMoveAnd": "그리고…",
+  "convertedMoveForgetWarning": "{{moveName}}[[는]] {{kindName}}[[로]] 바뀌어 있다!\n잊으면 변환도 사라진다.",
+  "convertedMoveForgetConfirm": "그래도 {{moveName}}[[를]]\n잊게 하겠습니까?",
+  "convertedMoveKind": {
+    "max": "다이 기술",
+    "gmax": "거다이 기술",
+    "z": "Z기술",
+    "zExclusive": "전용 Z기술",
+    "zMax": "Z다이 기술"
+  },
   "levelCapUp": "레벨의 최대치가\n{{levelCap}}까지 상승했다!",
   "levelCapLifted": "레벨의 최대치가\n사라졌다!",
   "moveNotImplemented": "{{moveName}}[[는]] 아직 구현되지 않아 사용할 수 없다…",

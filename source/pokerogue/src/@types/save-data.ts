@@ -168,6 +168,12 @@ export interface StarterDataEntry {
   marks?: number[] | undefined;
   /** Local fork (2026-11-17): the collected mark the starter is taken wearing (starter select's Pokédex page) */
   equippedMark?: number | undefined;
+  /**
+   * Local fork (2026-11-20): 1.2.0 D12, the extra ability ("추가 조정 특성") chosen in the Pokédex for the species of
+   * this starter's line that have the choice (extra-ability-choice.ts): `true` on, `false` off. A species with no
+   * entry (every save from before 1.2.0) has its default.
+   */
+  extraAbilityChoice?: Partial<Record<SpeciesId, boolean>> | undefined;
   valueReduction: number;
   classicWinCount: number;
   pity: [lastShiny: number, lastNewVariant: number];

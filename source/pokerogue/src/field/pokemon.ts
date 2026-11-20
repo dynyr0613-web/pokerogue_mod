@@ -18,6 +18,8 @@ import { getPokemonNameWithAffix } from "#app/messages";
 import { activeOverrides } from "#app/overrides";
 import type { AnySound } from "#audio/audio-manager";
 import { speciesEggMoves } from "#balance/egg-moves";
+// Local fork (2026-11-20): D12, the extra ability chosen in the Pokédex
+import { applyExtraAbilityChoice } from "#balance/extra-ability-choice";
 // Local fork (2026-11-12): our passives wait for the first Classic clear
 import { isForkContentUnlocked } from "#balance/fork-unlock";
 import {
@@ -1670,14 +1672,21 @@ export abstract class Pokemon extends Phaser.GameObjects.Container {
       ignoreHeldItems = false,
       forDefend = false,
       foulPlayTarget,
+      ignoreWonderRoom = false,
     }: GetEffectiveStatParams = {},
   ): number {
     // Local fork (2026-11-13): Foul Play (08 명세 1번) starts from its target's plain stat instead of the user's; the
     // user's held items, abilities and field effects below apply to it as to any physical move (the main series' rule)
     // Local fork (2026-11-19): Wonder Room (1.2.0 D6; the user: "d6 실행") swaps only the plain Defense / Sp. Def read
     // here; the held items, abilities, stat stages and weather below stay with `stat` (the main series' rule)
+    // Local fork (2026-11-20): except with `ignoreWonderRoom` (Download, Protosynthesis / Quark Drive / Booster Energy,
+    // Body Press, Shell Side Arm's check; the user: "원더룸 - 본가 규칙 따르기"): the plain stat is `stat` itself, and the
+    // stat stages are the other defensive stat's, as the main series has it (Pokémon Showdown's `getStat(…, unmodified)`)
+    const wonderRoomStat = getWonderRoomStat(stat);
+    const plainStat = ignoreWonderRoom ? stat : wonderRoomStat;
+    const stageStat = ignoreWonderRoom ? wonderRoomStat : stat;
     const statVal = new NumberHolder(
-      foulPlayTarget ? foulPlayTarget.getFoulPlayStat(stat) : this.getStat(getWonderRoomStat(stat), false),
+      foulPlayTarget ? foulPlayTarget.getFoulPlayStat(stat) : this.getStat(plainStat, false),
     );
     if (!ignoreHeldItems) {
       globalScene.applyModifiers(StatBoosterModifier, this.isPlayer(), this, stat, statVal);
@@ -1743,7 +1752,15 @@ export abstract class Pokemon extends Phaser.GameObjects.Container {
             simulated,
             ignoreHeldItems,
           )
-        : this.getStatStageMultiplier(stat, opponent, move, ignoreOppAbility, isCritical, simulated, ignoreHeldItems));
+        : this.getStatStageMultiplier(
+            stageStat,
+            opponent,
+            move,
+            ignoreOppAbility,
+            isCritical,
+            simulated,
+            ignoreHeldItems,
+          ));
 
     switch (stat) {
       case Stat.ATK:
@@ -2566,7 +2583,14 @@ export abstract class Pokemon extends Phaser.GameObjects.Container {
       if (this.fusionCustomPokemonData?.ability != null && this.fusionCustomPokemonData.ability !== -1) {
         return allAbilities[this.fusionCustomPokemonData.ability];
       }
-      return allAbilities[this.getFusionSpeciesForm(ignoreOverride).getAbility(this.fusionAbilityIndex)];
+      const fusionForm = this.getFusionSpeciesForm(ignoreOverride);
+      const fusionAbilityId = fusionForm.getAbility(this.fusionAbilityIndex);
+      // Local fork (2026-11-20): D12, the player's extra-ability choice for the fusion's line too
+      return allAbilities[
+        this.isPlayer()
+          ? applyExtraAbilityChoice(fusionForm, this.fusionAbilityIndex, fusionAbilityId)
+          : fusionAbilityId
+      ];
     }
     if (this.customPokemonData.ability != null && this.customPokemonData.ability !== -1) {
       return allAbilities[this.customPokemonData.ability];
@@ -2577,7 +2601,13 @@ export abstract class Pokemon extends Phaser.GameObjects.Container {
         return allAbilities[eventBoss.ability];
       }
     }
-    let abilityId = this.getSpeciesForm(ignoreOverride).getAbility(this.abilityIndex);
+    const speciesForm = this.getSpeciesForm(ignoreOverride);
+    let abilityId = speciesForm.getAbility(this.abilityIndex);
+    // Local fork (2026-11-20): 1.2.0 D12, the extra ability ("추가 조정 특성") the player chose in the Pokédex for this
+    // species (the user: "포켓몬 도감에서 선택"); enemies keep the species data as it is (extra-ability-choice.ts)
+    if (this.isPlayer()) {
+      abilityId = applyExtraAbilityChoice(speciesForm, this.abilityIndex, abilityId);
+    }
     if (abilityId === AbilityId.NONE) {
       abilityId = this.species.ability1;
     }
@@ -4091,6 +4121,9 @@ export abstract class Pokemon extends Phaser.GameObjects.Container {
         isCritical,
         simulated,
         forDefend: true,
+        // Local fork (2026-11-20): Shell Side Arm's category check reads the target's Defense / Sp. Def as Download
+        // does under Wonder Room (the main series' quirk; the user: "원더룸 - 본가 규칙 따르기")
+        ignoreWonderRoom: categoryForecast,
       }),
     );
     applyMoveAttrs("VariableDefAttr", source, this, move, targetDef);
@@ -6738,8 +6771,15 @@ export class PlayerPokemon extends Pokemon {
     // Local fork (2026-11-18), review fix: except one already holding them (active or not): it can hold only one, so the
     // reward would turn into the stack-full fallback item; it is shown "no effect" and refused, as the reward pool
     // (offered while a party member holds none) expects
+    // Local fork (2026-11-20), F1 Q6 (the user: "추천대로"): before the first Classic clear only the original game's
+    // Pokémon take them (a G-Max species in the form its G-Max form starts from: the check below)
     if (item === FormChangeItem.MAX_MUSHROOMS) {
-      return !holdsMaxMushrooms(this);
+      if (holdsMaxMushrooms(this)) {
+        return false;
+      }
+      if (isForkContentUnlocked()) {
+        return true;
+      }
     }
     return speciesDataRegistry
       .getFormChanges(this.species.speciesId)
@@ -7177,7 +7217,18 @@ export class PlayerPokemon extends Pokemon {
     pokemon
       .getMoveset(true)
       // Local fork (2026-11-16): Z / Max moves. The slot's original move (a converted slot's derived id is not learnable)
-      .map((m: PokemonMove) => globalScene.phaseManager.unshiftNew("LearnMovePhase", newPartyMemberIndex, m.moveId));
+      // Local fork (2026-11-20), F1 Q7 (the user: "그대로 가져온다"): and its conversion, which the new slot keeps (it
+      // was lost here before); a move the head already knows plain takes it over (LearnMovePhase)
+      .map((m: PokemonMove) =>
+        globalScene.phaseManager.unshiftNew(
+          "LearnMovePhase",
+          newPartyMemberIndex,
+          m.moveId,
+          undefined,
+          undefined,
+          m.transform,
+        ),
+      );
     pokemon.destroy();
     this.updateFusionPalette();
   }

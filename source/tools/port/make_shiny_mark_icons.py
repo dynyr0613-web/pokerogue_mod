@@ -2,16 +2,21 @@
 (2026-11-18, the user: "저 하늘색 부적 사진 기준으로 색변환해서 아이콘을 새로 만들어도 됩니다. 초록색 부분은 다른
 아이콘들도 저 부분의 색이 다르게 하면 좋겠군요").
 
-1. The charm (frame "shiny_charm" of images/items.png, 19x22 drawn) is scaled 1.5x (nearest) to 28x33 and placed where
-   the old icons stood (6, 3) in the 40x40 cell, the size of the other mark icons.
-2. The black lines the 1.5x scale doubled are thinned back to 1 px (see thin()): an outer black pixel that touches no
-   colour and whose removal keeps the line connected goes; a 2x2 black block with colour on both sides gives one of its
-   columns (or rows) to the colour beside it.
+What the script runs (build_exact()):
+1. The charm (frame "shiny_charm" of images/items.png, 19x22 drawn) grows about 15% to 22x25 without scaling (the user:
+   "살짝만 키우죠, 15% 정도만"): three of its columns and three of its rows are drawn twice (DOUBLE_COLUMNS /
+   DOUBLE_ROWS, see grow()), so its proportions stay. It is centred in the 40x40 cell, the size of the other mark icons.
+2. The outlines the doubling left 2 px thick are thinned back to 1 px (see thin()): an outer black pixel that touches
+   no colour and whose removal keeps the line connected goes; a 2x2 black block with colour on both sides gives one of
+   its columns (or rows) to the colour beside it.
 3. Each of the charm's colours is recoloured by its role: the star's four blues/cyans and the charm's blue to the tier's
-   hue (spread a little, as in the original), the two greens of the small sparkles to the tier's accent hue, the
-   outline and white unchanged.
+   hue (spread a little, as in the original), the two greens of the small sparkles to the tier's two ACCENTS colours,
+   the outline and white unchanged.
 
-usage: py make_shiny_mark_icons.py <items atlas folder: .../images> <out folder> [accent set name]
+build() is the first version (the charm scaled 1.5x, nearest, to 28x33 at (6, 3), the sparkles to an accent hue); it
+is kept but no longer run. (Comment corrected 2026-11-20: it used to describe only that first version.)
+
+usage: py make_shiny_mark_icons.py <items atlas folder: .../images> <out folder>
 """
 import colorsys
 import json

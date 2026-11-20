@@ -2,6 +2,8 @@ import { globalScene } from "#app/global-scene";
 import { settings } from "#app/global-settings-manager";
 import { speciesDataRegistry } from "#app/global-species-data-registry";
 import { speciesEggMoves } from "#balance/egg-moves";
+// Local fork (2026-11-20): D12, the extra ability chosen in the Pokédex
+import { applyExtraAbilityChoice } from "#balance/extra-ability-choice";
 // Local fork (2026-11-12): our passives wait for the first Classic clear
 import { isForkContentUnlocked } from "#balance/fork-unlock";
 import { allAbilities, allMoves } from "#data/data-lists";
@@ -690,7 +692,9 @@ export class StarterSummary extends Phaser.GameObjects.Container {
     }
 
     const speciesOrForm = species.forms.length > 1 ? species.forms[formIndex] : species;
-    const ability = allAbilities[speciesOrForm.getAbility(abilityIndex)];
+    // Local fork (2026-11-20): D12, the ability the starter will have with the Pokédex's extra-ability choice
+    const ability =
+      allAbilities[applyExtraAbilityChoice(speciesOrForm, abilityIndex, speciesOrForm.getAbility(abilityIndex))];
 
     const isHidden = abilityIndex === (species.ability2 ? 2 : 1);
     const textStyle = isHidden ? TextStyle.SUMMARY_GOLD : TextStyle.SUMMARY_ALT;

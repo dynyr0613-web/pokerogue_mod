@@ -125,7 +125,15 @@ export class SelectStarterPhase extends Phase {
     });
     overrideModifiers();
     overrideHeldItems(party[0]);
-    Promise.all(loadPokemonAssets).then(() => {
+    // Local fork (2026-11-20), developer setting only (the user: "개발용 설정을 약간 손보자"): a run started in another biome
+    // through STARTING_BIOME_OVERRIDE loads that biome's background, bases and props first, the way SwitchBiomePhase
+    // does (only Town is always loaded, so the first battle drew missing textures). Without the override this is the
+    // same promise as before, so a normal run starts exactly as it did
+    const assetsLoaded: Promise<unknown> =
+      activeOverrides.STARTING_BIOME_OVERRIDE == null
+        ? Promise.all(loadPokemonAssets)
+        : Promise.all(loadPokemonAssets).then(() => globalScene.loadBiomeAssets(globalScene.arena.biomeId));
+    assetsLoaded.then(() => {
       audioManager.playBgm(undefined, true);
       if (globalScene.gameMode.isClassic) {
         globalScene.gameData.gameStats.classicSessionsPlayed++;

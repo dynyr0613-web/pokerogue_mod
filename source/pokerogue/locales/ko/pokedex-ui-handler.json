@@ -85,5 +85,11 @@
   "uncaught": "미등록",
   "menuMarks": "증표/리본",
   "showMarks": "이 포켓몬의 증표와 리본을 확인합니다.",
-  "noMarks": "이 포켓몬은 증표나 리본을 가지고 있지 않다."
+  "noMarks": "이 포켓몬은 증표나 리본을 가지고 있지 않다.",
+  "extraAbility": "추가 조정 특성:",
+  "extraAbilityOn": "켬: {{ability}}",
+  "extraAbilityOff": "끔: {{ability}}",
+  "extraAbilitySlotDescription": "켜면 2번 특성이 {{extra}}, 끄면 {{off}}[[가]] 된다. 내 포켓몬에만 적용된다.",
+  "extraAbilityMegaDescription": "켜면 메가진화했을 때 특성이 {{extra}}, 끄면 {{off}}[[가]] 된다. 내 포켓몬에만 적용된다.",
+  "extraAbilityLocked": "런 도중에는 바꿀 수 없다."
 }

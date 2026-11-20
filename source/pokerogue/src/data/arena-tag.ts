@@ -1261,8 +1261,12 @@ export class TrickRoomTag extends RoomArenaTag {
  * Local fork (2026-11-19): Wonder Room (원더룸, 1.2.0 D6; the user: "d6 실행"). For 5 turns (the turn it is used
  * included, as with Trick Room) every Pokémon on the field has its Defense and Sp. Def swapped: the plain stats trade
  * places, while stat stages, held items, abilities and weather stay with the stat they belong to (the main series'
- * rule). `Pokemon.getEffectiveStat` reads it ({@linkcode getWonderRoomStat}), so every damage calculation, Psyshock,
- * Body Press and confusion follow. Using the move again while it is up ends it (`RoomArenaTag.onOverlap`).
+ * rule). `Pokemon.getEffectiveStat` reads it ({@linkcode getWonderRoomStat}), so every damage calculation, Psyshock /
+ * Psystrike / Secret Sword and confusion follow. Using the move again while it is up ends it (`RoomArenaTag.onOverlap`).
+ * Local fork (2026-11-20): the main series' exceptions (the user: "원더룸 - 본가 규칙 따르기"). Download, Protosynthesis /
+ * Quark Drive / Booster Energy, Body Press and Shell Side Arm's category check read the Pokémon's own Defense / Sp. Def,
+ * with the other defensive stat's stages (`ignoreWonderRoom` in `Pokemon.getEffectiveStat`, the games' quirk as Pokémon
+ * Showdown has it); Beast Boost does see the swap (its plain stats, no stages).
  */
 export class WonderRoomTag extends RoomArenaTag {
   public readonly tagType = ArenaTagType.WONDER_ROOM;

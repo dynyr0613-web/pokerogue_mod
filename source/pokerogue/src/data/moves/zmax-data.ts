@@ -1045,6 +1045,21 @@ export function getZStatusEffect(baseId: MoveId): ZStatusEffect | null {
 }
 
 /**
+ * Local fork (2026-11-20), F1 Q9 (the user: "뺀다"): whether `baseId` is a status move with no Z-Power bonus (its row
+ * above is `null`: 손가락흔들기, 자연의힘, 조수, 치유소원, 초승달춤, 회생의기도). A type crystal only renamed it
+ * ("Z손가락흔들기", the same move), so no Z crystal takes such a slot and it gives the crystals no reward weight
+ * (move-transform.ts `canSlotTakeItem`).
+ */
+export function isZPowerlessStatusMove(baseId: MoveId): boolean {
+  return (
+    baseId !== MoveId.NONE
+    && !isZMaxOnlyMove(baseId) // Max Guard, 나인이볼부스트 ... are never a slot's own move
+    && allMoves[baseId]?.category === MoveCategory.STATUS
+    && getZStatusEffect(baseId) === null
+  );
+}
+
+/**
  * Local fork (2026-11-16): the Max Move of each type (NORMAL -> MAX_STRIKE ...). Typeless and Stellar have none (the
  * lookup gives `undefined` for them).
  */

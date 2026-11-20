@@ -11,6 +11,13 @@ import { MoveId } from "#enums/move-id";
 import { UiMode } from "#enums/ui-mode";
 import type { Pokemon } from "#field/pokemon";
 import type { Move } from "#moves/move";
+// Local fork (2026-11-20): F1 Q3 (the forget warning) and Q7 (a splice's tail brings its converted slots)
+import {
+  getAnimMoveId,
+  getConvertedMoveForgetWarning,
+  getTransformedMove,
+  type MoveTransform,
+} from "#moves/move-transform";
 import { isZMaxOnlyMove } from "#moves/zmax-data"; // Local fork (2026-11-16): Z / Max moves
 import { PlayerPartyMemberPokemonPhase } from "#phases/player-party-member-pokemon-phase";
 import type { ConfirmModeConfig } from "#types/ui-types";
@@ -25,39 +32,52 @@ export class LearnMovePhase extends PlayerPartyMemberPokemonPhase {
   private messageMode: UiMode;
   private readonly learnMoveType: LearnMoveType;
   private readonly cost: number;
+  /**
+   * Local fork (2026-11-20), F1 Q7 (the user: "그대로 가져온다"): the conversion the new slot gets, for a DNA Splicers
+   * tail's converted move (`PlayerPokemon.fuse`); `undefined` for every other way of learning a move
+   */
+  private readonly transform: MoveTransform | undefined;
 
   constructor(
     partyMemberIndex: number,
     moveId: MoveId,
     learnMoveType: LearnMoveType = LearnMoveType.LEARN_MOVE,
     cost = -1,
+    transform?: MoveTransform,
   ) {
     super(partyMemberIndex);
 
     this.moveId = moveId;
     this.learnMoveType = learnMoveType;
     this.cost = cost;
+    this.transform = transform ? { kind: transform.kind, moveId: transform.moveId } : undefined;
   }
 
   public override start(): void {
     super.start();
 
     const pokemon = this.getPokemon();
-    const move = allMoves[this.moveId];
+    const baseMove = allMoves[this.moveId];
     const currentMoveset = pokemon.getMoveset();
 
     // Local fork (2026-11-16): Z / Max moves: their registry entries are implemented now, but a Max / G-Max / Z move is
     // never learned as a move of its own (only a slot conversion makes one)
-    if (move.isUnimplemented || isZMaxOnlyMove(this.moveId)) {
+    if (baseMove.isUnimplemented || isZMaxOnlyMove(this.moveId)) {
       this.end();
       return;
     }
 
-    const hasMoveAlready = currentMoveset.some(m => m.moveId === move.id) && this.moveId !== MoveId.SKETCH;
+    const hasMoveAlready = currentMoveset.some(m => m.moveId === baseMove.id) && this.moveId !== MoveId.SKETCH;
     if (hasMoveAlready) {
+      // Local fork (2026-11-20), F1 Q7: a splice's tail move the head already knows plain lends that slot its
+      // conversion (silently, as an already known move always ended here); a slot the head converted itself stays
+      this.carryTransformToKnownSlot(pokemon);
       this.end();
       return;
     }
+
+    // Local fork (2026-11-20), F1 Q7: a converted tail move is shown (prompts, the summary) as what it became
+    const move = this.transform ? getTransformedMove(this.moveId, this.transform) : baseMove;
 
     this.messageMode =
       globalScene.ui.getHandler() instanceof EvolutionSceneUiHandler ? UiMode.EVOLUTION_SCENE : UiMode.MESSAGE;
@@ -67,6 +87,29 @@ export class LearnMovePhase extends PlayerPartyMemberPokemonPhase {
     } else {
       this.replaceMoveCheck(move, pokemon);
     }
+  }
+
+  /**
+   * Local fork (2026-11-20), F1 Q7: gives {@linkcode transform} to `pokemon`'s own plain slot of {@linkcode moveId}, if
+   * there is one (the head already knew the tail's converted move)
+   */
+  private carryTransformToKnownSlot(pokemon: Pokemon): void {
+    if (!this.transform) {
+      return;
+    }
+    const slot = pokemon.moveset.find(m => m?.moveId === this.moveId);
+    if (slot && !slot.transform) {
+      slot.transform = { kind: this.transform.kind, moveId: this.transform.moveId };
+      this.loadMoveAnim();
+    }
+  }
+
+  /** Loads the battle animation of the new slot: its converted move's for a carried conversion (local fork) */
+  private loadMoveAnim(): void {
+    const animMoveId = this.transform ? getAnimMoveId(getTransformedMove(this.moveId, this.transform)) : this.moveId;
+    initMoveAnim(animMoveId).then(() => {
+      loadMoveAnimAssets([animMoveId], true);
+    });
   }
 
   /**
@@ -133,9 +176,55 @@ export class LearnMovePhase extends PlayerPartyMemberPokemonPhase {
         const fullText = [i18next.t("battle:countdownPoof"), forgetSuccessText, i18next.t("battle:learnMoveAnd")].join(
           "$",
         );
+        // Local fork (2026-11-20), F1 Q3 (the user: "잊을 때 경고"): a converted slot asks once more
+        const warning = getConvertedMoveForgetWarning(pokemon.moveset[moveIndex]);
+        if (warning) {
+          globalScene.ui
+            .setMode(this.messageMode)
+            .then(() => this.confirmForgetConverted(moveIndex, warning, move, pokemon, fullText));
+          return;
+        }
         globalScene.ui.setMode(this.messageMode).then(() => this.learnMove(moveIndex, move, pokemon, fullText));
       },
     );
+  }
+
+  /**
+   * Local fork (2026-11-20), F1 Q3 (the user: "잊을 때 경고"): the player chose to forget a converted slot (Z / Max /
+   * G-Max / Z다이). Says that the conversion goes with it, then asks: yes forgets it as before, no returns to the move
+   * choice.
+   *
+   * > [Move] was made a [Z-Move / Max Move ...]! Forgetting it loses the conversion. \
+   * > Forget [Move] anyway? --> `UiMode.CONFIRM` -> Yes: `this.learnMove()`, No: `this.forgetMoveProcess()`
+   * @param moveIndex - The slot chosen to be forgotten
+   * @param warning - {@linkcode getConvertedMoveForgetWarning}'s text for that slot
+   * @param move - The Move to be learned
+   * @param pokemon - The Pokemon learning the move
+   * @param forgetText - The "Poof! ... forgot ... And..." text `learnMove` shows on yes
+   */
+  private async confirmForgetConverted(
+    moveIndex: number,
+    warning: string,
+    move: Move,
+    pokemon: Pokemon,
+    forgetText: string,
+  ): Promise<void> {
+    const { ui } = globalScene;
+    await ui.showTextPromise(warning);
+    await ui.showTextPromise(
+      i18next.t("battle:convertedMoveForgetConfirm", { moveName: pokemon.moveset[moveIndex]!.getName() }),
+      undefined,
+      false,
+    );
+    const options: ConfirmModeConfig = {
+      yesHandler: () => {
+        ui.setMode(this.messageMode).then(() => this.learnMove(moveIndex, move, pokemon, forgetText));
+      },
+      noHandler: () => {
+        this.forgetMoveProcess(move, pokemon);
+      },
+    };
+    await ui.setModeWithoutClear(UiMode.CONFIRM, options);
   }
 
   /**
@@ -212,9 +301,13 @@ export class LearnMovePhase extends PlayerPartyMemberPokemonPhase {
       }
     }
     pokemon.setMove(index, this.moveId);
-    initMoveAnim(this.moveId).then(() => {
-      loadMoveAnimAssets([this.moveId], true);
-    });
+    // Local fork (2026-11-20), F1 Q7: a splice's tail move keeps its conversion (`setMove` makes a plain slot object,
+    // shared with `summonData.moveset`)
+    const newSlot = pokemon.moveset[index];
+    if (this.transform && newSlot) {
+      newSlot.transform = { kind: this.transform.kind, moveId: this.transform.moveId };
+    }
+    this.loadMoveAnim();
     globalScene.ui.setMode(this.messageMode);
     const learnMoveText = i18next.t("battle:learnMove", {
       pokemonName: getPokemonNameWithAffix(pokemon),

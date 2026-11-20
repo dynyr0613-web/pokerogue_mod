@@ -4,17 +4,20 @@
  *
  * The game polls the dev server for JavaScript commands, runs them in the page with the
  * helpers below in scope (`screen()`, `state()`, `keys("ACTION DOWN")`, `shot()`, `fast()`,
- * `unlockStarter()`, `newGame()`, `startRun()` ...) and posts the results back. Game messages,
+ * `unlockStarter()`, `newGame()`, `startRun()`, `encounter()` ...) and posts the results back. Game messages,
  * UI mode and phase changes and console errors go to the bridge log. `Bridge/bridge.sh` is the
  * shell side.
  */
 
+import type { Battle } from "#app/battle";
 import { getGameMode } from "#app/game-mode";
 import { globalScene } from "#app/global-scene";
 import { settings } from "#app/global-settings-manager";
 import { speciesDataRegistry } from "#app/global-species-data-registry";
 import { activeOverrides } from "#app/overrides";
 import { Tutorial } from "#app/tutorial";
+import { speciesEggMoves } from "#balance/egg-moves";
+import { STARTING_WAVE } from "#balance/misc";
 import { allAbilities } from "#data/data-lists";
 import { TerrainType } from "#data/terrain";
 import { AbilityId } from "#enums/ability-id";
@@ -27,6 +30,8 @@ import { GameModes } from "#enums/game-modes";
 import { GameSpeed } from "#enums/game-speed";
 import { HpBarSpeed } from "#enums/hp-bar-speed";
 import { MoveId } from "#enums/move-id";
+import { MysteryEncounterTier } from "#enums/mystery-encounter-tier";
+import { MysteryEncounterType } from "#enums/mystery-encounter-type";
 import { Nature } from "#enums/nature";
 import { Passive } from "#enums/passive";
 import { PokemonType } from "#enums/pokemon-type";
@@ -35,9 +40,13 @@ import { StatusEffect } from "#enums/status-effect";
 import { UiMode } from "#enums/ui-mode";
 import { WeatherType } from "#enums/weather-type";
 import type { Pokemon } from "#field/pokemon";
+import { PokemonMove } from "#moves/pokemon-move";
+import { allMysteryEncounters } from "#mystery-encounters/mystery-encounter-biomes";
 import { SelectStarterPhase } from "#phases/select-starter-phase";
-import type { Starter } from "#types/save-data";
+import type { Starter, StarterMoveset } from "#types/save-data";
+import type { StarterSpeciesId } from "#types/starter-species-id";
 import { MessageUiHandler } from "#ui/message-ui-handler";
+import { getStarterData, getStarterMoves } from "#ui/starter-select-ui-utils";
 import { getEnumValues } from "#utils/enums";
 
 const POLL_MS = 150;
@@ -614,18 +623,56 @@ interface RunSpec {
   starters: StarterSpec[];
 }
 
+/**
+ * The moves the starter select gives a starter (`StarterSelectUiHandler.populateStarterMoveset`): the moveset saved
+ * for it (for that form) where still allowed, filled up from its starter and unlocked egg moves, else its first four
+ * starter moves. Null for a species that is not a starter, such as an evolved form.
+ */
+function defaultStarterMoves(speciesId: SpeciesId, formIndex: number): MoveId[] | null {
+  if (
+    speciesDataRegistry.getSpecies(speciesId).getRootSpeciesId() !== speciesId
+    || !globalScene.gameData.starterData[speciesId]
+  ) {
+    return null;
+  }
+  const starterId = speciesId as StarterSpeciesId;
+  const { starterDataEntry } = getStarterData(starterId);
+  const starterMoves = getStarterMoves(starterId, formIndex);
+  const eggMoves = ((speciesEggMoves as Partial<Record<SpeciesId, readonly MoveId[]>>)[speciesId] ?? []).filter(
+    (_, em) => starterDataEntry.eggMoves & (1 << em),
+  );
+  const available = [...starterMoves, ...eggMoves];
+  const saved = starterDataEntry.moveset;
+  let savedForForm: readonly MoveId[] | null = null;
+  if (Array.isArray(saved)) {
+    savedForForm = saved;
+  } else if (saved) {
+    savedForForm = saved[formIndex] ?? null;
+  }
+  const moves: MoveId[] = (savedForForm ?? starterMoves.slice(0, 4)).filter(m => available.includes(m));
+  if (moves.length < 4) {
+    moves.push(...available.filter(m => !moves.includes(m)).slice(0, 4 - moves.length));
+  }
+  return [...new Set(moves)];
+}
+
 function buildStarter(spec: StarterSpec): Starter {
+  const speciesId = resolveSpecies(spec.species);
+  const formIndex = spec.form ?? 0;
+  // Local fork (2026-11-20), the user: "개발용 설정을 약간 손보자": without "moves" a starter gets the moves the starter
+  // select would give it (it used to start with none and could only Struggle); "moves" are applied in `startRun`
+  const defaultMoves = spec.moves ? null : defaultStarterMoves(speciesId, formIndex);
   return {
-    speciesId: resolveSpecies(spec.species),
+    speciesId,
     shiny: !!spec.shiny,
     variant: 0,
-    formIndex: spec.form ?? 0,
+    formIndex,
     female: false,
     abilityIndex: spec.ability ?? 0,
     passive: spec.passive ?? true,
     customPassiveSpecies: (spec.custom ?? []).map(resolveSpecies),
     nature: resolveNature(spec.nature),
-    moveset: spec.moves ? (spec.moves.map(resolveMove) as unknown as Starter["moveset"]) : undefined,
+    moveset: defaultMoves?.length ? (defaultMoves as StarterMoveset) : undefined,
     pokerus: false,
     nickname: spec.nickname,
     teraType: undefined,
@@ -636,6 +683,8 @@ function buildStarter(spec: StarterSpec): Starter {
 /**
  * From the title screen, start a run straight into the first battle, skipping the starter select,
  * e.g. `startRun({ mode: "CLASSIC", starters: [{ species: "CHARMANDER", custom: ["CHARMELEON"] }] })`.
+ * A starter without `moves` gets the starter select's moves (a species that is not a starter, such as an evolved
+ * form, gets a generated level-up moveset); `moves` are set as given, up to four, without the starter-move check.
  */
 function startRun(spec: RunSpec): string {
   requireTitle();
@@ -646,9 +695,133 @@ function startRun(spec: RunSpec): string {
   globalScene.gameMode = getGameMode(modeId);
   globalScene.newArena(globalScene.gameMode.getStartingBiome());
   globalScene.phaseManager.pushNew("EncounterPhase", false);
+  const party = globalScene.getPlayerParty();
+  const firstNew = party.length;
+  // Builds the party at once; the first battle starts after the sprites (and a starting-biome override's art) load
   new SelectStarterPhase().initBattle(starters);
-  return `${GameModes[modeId]} run with ${starters.map(s => SpeciesId[s.speciesId]).join(", ")}`;
+  // Local fork (2026-11-20): the starters' moves, before that first battle exists
+  spec.starters.forEach((starterSpec, i) => {
+    const pokemon = party[firstNew + i];
+    if (!pokemon) {
+      return;
+    }
+    if (starterSpec.moves) {
+      pokemon.moveset = starterSpec.moves.slice(0, 4).map(m => new PokemonMove(resolveMove(m)));
+    } else if (pokemon.moveset.length === 0) {
+      pokemon.generateAndPopulateMoveset();
+    }
+  });
+  return `${GameModes[modeId]} run with ${party
+    .slice(firstNew)
+    .map(p => `${SpeciesId[p.species.speciesId]} [${p.moveset.map(m => MoveId[m.moveId]).join(", ")}]`)
+    .join(", ")}`;
 }
+
+// #region forced encounter
+
+/** The Mystery Encounter that `encounter()` makes the next new wave, or null */
+let forcedEncounter: MysteryEncounterType | null = null;
+let newBattleWrapped = false;
+
+function resolveEncounter(type: number | string): MysteryEncounterType {
+  const id = typeof type === "number" ? type : enumByName(MysteryEncounterType, type, "mystery encounter");
+  if (!Object.hasOwn(allMysteryEncounters, id)) {
+    throw new Error(`no such mystery encounter: ${type}`);
+  }
+  return id as MysteryEncounterType;
+}
+
+/**
+ * Wrap `BattleScene.newBattle` once: while an encounter is forced, the next new wave (not a reloaded one) is made with
+ * the wave's Mystery Encounter roll answered yes and, for that wave only, no Classic fixed battle, then gets the chosen
+ * encounter type. Everything is put back right after, so later waves are made as usual.
+ */
+function wrapNewBattle(): void {
+  if (newBattleWrapped) {
+    return;
+  }
+  newBattleWrapped = true;
+  const proto = Object.getPrototypeOf(globalScene);
+  const original = proto.newBattle as (this: any, fromSession?: unknown) => Battle;
+  proto.newBattle = function (this: any, fromSession?: unknown): Battle {
+    const type = forcedEncounter;
+    if (type == null || fromSession != null) {
+      return original.call(this, fromSession);
+    }
+    forcedEncounter = null;
+    const gameMode = this.gameMode;
+    const { waveIndex } = this.getNewBattleProps() as { waveIndex: number };
+    const replacedFixed: boolean = gameMode.isFixedBattle(waveIndex);
+    const ownIsFixed = Object.getOwnPropertyDescriptor(gameMode, "isFixedBattle");
+    const isFixedBattle = gameMode.isFixedBattle;
+    const battleTypeOverride = Object.getOwnPropertyDescriptor(activeOverrides, "BATTLE_TYPE_OVERRIDE");
+    const ownIsWaveMe = Object.getOwnPropertyDescriptor(this, "isWaveMysteryEncounter");
+    gameMode.isFixedBattle = (wave: number) => wave !== waveIndex && isFixedBattle.call(gameMode, wave);
+    this.isWaveMysteryEncounter = () => true;
+    // A battle type override would skip the encounter roll
+    Object.defineProperty(activeOverrides, "BATTLE_TYPE_OVERRIDE", {
+      value: null,
+      configurable: true,
+      enumerable: true,
+      writable: true,
+    });
+    let battle: Battle;
+    try {
+      battle = original.call(this, fromSession);
+    } finally {
+      if (ownIsWaveMe) {
+        Object.defineProperty(this, "isWaveMysteryEncounter", ownIsWaveMe);
+      } else {
+        Reflect.deleteProperty(this, "isWaveMysteryEncounter");
+      }
+      if (ownIsFixed) {
+        Object.defineProperty(gameMode, "isFixedBattle", ownIsFixed);
+      } else {
+        Reflect.deleteProperty(gameMode, "isFixedBattle");
+      }
+      if (battleTypeOverride) {
+        Object.defineProperty(activeOverrides, "BATTLE_TYPE_OVERRIDE", battleTypeOverride);
+      } else {
+        Reflect.deleteProperty(activeOverrides, "BATTLE_TYPE_OVERRIDE");
+      }
+    }
+    if (battle.battleType === BattleType.MYSTERY_ENCOUNTER) {
+      battle.mysteryEncounterType = type;
+      log(
+        `[S] wave ${waveIndex} is the forced encounter ${MysteryEncounterType[type]}${replacedFixed ? " (in place of the fixed battle)" : ""}`,
+      );
+    } else {
+      // Only the Endless final trainer wave and the raid wave before it are decided before the encounter roll
+      log(`[E] wave ${waveIndex} could not be the forced encounter ${MysteryEncounterType[type]}`);
+    }
+    return battle;
+  };
+}
+
+/**
+ * Make the next new wave the chosen Mystery Encounter, whatever that wave would have been (a trainer wave, a Classic
+ * fixed battle such as the evil team grunt on wave 112, a boss or X1 wave, a wave outside 10-180). One wave only.
+ * Call it at the title before `startRun()` / `newGame()` for the first wave, or during a wave (the reward shop
+ * included) for the next one; `encounter(null)` cancels. The encounter's own requirements are not checked.
+ */
+function encounter(type: number | string | null): string {
+  if (type == null) {
+    forcedEncounter = null;
+    return "no forced encounter";
+  }
+  wrapNewBattle();
+  forcedEncounter = resolveEncounter(type);
+  const battle = globalScene.currentBattle;
+  const nextWave = battle ? battle.waveIndex + 1 : (activeOverrides.STARTING_WAVE_OVERRIDE ?? STARTING_WAVE);
+  const meOverride = activeOverrides.MYSTERY_ENCOUNTER_OVERRIDE;
+  const note =
+    meOverride != null && meOverride !== forcedEncounter
+      ? ` (but MYSTERY_ENCOUNTER_OVERRIDE = ${MysteryEncounterType[meOverride]} still picks the type; set it to null)`
+      : "";
+  return `the next new wave (${nextWave} if it is not made yet) will be ${MysteryEncounterType[forcedEncounter]}${note}`;
+}
+
+// #endregion forced encounter
 
 /** In the command menu, pick a move by index (and a target in doubles) through the real UI handlers */
 async function useMove(moveIndex: number, targetIndex?: number): Promise<string> {
@@ -679,15 +852,68 @@ async function useMove(moveIndex: number, targetIndex?: number): Promise<string>
   return `move ${moveIndex} chosen -> ${modeName()} / ${phaseName()}`;
 }
 
-/** Change `activeOverrides` for the rest of the session, e.g. `override({ STARTING_WAVE_OVERRIDE: 85 })` */
+/** Overrides `override()` also takes by member name, e.g. `{ STARTING_BIOME_OVERRIDE: "FACTORY" }` */
+const OVERRIDE_ENUMS: Record<string, Record<string, string | number>> = {
+  STARTING_BIOME_OVERRIDE: BiomeId,
+  BATTLE_TYPE_OVERRIDE: BattleType,
+  MYSTERY_ENCOUNTER_OVERRIDE: MysteryEncounterType,
+  MYSTERY_ENCOUNTER_TIER_OVERRIDE: MysteryEncounterTier,
+  WEATHER_OVERRIDE: WeatherType,
+  STARTING_TERRAIN_OVERRIDE: TerrainType,
+  ABILITY_OVERRIDE: AbilityId,
+  PASSIVE_ABILITY_OVERRIDE: AbilityId,
+  ENEMY_ABILITY_OVERRIDE: AbilityId,
+  ENEMY_PASSIVE_ABILITY_OVERRIDE: AbilityId,
+  STATUS_OVERRIDE: StatusEffect,
+  ENEMY_STATUS_OVERRIDE: StatusEffect,
+  NATURE_OVERRIDE: Nature,
+  ENEMY_NATURE_OVERRIDE: Nature,
+};
+/** Species overrides take what `startRun` takes: an id, a member name or the displayed name */
+const SPECIES_OVERRIDES = new Set([
+  "STARTER_SPECIES_OVERRIDE",
+  "STARTER_FUSION_SPECIES_OVERRIDE",
+  "ENEMY_SPECIES_OVERRIDE",
+  "ENEMY_FUSION_SPECIES_OVERRIDE",
+]);
+/** Moveset overrides take one move or a list, each by id or member name */
+const MOVESET_OVERRIDES = new Set(["MOVESET_OVERRIDE", "ENEMY_MOVESET_OVERRIDE"]);
+
+function overrideValue(key: string, raw: unknown): unknown {
+  if (SPECIES_OVERRIDES.has(key) && typeof raw === "string") {
+    return resolveSpecies(raw);
+  }
+  if (MOVESET_OVERRIDES.has(key) && (typeof raw === "string" || Array.isArray(raw))) {
+    return Array.isArray(raw) ? raw.map(m => resolveMove(m as number | string)) : resolveMove(raw);
+  }
+  const enumType = OVERRIDE_ENUMS[key];
+  if (typeof raw === "string" && enumType) {
+    return enumByName(enumType, raw, key);
+  }
+  // Any other override that holds a number would keep a string as it is and match nothing
+  if (typeof raw === "string" && typeof (activeOverrides as any)[key] === "number") {
+    throw new Error(`${key} takes a number, not "${raw}"`);
+  }
+  return raw;
+}
+
+/**
+ * Change `activeOverrides` for the rest of the session, e.g. `override({ STARTING_WAVE_OVERRIDE: 85 })`.
+ * Local fork (2026-11-20, the user: "개발용 설정을 약간 손보자"): the enum overrides (biome, battle type, encounter,
+ * encounter tier, species, ability, moveset, weather, terrain, status, nature) also take a member name ("FACTORY",
+ * "SHADY_VITAMIN_DEALER"; species also the displayed name); before, a name was stored as it was and matched nothing.
+ */
 function override(patch: Record<string, unknown>): Record<string, unknown> {
   const applied: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(patch)) {
+  // Every value is checked first, so a refused one leaves the whole patch unapplied
+  for (const [key, raw] of Object.entries(patch)) {
     if (!(key in activeOverrides)) {
       throw new Error(`unknown override: ${key}`);
     }
+    applied[key] = overrideValue(key, raw);
+  }
+  for (const [key, value] of Object.entries(applied)) {
     (activeOverrides as any)[key] = value;
-    applied[key] = value;
   }
   return applied;
 }
@@ -708,7 +934,17 @@ function help(): string[] {
     'setPassiveChoice("CHARMANDER", ["CHARMELEON", "CHARIZARD"])',
     'newGame("CLASSIC")               from the title: open the starter select',
     "startRun({mode, starters: [{species, ability, form, nature, passive, custom, moves}]})",
-    "override({STARTING_WAVE_OVERRIDE: 85})",
+    "                                 no moves: the starter select's moves; moves: set as given (max 4)",
+    'override({STARTING_WAVE_OVERRIDE: 85, STARTING_BIOME_OVERRIDE: "FACTORY"})',
+    "                                 enum overrides also by name (biome, battle type, encounter, tier, species,",
+    '                                 ability, weather, terrain, status, nature; MOVESET_OVERRIDE: ["SURF", ...])',
+    "                                 STARTING_BIOME_OVERRIDE: the run's first battle loads that biome's art",
+    'encounter("SHADY_VITAMIN_DEALER") the next new wave is that Mystery Encounter, whatever it would have been',
+    "                                 (trainer wave, Classic fixed battle, boss, X1, outside 10-180); one wave;",
+    "                                 at the title it is the first wave of startRun/newGame; encounter(null) cancels",
+    "MYSTERY_ENCOUNTER_OVERRIDE only picks WHICH encounter a wave that rolls one gets. A wave rolls one only if it is",
+    "  wild (no trainer wave), not a Classic fixed battle (e.g. 112 = evil team grunt), not a boss, not X1, and in",
+    "  waves 10-180 (Classic); MYSTERY_ENCOUNTER_RATE_OVERRIDE is out of 256, not a percent (256 = every such wave)",
     "saveSystem() / reload()",
   ];
 }
@@ -750,6 +986,7 @@ const api = {
   setPassiveChoice,
   newGame,
   startRun,
+  encounter,
   override,
   saveSystem: () => globalScene.gameData.saveSystem(),
   reload: () => {
@@ -758,6 +995,9 @@ const api = {
   },
   help,
 };
+
+/** The same helpers for the fork's tests (test/tests/custom/custom-dev-settings-1120.test.ts) */
+export const devBridgeApi = api;
 
 type Runner = (bridge: typeof api, code: string) => Promise<unknown>;
 const AsyncFunction = Object.getPrototypeOf(async () => undefined).constructor as new (...args: string[]) => Runner;

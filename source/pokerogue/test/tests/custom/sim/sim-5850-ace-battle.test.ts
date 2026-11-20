@@ -234,7 +234,10 @@ interface AceDef {
   /** A7: the tail (engine fusion fields, stats / types / ability by the engine's own rules) */
   readonly fusion?: { readonly species: SpeciesId; readonly formKey: string };
   readonly category: Category;
-  /** The best nature (a Mint for the novice); Soul Dew x10 makes the boosted stat x2.1 and the lowered stat 1 */
+  /**
+   * The best nature (a Mint for the novice); Soul Dew x10 makes the boosted stat x2.1 and the lowered stat x0.9 x 0.9^10,
+   * about x0.31 (it was 1 until 2026-11-19, A4)
+   */
   readonly nature: Nature;
   readonly moves: readonly MoveId[];
   /** The two type boosters x99 */
@@ -281,7 +284,7 @@ const ACES: Record<AceId, AceDef> = {
     mega: true,
     steelType: false,
     expertPassive: "custom",
-    note: "Mega via Rayquazite in this fork (not Dragon Ascent); physical set because Soul Dew x10 sets the lowered nature stat to 1; passive: our Adaptability over Unnerve",
+    note: "Mega via Rayquazite in this fork (not Dragon Ascent); physical set because Soul Dew x10 cuts the lowered nature stat to about 31% (x0.9 x 0.9^10); passive: our Adaptability over Unnerve",
   },
   A3: {
     id: "A3",
@@ -311,7 +314,7 @@ const ACES: Record<AceId, AceDef> = {
     mega: false,
     steelType: false,
     expertPassive: "custom",
-    note: "special set (SpA 170 > Atk 160; Soul Dew x10 sets the lowered nature stat to 1); passive: our Infiltrator over Opportunist",
+    note: "special set (SpA 170 > Atk 160; Soul Dew x10 cuts the lowered nature stat to about 31%, x0.9 x 0.9^10); passive: our Infiltrator over Opportunist",
   },
   A5: {
     id: "A5",
@@ -1435,7 +1438,8 @@ function movesFor(def: AceDef): readonly MoveId[] {
 
 /**
  * Local fork (2026-11-13): the category the ace attacks with, for its one Choice item (08 명세 6번 1항). A "mixed" ace
- * (A2, A4, A7) attacks with the stat its nature raises: Soul Dew x10 sets the lowered stat to 1.
+ * (A2, A4, A7) attacks with the stat its nature raises: Soul Dew x10 cuts the lowered stat to about 31% (x0.9 x 0.9^10;
+ * it was 1 until 2026-11-19, A4).
  */
 function attackCategory(def: AceDef): "physical" | "special" {
   if (def.category !== "mixed") {

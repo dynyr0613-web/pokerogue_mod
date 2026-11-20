@@ -21,6 +21,7 @@ import type { PlayerPokemon } from "#field/pokemon";
 import { getEvCap } from "#modifiers/ev-items"; // Local fork (2026-11-12): the EVs (노력치) view; per-stat cap since 11-13
 import { modifierSortFunc, PokemonHeldItemModifier, StatBoosterModifier } from "#modifiers/modifier";
 import type { Move } from "#moves/move";
+import { getConvertedMoveForgetWarning } from "#moves/move-transform"; // Local fork (2026-11-20): F1 Q3
 import type { PokemonMove } from "#moves/pokemon-move";
 import type { Variant } from "#sprites/variant";
 import { getVariantTint } from "#sprites/variant";
@@ -53,6 +54,12 @@ const SUMMARY_ITEM_ROW_HEIGHT = 14;
 const SUMMARY_ITEM_FIRST_ROW_Y = 11;
 const SUMMARY_ITEM_VISIBLE_ROWS = 3;
 const SUMMARY_ITEM_BOX = { x: 108, y: 32, width: 209 } as const;
+
+/**
+ * Local fork (2026-11-20), F1 Q3: the yes / no window of "기술 잊기" on a converted slot sits this far above the screen's
+ * bottom (the default is 48), so it ends at y 120, above the move description box (y 121 to 180) that shows the warning
+ */
+const FORGET_WARNING_CONFIRM_Y_OFFSET = 60;
 
 enum Page {
   PROFILE,
@@ -606,10 +613,21 @@ export class SummaryUiHandler extends UiHandler {
               moveSelectOptions.push({
                 label: i18next.t("pokemonSummary:deleteMove"),
                 handler: () => {
+                  // Local fork (2026-11-20), F1 Q3 (the user: "잊을 때 경고"): a converted slot (Z / Max / G-Max /
+                  // Z다이) says in the move description box that its conversion goes too while yes / no is up (the
+                  // window sits higher so it stays clear of the box); the box shows the move again after
+                  const forgetWarning = getConvertedMoveForgetWarning(this.pokemon?.moveset[this.moveCursor]);
+                  const restoreDescription = () => {
+                    if (forgetWarning) {
+                      this.setCursor(this.moveCursor, true);
+                    }
+                  };
                   const moveDeleteConfirmOptions: ConfirmModeConfig = {
+                    ...(forgetWarning ? { yOffset: FORGET_WARNING_CONFIRM_Y_OFFSET } : {}),
                     yesHandler: () => {
                       if (!this.pokemon || !globalScene.phaseManager.getCurrentPhase().is("SelectModifierPhase")) {
                         ui.revertMode();
+                        restoreDescription();
                         return;
                       }
 
@@ -650,14 +668,19 @@ export class SummaryUiHandler extends UiHandler {
                       this.pokemon.moveset.splice(this.moveCursor, 1);
 
                       ui.revertMode();
+                      restoreDescription();
                     },
                     noHandler: () => {
                       ui.revertMode();
+                      restoreDescription();
                     },
                     inputDelay: 1000,
                   };
 
                   ui.revertMode();
+                  if (forgetWarning) {
+                    this.showMoveForgetWarning(forgetWarning);
+                  }
                   ui.setOverlayMode(UiMode.CONFIRM, moveDeleteConfirmOptions);
                   return true;
                 },
@@ -1539,6 +1562,25 @@ export class SummaryUiHandler extends UiHandler {
       return this.newMove;
     }
     return null;
+  }
+
+  /**
+   * Local fork (2026-11-20), F1 Q3 (the user: "잊을 때 경고"): shows `warning` (from `getConvertedMoveForgetWarning`) in
+   * the move description box, unscrolled, while "기술 잊기" asks yes / no about a converted slot. `setCursor` puts the
+   * move's own description back.
+   */
+  private showMoveForgetWarning(warning: string): void {
+    if (this.descriptionScrollTween) {
+      this.descriptionScrollTween.remove();
+      this.descriptionScrollTween = null;
+    }
+    this.moveDescriptionText.setY(74);
+    this.moveDescriptionText.setText(warning);
+  }
+
+  /** Local fork (2026-11-20), F1 Q3: the text the move description box shows now (for tests) */
+  getMoveDescriptionText(): string {
+    return this.moveDescriptionText?.text ?? "";
   }
 
   showMoveSelect() {

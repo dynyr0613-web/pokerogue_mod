@@ -2,6 +2,8 @@ import { globalScene } from "#app/global-scene";
 import { settings } from "#app/global-settings-manager";
 import { speciesDataRegistry } from "#app/global-species-data-registry";
 import { speciesEggMoves } from "#balance/egg-moves";
+// Local fork (2026-11-20): D12, the extra ability chosen in the Pokédex
+import { getPlayerAbilitySlots } from "#balance/extra-ability-choice";
 // Local fork (2026-11-12): our passives wait for the first Classic clear
 import { isForkContentUnlocked } from "#balance/fork-unlock";
 import { getStarterValueFriendshipCap, POKERUS_STARTER_COUNT } from "#balance/starters";
@@ -1447,7 +1449,9 @@ export class PokedexUiHandler extends MessageUiHandler {
       }
 
       // Ability filter
-      const abilities = [species.ability1, species.ability2, species.abilityHidden].map(a => allAbilities[a].name);
+      // Local fork (2026-11-20), D12 review fix: the slots as the Pokédex page shows them, with the extra-ability
+      // choice (extra-ability-choice.ts), here and for the forms below
+      const abilities = getPlayerAbilitySlots(species).map(a => allAbilities[a].name);
       // get the passive ability for the species, plus the one our table offers for it, so either name finds it
       const passives = [species.getPassiveAbility()];
       // Local fork (2026-11-12): ours only once the first Classic clear has unlocked them
@@ -1466,7 +1470,9 @@ export class PokedexUiHandler extends MessageUiHandler {
 
       const selectedAbility1 = this.filterText.getValue(FilterTextRow.ABILITY_1);
       const fitsFormAbility1 = species.forms.some(form =>
-        [form.ability1, form.ability2, form.abilityHidden].map(a => allAbilities[a].name).includes(selectedAbility1),
+        getPlayerAbilitySlots(form)
+          .map(a => allAbilities[a].name)
+          .includes(selectedAbility1),
       );
       const fitsAbility1 =
         abilities.includes(selectedAbility1) || fitsFormAbility1 || selectedAbility1 === this.filterText.defaultText;
@@ -1474,7 +1480,9 @@ export class PokedexUiHandler extends MessageUiHandler {
 
       const selectedAbility2 = this.filterText.getValue(FilterTextRow.ABILITY_2);
       const fitsFormAbility2 = species.forms.some(form =>
-        [form.ability1, form.ability2, form.abilityHidden].map(a => allAbilities[a].name).includes(selectedAbility2),
+        getPlayerAbilitySlots(form)
+          .map(a => allAbilities[a].name)
+          .includes(selectedAbility2),
       );
       const fitsAbility2 =
         abilities.includes(selectedAbility2) || fitsFormAbility2 || selectedAbility2 === this.filterText.defaultText;

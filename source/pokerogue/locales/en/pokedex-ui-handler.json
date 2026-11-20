@@ -85,5 +85,11 @@
   "uncaught": "Uncaught",
   "menuMarks": "Marks & Ribbons",
   "showMarks": "Check this Pokémon's marks and ribbons.",
-  "noMarks": "This Pokémon has no marks or ribbons."
+  "noMarks": "This Pokémon has no marks or ribbons.",
+  "extraAbility": "Extra Ability:",
+  "extraAbilityOn": "On: {{ability}}",
+  "extraAbilityOff": "Off: {{ability}}",
+  "extraAbilitySlotDescription": "On: ability 2 is {{extra}}. Off: {{off}}. Only for your own Pokémon.",
+  "extraAbilityMegaDescription": "On: the Mega Evolution's ability is {{extra}}. Off: {{off}}. Only for your own Pokémon.",
+  "extraAbilityLocked": "Can't be changed during a run."
 }

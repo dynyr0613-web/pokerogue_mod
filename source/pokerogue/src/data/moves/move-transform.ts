@@ -49,6 +49,7 @@ import {
   getZMovePower,
   getZStatusEffect,
   isZMaxOnlyMove,
+  isZPowerlessStatusMove,
   MAX_MOVE_BY_TYPE,
   Z_MOVE_BY_TYPE,
   ZMAX_RULES,
@@ -537,28 +538,46 @@ function isConvertibleBase(id: MoveId): boolean {
  * | slot | 다이사탕 | type Z crystal (T) | exclusive Z crystal (T) |
  * |---|---|---|---|
  * | plain | yes | base type T | base type T |
- * | max (Max Guard, 다이검무 too) | no | base type T | no |
+ * | max: Max attack | G-Max upgrade only | base type T | no |
+ * | max: Max Guard, 다이검무 | no | base type T | no |
  * | gmax, zExclusive, zMax | no | no | no |
- * | z | yes (Z다이) | no | no |
+ * | z | yes (Z다이) | no | base type T (upgrade) |
+ * | Sketch, any state | no | no | no |
+ * | plain status move without Z-Power (F1 Q9) | yes | no | no |
  *
  * Local fork (2026-11-16), review fix: an exclusive crystal converts any move of its type, status moves included (the
  * user: "전용 z 크리스탈은 해당 타입의 기술을 전용 z기술로 변환", the same "해당 타입 기술" a type crystal reads as
  * every move of the type), so Kommo-o's Clangorous Soul + Kommonium Z gives Clangorous Soulblaze.
+ *
+ * Local fork (2026-11-20), F1 Q2 (the user: "전용 z를 쓸수 있거나 거다이 포켓몬인 경우 허용"): a slot converted early
+ * can be upgraded by an item: an exclusive crystal turns a type Z-Move of its type into the exclusive Z-Move (the
+ * species check is {@linkcode getConversionResult}'s), and 다이사탕 turns a Max attack into the G-Max move when the
+ * Pokémon's G-Max rule gives one for that slot (else nothing: {@linkcode getCandyResult}). Nothing is ever downgraded
+ * (Q4 "지금처럼").
+ * Local fork (2026-11-20), F1 Q8 (the user: "막는다"): Sketch takes no item. Z스케치 was gone after one use (the slot
+ * becomes the sketched move) and 다이사탕 made Sketch a Max Guard for good.
  */
 export function canSlotTakeItem(slot: PokemonMove, item: ConversionItem): boolean {
-  if (!isConvertibleBase(slot.moveId)) {
+  if (!isConvertibleBase(slot.moveId) || slot.moveId === MoveId.SKETCH) {
     return false;
   }
   const base = allMoves[slot.moveId];
   const state = slot.transform?.kind ?? "plain";
   if (item.kind === "candy") {
-    return state === "plain" || state === "z";
+    // A Max attack only for the G-Max upgrade (Q2); Max Guard and 다이검무 never become G-Max moves
+    return state === "plain" || state === "z" || (state === "max" && base.category !== MoveCategory.STATUS);
+  }
+  // Local fork (2026-11-20), F1 Q9 (the user: "뺀다"): a plain status move without Z-Power takes no crystal, type or
+  // exclusive (a type crystal only renamed it); made a Max Guard first, it still takes its type's crystal (Z다이)
+  if (state === "plain" && isZPowerlessStatusMove(slot.moveId)) {
+    return false;
   }
   if (item.kind === "zType") {
     return (state === "plain" || state === "max") && base.type === item.type;
   }
   const info = getExclusiveZInfo(item.key);
-  return state === "plain" && !!info && base.type === info.type;
+  // A type Z-Move of the crystal's type can be upgraded (Q2)
+  return (state === "plain" || state === "z") && !!info && base.type === info.type;
 }
 
 /** The exclusive crystal with this key */
@@ -578,6 +597,8 @@ function getMaxStatusMove(baseId: MoveId): MoveId {
  * - Type crystal on a plain status move: the Z status move (base id); on a plain attack: the type's Z move by the base
  *   category; on a Max move (Max Guard and 다이검무 too): the Z다이 move.
  * - Exclusive crystal: the exclusive Z move, if `pokemon` is (or is fused with) its species.
+ * Local fork (2026-11-20), F1 Q2 upgrades: 다이사탕 on a Max attack gives the G-Max move when the G-Max rule picks the
+ * slot, else `null`; an exclusive crystal on a type Z-Move of its type gives the exclusive Z move (same species rule).
  */
 export function getConversionResult(pokemon: Pokemon, slot: PokemonMove, item: ConversionItem): MoveTransform | null {
   if (!canSlotTakeItem(slot, item)) {
@@ -598,12 +619,16 @@ export function getConversionResult(pokemon: Pokemon, slot: PokemonMove, item: C
   }
 }
 
-/** 다이사탕 on a slot that can take it (plain or Z) */
+/**
+ * 다이사탕 on a slot that can take it (plain or Z; a Max attack only for the G-Max upgrade, local fork 2026-11-20, F1
+ * Q2: "거다이 포켓몬인 경우 허용")
+ */
 function getCandyResult(pokemon: Pokemon, slot: PokemonMove): MoveTransform | null {
   const base = allMoves[slot.moveId];
   const fromZ = slot.transform?.kind === "z";
+  const fromMax = slot.transform?.kind === "max";
   if (base.category === MoveCategory.STATUS) {
-    return { kind: fromZ ? "zMax" : "max", moveId: getMaxStatusMove(slot.moveId) };
+    return fromMax ? null : { kind: fromZ ? "zMax" : "max", moveId: getMaxStatusMove(slot.moveId) };
   }
   const maxMove = MAX_MOVE_BY_TYPE[base.type];
   if (maxMove === undefined) {
@@ -616,7 +641,8 @@ function getCandyResult(pokemon: Pokemon, slot: PokemonMove): MoveTransform | nu
   if (gmax && (gmax.signature === undefined ? base.type === gmax.type : slot.moveId === gmax.signature)) {
     return { kind: "gmax", moveId: gmax.move };
   }
-  return { kind: "max", moveId: maxMove };
+  // A Max attack has nothing to become but its G-Max move
+  return fromMax ? null : { kind: "max", moveId: maxMove };
 }
 
 /** A type Z crystal on a slot that can take it (plain or Max) */
@@ -688,6 +714,23 @@ export function getGmaxMoveInfo(pokemon: Pokemon): GmaxMoveInfo | null {
     getSpeciesGmaxInfo(pokemon.species, pokemon.getFormKey())
     ?? getSpeciesGmaxInfo(pokemon.fusionSpecies, pokemon.getFusionFormKey())
   );
+}
+
+/**
+ * Local fork (2026-11-20), F1 Q3 (the user: "잊을 때 경고"): the warning shown before a converted slot is forgotten,
+ * e.g. "다이썬더는 다이 기술로 바뀌어 있다! 잊으면 변환도 사라진다." (a forgotten conversion is gone for good: a
+ * Memory Mushroom teaches the plain move back), or `null` for a plain slot. The forget flows ask yes / no after it:
+ * LearnMovePhase (level-up, TM, Memory Mushroom, egg moves, encounters, a splice's tail moves) and the summary's
+ * "기술 잊기".
+ */
+export function getConvertedMoveForgetWarning(slot: PokemonMove | undefined): string | null {
+  if (!slot?.transform) {
+    return null;
+  }
+  return i18next.t("battle:convertedMoveForgetWarning", {
+    moveName: slot.getName(),
+    kindName: i18next.t(`battle:convertedMoveKind.${slot.transform.kind}`),
+  });
 }
 
 // Local fork (2026-11-16): hand the derived-move builder to `PokemonMove.getMove()` (see the import above)

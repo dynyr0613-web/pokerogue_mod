@@ -15,7 +15,9 @@
  *
  * - Z링: a ROGUE key item like the Dynamax Band (never twice). It only opens the Z crystals.
  * - 다이사탕: an ULTRA consumable, offered while a party member is Dynamaxed (`Pokemon.isDynamaxed()`, 2026-11-18: a
- *   G-Max form or the Dynamax state) and some party move can take it. Any party member can use it.
+ *   G-Max form or the Dynamax state) and some party move can take it. Local fork (2026-11-20), F1 Q1 (the user:
+ *   "다이맥스한 포켓몬만 센다"): only a Dynamaxed party member counts, and only it can use the candy
+ *   ({@linkcode getConversionPartyBlock}); before, any party member could.
  * - Z크리스탈: an ULTRA consumable, one reward id (`Z_CRYSTAL`) whose generator picks a type crystal (노말Z ...) or a
  *   species-exclusive one (피카츄Z ...), weighted by the party's eligible moves ({@linkcode getZCrystalCandidates}).
  * - Using the candy or a crystal converts one move slot for good: `PokemonMove.transform` (move-transform.ts, which also
@@ -29,6 +31,7 @@
 import { globalScene } from "#app/global-scene";
 import { initMoveAnim, loadMoveAnimAssets } from "#data/battle-anims";
 import { allMoves } from "#data/data-lists";
+import { MoveId } from "#enums/move-id";
 import { PokemonType } from "#enums/pokemon-type";
 import type { PlayerPokemon, Pokemon } from "#field/pokemon";
 import { ConsumablePokemonMoveModifier, PersistentModifier } from "#modifiers/modifier";
@@ -36,7 +39,7 @@ import type { ModifierType } from "#modifiers/modifier-type";
 import type * as MoveTransformModule from "#moves/move-transform";
 import type { ConversionItem, MoveTransform } from "#moves/move-transform";
 import type { PokemonMove } from "#moves/pokemon-move";
-import { EXCLUSIVE_Z, type ExclusiveZInfo } from "#moves/zmax-data";
+import { EXCLUSIVE_Z, type ExclusiveZInfo, isZPowerlessStatusMove } from "#moves/zmax-data";
 import { randSeedInt } from "#utils/common";
 
 /**
@@ -243,9 +246,14 @@ export function canUseConversionItem(pokemon: Pokemon, item: ConversionItem): bo
  * - `gmax`: a crystal on a G-Max Move ("거다이맥스 기술 제외");
  * - `zMove`: a crystal on a Z-Move, an exclusive Z-Move or a Z-Max Move;
  * - `wrongSpecies`: an exclusive crystal on a Pokémon of another species;
+ * - `sketch`: any item on Sketch (local fork 2026-11-20, F1 Q8, the user: "막는다");
+ * - `noZPower`: a crystal on a plain status move without Z-Power, 손가락흔들기 ... (local fork 2026-11-20, F1 Q9, the
+ *   user: "뺀다");
  * - `cannot`: any other move the item cannot convert.
  *
  * Review fix (2026-11-16): no `status` reason any more, an exclusive crystal converts status moves of its type too.
+ * Local fork (2026-11-20), F1 Q2: `maxMove` for candy now also means a Max Move whose Pokémon has no G-Max move for
+ * it, and `zMove` for an exclusive crystal no longer covers a type Z-Move of its type (that one is upgraded).
  */
 export type ConversionBlockReason =
   | "maxMove"
@@ -254,6 +262,8 @@ export type ConversionBlockReason =
   | "gmax"
   | "zMove"
   | "wrongSpecies"
+  | "sketch"
+  | "noZPower"
   | "cannot";
 
 /**
@@ -267,6 +277,10 @@ export function getConversionBlockReason(
 ): ConversionBlockReason | null {
   if (rules().getConversionResult(pokemon, slot, item)) {
     return null;
+  }
+  // Local fork (2026-11-20), F1 Q8: Sketch first, whatever the item or the slot's state
+  if (slot.moveId === MoveId.SKETCH) {
+    return "sketch";
   }
   const kind = slot.transform?.kind;
   if (item.kind === "candy") {
@@ -282,6 +296,10 @@ export function getConversionBlockReason(
   if (kind === "gmax") {
     return "gmax";
   }
+  // Local fork (2026-11-20), F1 Q2: a type Z-Move of its type takes an exclusive crystal on the right species only
+  if (kind === "z" && item.kind === "zExclusive" && !rules().isExclusiveZEligibleSpecies(pokemon, item.key)) {
+    return "wrongSpecies";
+  }
   if (kind === "z" || kind === "zExclusive" || kind === "zMax") {
     return "zMove";
   }
@@ -290,6 +308,10 @@ export function getConversionBlockReason(
   }
   if (item.kind === "zExclusive" && !rules().isExclusiveZEligibleSpecies(pokemon, item.key)) {
     return "wrongSpecies";
+  }
+  // Local fork (2026-11-20), F1 Q9: a plain status move without Z-Power (손가락흔들기 ...)
+  if (!kind && isZPowerlessStatusMove(slot.moveId)) {
+    return "noZPower";
   }
   return "cannot";
 }
@@ -303,11 +325,42 @@ export function getConversionBlockReason(
  * player's Pokémon is Dynamaxed ("다이맥스한 포켓몬이 있을 경우") and some player Pokémon has a move it can convert,
  * else 0. Local fork (2026-11-18): Dynamaxed in any way (`Pokemon.isDynamaxed`): a G-Max / E-Max form or the Dynamax
  * state of Max Mushrooms without one (pokemon-forms-dynamax.ts).
+ * Local fork (2026-11-20), F1 Q1 (the user: "다이맥스한 포켓몬만 센다"): only the Dynamaxed Pokémon's own moves count, so
+ * the candy is no longer offered once every Dynamaxed Pokémon's moves are converted, whatever the others have
+ * ({@linkcode getConversionPartyBlock}).
  */
 export function getDynamaxCandyWeight(party: readonly Pokemon[]): number {
-  const players = party.filter(p => p.isPlayer());
-  const offered = players.some(p => p.isDynamaxed()) && players.some(p => canUseConversionItem(p, DYNAMAX_CANDY_ITEM));
+  const offered = party.some(p => p.isPlayer() && getConversionPartyBlock(p, DYNAMAX_CANDY_ITEM) === null);
   return offered ? ZMAX_REWARD_RULES.dynamaxCandy.weight : 0;
+}
+
+/**
+ * Local fork (2026-11-20): why the party screen refuses conversion item `item` for `pokemon` (see
+ * {@linkcode getConversionPartyBlock})
+ */
+export type ConversionPartyBlock = "notDynamaxed" | "noEffect";
+
+/**
+ * Local fork (2026-11-20): why `pokemon` cannot take conversion item `item` on the party screen, or `null` when it can:
+ * - `notDynamaxed`: the Dynamax Candy on a Pokémon that is not Dynamaxed (`Pokemon.isDynamaxed`: a G-Max / E-Max form,
+ *   or the Dynamax state of switched-on Max Mushrooms). F1 Q1, the user: "다이맥스한 포켓몬만 센다";
+ * - `noEffect`: none of its moves can take the item ("써도 효과가 없다.").
+ * The party screen's filter (`MoveConversionModifierType`) and the candy's reward weight ask this. A conversion made
+ * without the party screen (encounters, tests) is not refused by it.
+ */
+export function getConversionPartyBlock(pokemon: Pokemon, item: ConversionItem): ConversionPartyBlock | null {
+  if (item.kind === "candy" && !pokemon.isDynamaxed()) {
+    return "notDynamaxed";
+  }
+  return canUseConversionItem(pokemon, item) ? null : "noEffect";
+}
+
+/**
+ * Local fork (2026-11-20), F1-42 (the user: "전용 z기술을 한 칸이라도 가질 경우 해당 전용 z의 크리스탈 드롭 안함"):
+ * whether a slot of `pokemon` already is the exclusive Z-Move of crystal `info`
+ */
+function hasExclusiveZMove(pokemon: Pokemon, info: ExclusiveZInfo): boolean {
+  return pokemon.moveset.some(slot => slot?.transform?.kind === "zExclusive" && slot.transform.moveId === info.zMove);
 }
 
 /**
@@ -317,7 +370,11 @@ export function getDynamaxCandyWeight(party: readonly Pokemon[]): number {
  *   a Max Move to a Z-Max Move; G-Max moves never: "거다이맥스 기술 제외"), at most
  *   {@linkcode ZMAX_REWARD_RULES}.zCrystal.typeCap.
  * - Exclusive crystal: +{@linkcode ZMAX_REWARD_RULES}.zCrystal.exclusiveMultiplier for each such slot of a Pokémon of its
- *   species ("전용 z 크리스탈은 해당 타입의 기술을 전용 z기술로 변환").
+ *   species ("전용 z 크리스탈은 해당 타입의 기술을 전용 z기술로 변환"). Local fork (2026-11-20), F1 Q2: a type Z-Move of
+ *   its type counts too (it can be upgraded); the Dynamax Candy's weight likewise counts a Max attack that can become
+ *   the Pokémon's G-Max move (both through the conversion rules). Local fork (2026-11-20), F1-42: nothing from a
+ *   Pokémon that already has the crystal's exclusive Z-Move in a slot.
+ * Local fork (2026-11-20), F1 Q9: plain status moves without Z-Power count for no crystal (the conversion rules).
  * Only the player's Pokémon allowed in the run's challenges count (like the type boosters).
  */
 export function getZCrystalCandidates(party: readonly Pokemon[]): Map<ZCrystalKey, number> {
@@ -327,7 +384,11 @@ export function getZCrystalCandidates(party: readonly Pokemon[]): Map<ZCrystalKe
     if (!p.isPlayer() || !p.isAllowedInChallenge()) {
       continue;
     }
-    const exclusives = EXCLUSIVE_Z.filter(info => rules().isExclusiveZEligibleSpecies(p, info.key));
+    // Local fork (2026-11-20), F1-42: not a crystal whose exclusive Z-Move this Pokémon already has in a slot; its other
+    // exclusive crystals (a fusion's) stay ("그 전용 z에 해당하는 z기술만 막는다")
+    const exclusives = EXCLUSIVE_Z.filter(
+      info => rules().isExclusiveZEligibleSpecies(p, info.key) && !hasExclusiveZMove(p, info),
+    );
     p.moveset.forEach((slot, i) => {
       if (!slot) {
         return;

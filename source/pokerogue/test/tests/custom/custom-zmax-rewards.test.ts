@@ -329,14 +329,18 @@ describe("Custom items - Z-Ring, Dynamax Candy, Z crystals (Z링 / 다이사탕 
       for (const id of ["DYNAMAX_CANDY", "Z_CRYSTAL"]) {
         expect(text.ModifierType[id].chooseMove && text.ModifierType[id].confirm, id).toBeTruthy();
       }
+      // Local fork (2026-11-20): + `sketch` (F1 Q8) and `noZPower` (F1 Q9); the candy's party-screen text (F1 Q1) is
+      // `notDynamaxed` beside the reasons, which are the move picker's
       expect([...Object.keys(text.ModifierType.DYNAMAX_CANDY.reason)].sort()).toEqual([
         "cannot",
         "converted",
         "maxMove",
+        "sketch",
       ]);
       expect([...Object.keys(text.ModifierType.Z_CRYSTAL.reason)].sort()).toEqual(
-        ["cannot", "gmax", "maxMove", "wrongSpecies", "wrongType", "zMove"].sort(),
+        ["cannot", "gmax", "maxMove", "noZPower", "sketch", "wrongSpecies", "wrongType", "zMove"].sort(),
       );
+      expect(text.ModifierType.DYNAMAX_CANDY.notDynamaxed).toBeTruthy();
       expect([...Object.keys(text.ZCrystal)].sort()).toEqual(EXCLUSIVE_Z.map(info => info.key).sort());
     }
     expect(Object.keys(en.ModifierType.Z_CRYSTAL.typeCrystal)).toEqual(Z_TYPE_CRYSTAL_TYPES.map(t => PokemonType[t]));
@@ -455,7 +459,8 @@ describe("Custom items - Z-Ring, Dynamax Candy, Z crystals (Z링 / 다이사탕 
     }
   });
 
-  it("offers the Dynamax Candy only while a party member is Dynamaxed and some party move can take it", async () => {
+  // Local fork (2026-11-20), F1 Q1 (the user: "다이맥스한 포켓몬만 센다"): only a Dynamaxed Pokémon's own moves count
+  it("offers the Dynamax Candy only while a Dynamaxed party member has a move it can take", async () => {
     await game.classicMode.startBattle(SpeciesId.MELMETAL, SpeciesId.PIKACHU);
     const party = game.scene.getPlayerParty();
     const [melmetal, pikachu] = party;
@@ -467,16 +472,16 @@ describe("Custom items - Z-Ring, Dynamax Candy, Z crystals (Z링 / 다이사탕 
     expect(getDynamaxCandyWeight(party)).toBe(0);
     expect(weight(party, 0)).toBe(0);
 
-    // Melmetal in its G-Max form: any party member may use it
+    // Melmetal in its G-Max form: offered for its own moves
     setGmaxForm(melmetal);
     expect(weight(party, 0)).toBe(ZMAX_REWARD_RULES.dynamaxCandy.weight);
 
-    // every move already a Max Move: nothing left to convert
+    // every move of Melmetal, the only Dynamaxed one, already a Max Move: no longer offered, though Pikachu's
+    // Thunderbolt could take it (before 11-20 it still was)
     melmetal.moveset[0].transform = { kind: "max", moveId: MoveId.MAX_STEELSPIKE };
     melmetal.moveset[1].transform = { kind: "gmax", moveId: MoveId.G_MAX_MELTDOWN };
-    expect(weight(party, 0)).toBe(ZMAX_REWARD_RULES.dynamaxCandy.weight); // Pikachu's Thunderbolt still can
-    pikachu.moveset[0].transform = { kind: "max", moveId: MoveId.MAX_LIGHTNING };
     expect(weight(party, 0)).toBe(0);
+    expect(pikachu.moveset[0].transform).toBeUndefined();
   });
 
   it("offers Z crystals only with the Z-Ring and an eligible move, and draws only eligible crystals", async () => {
@@ -614,6 +619,8 @@ describe("Custom items - Z-Ring, Dynamax Candy, Z crystals (Z링 / 다이사탕 
       { kind: "max", moveId: MoveId.MAX_SWORDS_DANCE },
       { kind: "max", moveId: MoveId.MAX_GUARD },
     ]);
+    // Local fork (2026-11-20), F1 Q1: only a Dynamaxed Pokémon takes the candy on the party screen
+    setGmaxForm(melmetal);
 
     await toRewardScreen("DYNAMAX_CANDY");
     await pickReward();

@@ -177,4 +177,12 @@ export interface GetEffectiveStatParams {
    * physical move (the main series' rule)
    */
   foulPlayTarget?: Pokemon;
+  /**
+   * Local fork (2026-11-20): Wonder Room's exceptions in the main series (the user: "원더룸 - 본가 규칙 따르기").
+   * When set, the plain Defense / Sp. Def is read as if Wonder Room were not up, and its stat stages then come from the
+   * other defensive stat (Game Freak's own quirk, as in Pokémon Showdown's `getStat(stat, false, true)`). Used by
+   * Download, Protosynthesis / Quark Drive / Booster Energy, Body Press and Shell Side Arm's category check.
+   * @defaultValue `false`
+   */
+  ignoreWonderRoom?: boolean;
 }

@@ -99,7 +99,7 @@ import {
 } from "#modifiers/modifier";
 import { BerryModifierType } from "#modifiers/modifier-type"; // Local fork (2026-11-19): Recycle (1.2.0 D6)
 import { applyMoveAttrs } from "#moves/apply-attrs";
-import { isPursuitIntercept } from "#moves/custom-pursuit"; // Local fork (2026-11-19): Pursuit
+import { hasPendingPursuit, isPursuitIntercept } from "#moves/custom-pursuit"; // Local fork (2026-11-19): Pursuit
 import {
   invalidAssistMoves,
   invalidCopycatMoves,
@@ -5822,9 +5822,15 @@ export class TargetAtkUserAtkAttr extends VariableAtkAttr {
   }
 }
 
+/**
+ * Body Press: the attack uses the user's Defense.
+ * Local fork (2026-11-20): under Wonder Room it uses the user's own Defense with its Sp. Def stat stages, as in the main
+ * series (Pokémon Showdown: "In Wonder Room, Body Press uses Sp. Def stat stage changes"; the user: "원더룸 - 본가 규칙
+ * 따르기")
+ */
 export class DefAtkAttr extends VariableAtkAttr {
   apply(user: Pokemon, target: Pokemon, _move: Move, args: any[]): boolean {
-    (args[0] as NumberHolder).value = user.getEffectiveStat(Stat.DEF, { opponent: target });
+    (args[0] as NumberHolder).value = user.getEffectiveStat(Stat.DEF, { opponent: target, ignoreWonderRoom: true });
     return true;
   }
 }
@@ -5943,6 +5949,20 @@ export class BlizzardAccuracyAttr extends VariableAccuracyAttr {
     }
 
     return false;
+  }
+}
+
+/**
+ * Local fork (2026-11-20): Pursuit (따라가때리기) never misses a foe it catches switching out (custom-pursuit.ts), as in
+ * the main series (Pokémon Showdown: `move.accuracy = true`; the user: "따라가때리기 - 본가 그대로")
+ */
+export class PursuitAccuracyAttr extends VariableAccuracyAttr {
+  apply(user: Pokemon, target: Pokemon, _move: Move, args: any[]): boolean {
+    if (!isPursuitIntercept(user, target)) {
+      return false;
+    }
+    (args[0] as NumberHolder).value = -1;
+    return true;
   }
 }
 
@@ -7918,6 +7938,19 @@ export class ForceSwitchOutAttr extends MoveEffectAttr {
             true,
           );
         } else {
+          // Local fork (2026-11-20): Pursuit (the user: "따라가때리기 - 본가 그대로"). While a foe's Pursuit waits, the
+          // user stays on the field and `SwitchPhase` lets the Pursuit hit it first (custom-pursuit.ts)
+          if (this.isPursuitCatchable(switchOutTarget)) {
+            globalScene.phaseManager.queueDeferred(
+              "SwitchPhase",
+              this.switchType,
+              switchOutTarget.getFieldIndex(),
+              true,
+              true,
+              "check",
+            );
+            return true;
+          }
           switchOutTarget.leaveField(this.switchType === SwitchType.SWITCH);
           globalScene.phaseManager.queueDeferred(
             "SwitchPhase",
@@ -8005,6 +8038,9 @@ export class ForceSwitchOutAttr extends MoveEffectAttr {
             false,
           );
         } else {
+          // Local fork (2026-11-20): Pursuit (the user: "따라가때리기 - 본가 그대로"). While a foe's Pursuit waits, the
+          // `"check"` stage lets it hit the user first (custom-pursuit.ts)
+          const pursuitCatchable = this.isPursuitCatchable(switchOutTarget);
           globalScene.phaseManager.queueDeferred(
             "SwitchSummonPhase",
             this.switchType,
@@ -8014,12 +8050,24 @@ export class ForceSwitchOutAttr extends MoveEffectAttr {
               : 0,
             false,
             false,
+            pursuitCatchable ? "check" : "none",
+            pursuitCatchable,
           );
         }
       }
     }
 
     return true;
+  }
+
+  /**
+   * Local fork (2026-11-20): Pursuit (따라가때리기) (the user: "따라가때리기 - 본가 그대로"). Whether a foe's waiting
+   * Pursuit catches `switchOutTarget` leaving through this move, as in the main series: the user's own plain switch
+   * (U-turn, Volt Switch, Flip Turn, Parting Shot, Chilly Reception; Teleport moves after any Pursuit), but not Baton
+   * Pass or Shed Tail, and never a Pokémon forced out (Roar, Dragon Tail ...)
+   */
+  private isPursuitCatchable(switchOutTarget: Pokemon): boolean {
+    return this.selfSwitch && this.switchType === SwitchType.SWITCH && hasPendingPursuit(switchOutTarget);
   }
 
   getCondition(): MoveConditionFunc {
@@ -11410,8 +11458,11 @@ export function initMoves() {
       .edgeCase(),
     // Local fork (2026-11-19): hits a foe that switches out this turn before it leaves, at double power (custom-pursuit.ts;
     // the user: "e2 구현")
+    // Local fork (2026-11-20): also a foe leaving through its own switching move, and it never misses a foe it catches
+    // (the user: "따라가때리기 - 본가 그대로")
     new AttackMove(MoveId.PURSUIT, PokemonType.DARK, MoveCategory.PHYSICAL, 40, 100, 20, -1, 0, 2) //
-      .attr(MovePowerMultiplierAttr, (user, target) => (isPursuitIntercept(user, target) ? 2 : 1)),
+      .attr(MovePowerMultiplierAttr, (user, target) => (isPursuitIntercept(user, target) ? 2 : 1))
+      .attr(PursuitAccuracyAttr),
     new AttackMove(MoveId.RAPID_SPIN, PokemonType.NORMAL, MoveCategory.PHYSICAL, 50, 100, 40, 100, 0, 2)
       .attr(StatStageChangeAttr, [Stat.SPD], 1, true)
       .attr(

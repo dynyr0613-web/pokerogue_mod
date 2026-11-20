@@ -8,7 +8,8 @@
  *   x{@linkcode DYNAMAX_HP_MULTIPLIER} (`Pokemon.calculateStats`, the current HP in proportion when the state starts or
  *   ends) and it is drawn x{@linkcode DYNAMAX_SPRITE_SCALE} like a G-Max form (`Pokemon.getSpriteScale`, the field
  *   zooming out the same way). Nothing new is saved: the item and its active flag already are. `Pokemon.isDynamaxed()`
- *   is a G-Max / E-Max form or this state. It stays through fainting, like a G-Max form.
+ *   is a G-Max / E-Max form or this state. It stays through fainting, like a G-Max form. Local fork (2026-11-20), F1
+ *   Q6 (the user: "추천대로"): the player's side only after the first Classic clear (fork-unlock.ts).
  * - A species with a G-Max form, in the form that form starts from, still becomes it with the mushrooms, as before
  *   (review fix: also right after evolving into one while holding them, `EvolutionPhase`, so a reload changes nothing).
  * - The mushrooms stack with a Mega Stone or a Red / Blue Orb: a Mega / Primal form comes first (that form + the
@@ -22,6 +23,8 @@
  */
 
 import { speciesDataRegistry } from "#app/global-species-data-registry";
+// Local fork (2026-11-20): F1 Q6, the player's Dynamax state waits for the first Classic clear
+import { isForkContentUnlocked } from "#balance/fork-unlock";
 import { SpeciesFormChangeItemTrigger } from "#data/form-change-triggers";
 import { SpeciesFormChange } from "#data/pokemon-forms";
 import { FormChangeItem } from "#enums/form-change-item";
@@ -125,9 +128,15 @@ function isBoundForMaxForm(pokemon: Pokemon): boolean {
  * Local fork (2026-11-18): an enemy too (enemy-dynamax.ts; the user: "적 다이맥스 상태 넣고"). Before, only the player's
  * Pokémon. An enemy's mushrooms never change its form, so it is never bound for a G-Max form: a G-Max species' base
  * form holding them is in the state; an enemy in its G-Max form (enemy-battle-forms.ts, a trainer config's) is not.
+ * Local fork (2026-11-20), F1 Q6 (the user: "추천대로"): no player's Pokémon before the first Classic clear
+ * (fork-unlock.ts), as in the original game, where mushrooms do nothing for a species without a G-Max form (one that
+ * evolved from a G-Max species holding them, say). The enemies are not changed.
  */
 export function isInDynamaxState(pokemon: Pokemon): boolean {
   if (pokemon.isMax() || !holdsMaxMushrooms(pokemon, true)) {
+    return false;
+  }
+  if (pokemon.isPlayer() && !isForkContentUnlocked()) {
     return false;
   }
   return !pokemon.isPlayer() || !isBoundForMaxForm(pokemon);

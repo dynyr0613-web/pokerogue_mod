@@ -2,6 +2,8 @@ import type { Ability } from "#abilities/ability";
 import { CLASSIC_MODE_MYSTERY_ENCOUNTER_WAVES } from "#app/constants";
 import { globalScene } from "#app/global-scene";
 import { speciesDataRegistry } from "#app/global-species-data-registry";
+// Local fork (2026-11-20): D12, the extra ability chosen in the Pokédex
+import { applyExtraAbilityChoice } from "#balance/extra-ability-choice";
 import { allAbilities } from "#data/data-lists";
 import { getNatureName } from "#data/nature";
 import { AbilityAttr } from "#enums/ability-attr";
@@ -268,7 +270,9 @@ export const TrainingSessionEncounter: MysteryEncounter = MysteryEncounterBuilde
           const abilityCount = speciesForm.getAbilityCount();
           const abilities: Ability[] = new Array(abilityCount)
             .fill(null)
-            .map((_val, i) => allAbilities[speciesForm.getAbility(i)]);
+            // Local fork (2026-11-20), D12 review fix: as the player's Pokémon gets them, with the Pokédex's
+            // extra-ability choice (extra-ability-choice.ts), so the list names the ability it will have
+            .map((_val, i) => allAbilities[applyExtraAbilityChoice(speciesForm, i, speciesForm.getAbility(i))]);
 
           const optionSelectItems: OptionSelectItem[] = [];
           abilities.forEach((ability: Ability, index) => {

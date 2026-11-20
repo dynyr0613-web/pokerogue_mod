@@ -4,6 +4,14 @@ import { settings } from "#app/global-settings-manager";
 import { speciesDataRegistry } from "#app/global-species-data-registry";
 import { activeOverrides } from "#app/overrides";
 import { speciesEggMoves } from "#balance/egg-moves";
+// Local fork (2026-11-20): D12, the extra ability chosen in the Pokédex
+import {
+  canChangeExtraAbilityChoice,
+  getExtraAbilityChoiceRow,
+  getPlayerAbilitySlots,
+  isExtraAbilityOn,
+  setExtraAbilityOn,
+} from "#balance/extra-ability-choice";
 // Local fork (2026-11-12): our passives wait for the first Classic clear
 import { isForkContentUnlocked } from "#balance/fork-unlock";
 import { EvoCondKey, type SpeciesFormEvolution } from "#balance/pokemon-evolutions";
@@ -22,7 +30,7 @@ import { Gender, getGenderColor, getGenderSymbol } from "#data/gender";
 import { getNatureName } from "#data/nature";
 import type { SpeciesFormChange } from "#data/pokemon-forms";
 import { getCollectedMarks, getStarterEquippedMark, isMarkCollectionComplete } from "#data/pokemon-marks";
-import type { PokemonSpecies } from "#data/pokemon-species";
+import type { PokemonSpecies, PokemonSpeciesForm } from "#data/pokemon-species";
 import { normalForm } from "#data/pokemon-species";
 import { AbilityAttr } from "#enums/ability-attr";
 import type { AbilityId } from "#enums/ability-id";
@@ -953,17 +961,15 @@ export class PokedexPageUiHandler extends MessageUiHandler {
     if (species.forms.length > 0) {
       const form = species.forms[formIndex];
 
-      this.ability1 = form.ability1;
-      this.ability2 = form.ability2 === form.ability1 ? undefined : form.ability2;
-      this.abilityHidden = form.abilityHidden === form.ability1 ? undefined : form.abilityHidden;
+      // Local fork (2026-11-20): D12, as the player's Pokémon get them
+      this.setAbilitySlots(form);
 
       this.evolutions = allEvolutions.filter(e => e.preFormKey === form.formKey || e.preFormKey === null);
       this.baseStats = form.baseStats.slice();
       this.baseTotal = form.baseTotal;
     } else {
-      this.ability1 = species.ability1;
-      this.ability2 = species.ability2 === species.ability1 ? undefined : species.ability2;
-      this.abilityHidden = species.abilityHidden === species.ability1 ? undefined : species.abilityHidden;
+      // Local fork (2026-11-20): D12, as the player's Pokémon get them
+      this.setAbilitySlots(species);
 
       this.evolutions = allEvolutions;
       this.baseStats = species.baseStats.slice();
@@ -1258,6 +1264,165 @@ export class PokedexPageUiHandler extends MessageUiHandler {
       return SpeciesId.PIKACHU;
     }
     return speciesDataRegistry.getSpeciesData(speciesId).starter;
+  }
+
+  /**
+   * Local fork (2026-11-20): 1.2.0 D12. The page's ability slots as the player's Pokémon get them, with the extra
+   * ability chosen in the Pokédex (extra-ability-choice.ts); a slot that repeats ability1 is not shown, as before.
+   * @param speciesForm - The species or form the page shows
+   */
+  private setAbilitySlots(speciesForm: PokemonSpeciesForm): void {
+    const [ability1, ability2, abilityHidden] = getPlayerAbilitySlots(speciesForm);
+    this.ability1 = ability1;
+    this.ability2 = ability2 === ability1 ? undefined : ability2;
+    this.abilityHidden = abilityHidden === ability1 ? undefined : abilityHidden;
+  }
+
+  /**
+   * Local fork (2026-11-20): 1.2.0 D12 (the user: "포켓몬 도감에서 선택"). For a species with the extra-ability choice
+   * (extra-ability-choice.ts), add its heading and its on/off line to the ability list. Choosing the line switches it
+   * and saves at once, then shows the list again with the new abilities; during a run it only says why it can't.
+   * @param options - The ability list, before its cancel line
+   * @returns The index of the on/off line in `options`, or `undefined` when the species has no choice
+   */
+  private addExtraAbilityOptions(options: OptionSelectItem[]): number | undefined {
+    const speciesId = this.species.speciesId;
+    const row = getExtraAbilityChoiceRow(speciesId);
+    if (row == null) {
+      return;
+    }
+    const on = isExtraAbilityOn(speciesId);
+    const canChange = canChangeExtraAbilityChoice();
+    const description = i18next.t(
+      row.kind === "slot2"
+        ? "pokedexUiHandler:extraAbilitySlotDescription"
+        : "pokedexUiHandler:extraAbilityMegaDescription",
+      { extra: allAbilities[row.extra].name, off: allAbilities[row.off].name },
+    );
+    const lockedText = i18next.t("pokedexUiHandler:extraAbilityLocked");
+    const hoverText = canChange ? description : `${description}\n${lockedText}`;
+
+    options.push({
+      label: i18next.t("pokedexUiHandler:extraAbility"),
+      selectable: false,
+      color: TextStyle.MONEY_WINDOW,
+      handler: () => false,
+      onHover: () => this.infoOverlay.clear(),
+    });
+    options.push({
+      label: i18next.t(on ? "pokedexUiHandler:extraAbilityOn" : "pokedexUiHandler:extraAbilityOff", {
+        ability: allAbilities[on ? row.extra : row.off].name,
+      }),
+      ...(canChange ? {} : { color: TextStyle.SHADOW_TEXT }),
+      handler: () => {
+        if (!canChangeExtraAbilityChoice() || !setExtraAbilityOn(speciesId, !on)) {
+          this.infoOverlay.show(hoverText);
+          return false;
+        }
+        globalScene.gameData.saveSystem();
+        this.setAbilitySlots(this.species.forms.length > 0 ? this.species.forms[this.formIndex ?? 0] : this.species);
+        this.showAbilityOptions(true);
+        return true;
+      },
+      onHover: () => this.infoOverlay.show(hoverText),
+    });
+    return options.length - 1;
+  }
+
+  /**
+   * The ability list of the menu's "Abilities" option
+   * Local fork (2026-11-20): moved here from `processInput` so that changing the extra ability's choice can show the
+   * list again with the new abilities (D12, extra-ability-choice.ts)
+   * @param returnToExtraAbility - Put the cursor on the extra ability's choice; default `false`
+   */
+  private showAbilityOptions(returnToExtraAbility = false): void {
+    const ui = this.getUi();
+    this.blockInput = true;
+
+    ui.setMode(UiMode.POKEDEX_PAGE, "refresh").then(() => {
+      this.infoOverlay.show(allAbilities[this.ability1].description);
+
+      const options: OptionSelectItem[] = [];
+
+      // TODO: can `this.ability1` be `undefined`?
+      if (this.ability1) {
+        const ability = allAbilities.at(this.ability1) ?? { name: "", description: "" };
+        options.push({
+          label: ability.name,
+          color: this.hasAbilities[0] > 0 ? TextStyle.SETTINGS_VALUE : TextStyle.SHADOW_TEXT,
+          handler: () => false,
+          onHover: () => this.infoOverlay.show(ability.description),
+        });
+      }
+      if (this.ability2) {
+        const ability = allAbilities.at(this.ability2) ?? { name: "", description: "" };
+        options.push({
+          label: ability.name,
+          color: this.hasAbilities[1] > 0 ? TextStyle.SETTINGS_VALUE : TextStyle.SHADOW_TEXT,
+          handler: () => false,
+          onHover: () => this.infoOverlay.show(ability.description),
+        });
+      }
+
+      if (this.abilityHidden) {
+        options.push({
+          label: i18next.t("pokedexUiHandler:hidden"),
+          selectable: false,
+          color: TextStyle.MONEY_WINDOW,
+          handler: () => false,
+          onHover: () => this.infoOverlay.clear(),
+        });
+        const ability = allAbilities.at(this.abilityHidden) ?? { name: "", description: "" };
+        options.push({
+          label: ability.name,
+          color: this.hasAbilities[2] > 0 ? TextStyle.SETTINGS_VALUE : TextStyle.SHADOW_TEXT,
+          handler: () => false,
+          onHover: () => this.infoOverlay.show(ability.description),
+        });
+      }
+
+      if (this.passive) {
+        options.push({
+          label: i18next.t("pokedexUiHandler:passive"),
+          selectable: false,
+          color: TextStyle.MONEY_WINDOW,
+          handler: () => false,
+          onHover: () => this.infoOverlay.clear(),
+        });
+        const ability = allAbilities.at(this.passive) ?? { name: "", description: "" };
+        options.push({
+          label: ability.name,
+          color: this.hasPassive ? TextStyle.SETTINGS_VALUE : TextStyle.SHADOW_TEXT,
+          handler: () => false,
+          onHover: () => this.infoOverlay.show(ability.description),
+        });
+      }
+
+      // Local fork (2026-11-20): D12, the extra ability's on/off choice, for the species that have one
+      const extraAbilityCursor = this.addExtraAbilityOptions(options);
+
+      options.push({
+        label: i18next.t("menu:cancel"),
+        handler: () => {
+          this.infoOverlay.clear();
+          this.clearText();
+          ui.setMode(UiMode.POKEDEX_PAGE, "refresh");
+          return true;
+        },
+        onHover: () => this.infoOverlay.clear(),
+      });
+
+      const optionSelectConfig: OptionSelectModeConfig = {
+        options,
+        maxOptions: 8,
+        yOffset: 29,
+        // Local fork (2026-11-20): back on the extra ability's choice after changing it
+        ...(returnToExtraAbility && extraAbilityCursor !== undefined ? { initialCursor: extraAbilityCursor } : {}),
+      };
+      ui.setModeWithoutClear(UiMode.OPTION_SELECT, optionSelectConfig);
+
+      this.blockInput = false;
+    });
   }
 
   public override processInput(button: Button): boolean {
@@ -1591,83 +1756,7 @@ export class PokedexPageUiHandler extends MessageUiHandler {
               break;
             }
 
-            this.blockInput = true;
-
-            ui.setMode(UiMode.POKEDEX_PAGE, "refresh").then(() => {
-              this.infoOverlay.show(allAbilities[this.ability1].description);
-
-              const options: OptionSelectItem[] = [];
-
-              // TODO: can `this.ability1` be `undefined`?
-              if (this.ability1) {
-                const ability = allAbilities.at(this.ability1) ?? { name: "", description: "" };
-                options.push({
-                  label: ability.name,
-                  color: this.hasAbilities[0] > 0 ? TextStyle.SETTINGS_VALUE : TextStyle.SHADOW_TEXT,
-                  handler: () => false,
-                  onHover: () => this.infoOverlay.show(ability.description),
-                });
-              }
-              if (this.ability2) {
-                const ability = allAbilities.at(this.ability2) ?? { name: "", description: "" };
-                options.push({
-                  label: ability.name,
-                  color: this.hasAbilities[1] > 0 ? TextStyle.SETTINGS_VALUE : TextStyle.SHADOW_TEXT,
-                  handler: () => false,
-                  onHover: () => this.infoOverlay.show(ability.description),
-                });
-              }
-
-              if (this.abilityHidden) {
-                options.push({
-                  label: i18next.t("pokedexUiHandler:hidden"),
-                  selectable: false,
-                  color: TextStyle.MONEY_WINDOW,
-                  handler: () => false,
-                  onHover: () => this.infoOverlay.clear(),
-                });
-                const ability = allAbilities.at(this.abilityHidden) ?? { name: "", description: "" };
-                options.push({
-                  label: ability.name,
-                  color: this.hasAbilities[2] > 0 ? TextStyle.SETTINGS_VALUE : TextStyle.SHADOW_TEXT,
-                  handler: () => false,
-                  onHover: () => this.infoOverlay.show(ability.description),
-                });
-              }
-
-              if (this.passive) {
-                options.push({
-                  label: i18next.t("pokedexUiHandler:passive"),
-                  selectable: false,
-                  color: TextStyle.MONEY_WINDOW,
-                  handler: () => false,
-                  onHover: () => this.infoOverlay.clear(),
-                });
-                const ability = allAbilities.at(this.passive) ?? { name: "", description: "" };
-                options.push({
-                  label: ability.name,
-                  color: this.hasPassive ? TextStyle.SETTINGS_VALUE : TextStyle.SHADOW_TEXT,
-                  handler: () => false,
-                  onHover: () => this.infoOverlay.show(ability.description),
-                });
-              }
-
-              options.push({
-                label: i18next.t("menu:cancel"),
-                handler: () => {
-                  this.infoOverlay.clear();
-                  this.clearText();
-                  ui.setMode(UiMode.POKEDEX_PAGE, "refresh");
-                  return true;
-                },
-                onHover: () => this.infoOverlay.clear(),
-              });
-
-              const optionSelectConfig: OptionSelectModeConfig = { options, maxOptions: 8, yOffset: 29 };
-              ui.setModeWithoutClear(UiMode.OPTION_SELECT, optionSelectConfig);
-
-              this.blockInput = false;
-            });
+            this.showAbilityOptions();
             success = true;
 
             break;

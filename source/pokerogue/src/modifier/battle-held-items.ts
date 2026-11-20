@@ -608,6 +608,8 @@ export function clearAmuletBlocksDrop(pokemon: Pokemon): boolean {
  * Protosynthesis and Quark Drive pick theirs (`HighestStatBoostTag.onAdd`, which calls this): the in-battle stats with
  * their stat stages, leaving out abilities and held items; on a tie the first in that order (Atk > Def > SpA > SpD >
  * Spe), as in the main series.
+ * Local fork (2026-11-20): Wonder Room is ignored, as in the main series: the Pokémon's own Defense and Sp. Def, with the
+ * other defensive stat's stages (the games' quirk, as Download; the user: "원더룸 - 본가 규칙 따르기")
  */
 export function getHighestStat(pokemon: Pokemon): EffectiveStat {
   let highest: EffectiveStat = Stat.ATK;
@@ -618,6 +620,7 @@ export function getHighestStat(pokemon: Pokemon): EffectiveStat {
       ignoreOppAbility: true,
       ignoreAllyAbility: true,
       ignoreHeldItems: true,
+      ignoreWonderRoom: true,
     });
     if (value > highestValue) {
       highest = stat;

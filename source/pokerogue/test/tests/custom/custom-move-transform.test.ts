@@ -328,9 +328,20 @@ describe("Z / Max move conversion (2026-11-16)", () => {
         }
       }
       // A Max move takes no candy, a Z move no crystal
-      expect(canSlotTakeItem(slot(MoveId.BULLET_PUNCH, { kind: "max", moveId: MoveId.MAX_STEELSPIKE }), CANDY)).toBe(
-        false,
-      );
+      // Local fork (2026-11-20), F1 Q2 (the user: "전용 z를 쓸수 있거나 거다이 포켓몬인 경우 허용"): a Max attack now takes
+      // the candy when it gives the G-Max move (Melmetal's Double Iron Bash), and nothing else (Bullet Punch); Max Guard
+      // never (custom-zmax-slots-1120.test.ts has the rest)
+      expect(
+        getConversionResult(melmetal, slot(MoveId.BULLET_PUNCH, { kind: "max", moveId: MoveId.MAX_STEELSPIKE }), CANDY),
+      ).toBeNull();
+      expect(
+        getConversionResult(
+          melmetal,
+          slot(MoveId.DOUBLE_IRON_BASH, { kind: "max", moveId: MoveId.MAX_STEELSPIKE }),
+          CANDY,
+        ),
+      ).toEqual({ kind: "gmax", moveId: MoveId.G_MAX_MELTDOWN });
+      expect(canSlotTakeItem(slot(MoveId.ACID_ARMOR, { kind: "max", moveId: MoveId.MAX_GUARD }), CANDY)).toBe(false);
       expect(
         canSlotTakeItem(
           slot(MoveId.BULLET_PUNCH, { kind: "z", moveId: MoveId.CORKSCREW_CRASH__PHYSICAL }),

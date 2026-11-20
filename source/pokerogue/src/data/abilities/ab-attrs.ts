@@ -2805,10 +2805,12 @@ export class DownloadAbAttr extends PostSummonAbAttr {
     this.enemySpDef = 0;
     this.enemyCountTally = 0;
 
+    // Local fork (2026-11-20): Download ignores Wonder Room, as in the main series: it reads the foes' own Defense and
+    // Sp. Def, with the other defensive stat's stages (the games' quirk; the user: "원더룸 - 본가 규칙 따르기")
     for (const opponent of pokemon.getOpponents()) {
       this.enemyCountTally++;
-      this.enemyDef += opponent.getEffectiveStat(Stat.DEF);
-      this.enemySpDef += opponent.getEffectiveStat(Stat.SPDEF);
+      this.enemyDef += opponent.getEffectiveStat(Stat.DEF, { ignoreWonderRoom: true });
+      this.enemySpDef += opponent.getEffectiveStat(Stat.SPDEF, { ignoreWonderRoom: true });
     }
     this.enemyDef = Math.round(this.enemyDef / this.enemyCountTally);
     this.enemySpDef = Math.round(this.enemySpDef / this.enemyCountTally);

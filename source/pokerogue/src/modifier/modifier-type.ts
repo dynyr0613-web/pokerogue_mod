@@ -92,6 +92,12 @@ import {
   WiseGlassesModifier, // Local fork (2026-11-11)
 } from "#modifiers/custom-held-items";
 import { EV_RULES, type EvItemId } from "#modifiers/ev-items"; // Local fork (2026-11-12): the EV items
+// Local fork (2026-11-20): F1 Q5 / Q6, Max Mushrooms in the rare form change reward
+import {
+  getRareFormChangeSlotWeight,
+  getRareFormChangeWeightForPool,
+  pickFormChangeItem,
+} from "#modifiers/max-mushroom-offer";
 import {
   AddPokeballModifier,
   AddVoucherModifier,
@@ -183,8 +189,8 @@ import {
 // Local fork (2026-11-16): Z-Moves and Max Moves: the Z-Ring, the Dynamax Candy and the Z crystals
 import {
   canSlotTakeConversion,
-  canUseConversionItem,
   DYNAMAX_CANDY_ITEM,
+  getConversionPartyBlock,
   getExclusiveZInfo,
   getZCrystalIcon,
   getZCrystalItem,
@@ -1402,7 +1408,8 @@ export class MasterTmModifierType extends PokemonModifierType {
  * before yes.
  *
  * The Pokémon filter passes a Pokémon with at least one move the item can convert; the move filter (which gets no
- * Pokémon) checks the slot's state and type only (move-transform's `canSlotTakeItem`).
+ * Pokémon) checks the slot's state and type only (move-transform's `canSlotTakeItem`). Local fork (2026-11-20), F1
+ * Q1: the candy's Pokémon filter also wants a Dynamaxed Pokémon (zmax-items' `getConversionPartyBlock`).
  */
 export abstract class MoveConversionModifierType extends PokemonMoveModifierType {
   /** What the item does to a move slot (move-transform.ts) */
@@ -1414,8 +1421,15 @@ export abstract class MoveConversionModifierType extends PokemonMoveModifierType
       iconImage,
       (_type, args) =>
         new MoveConversionModifier(this, (args[0] as PlayerPokemon).id, args[1] as number, conversionItem),
-      (pokemon: PlayerPokemon) =>
-        canUseConversionItem(pokemon, conversionItem) ? null : PartyUiHandler.NoEffectMessage,
+      (pokemon: PlayerPokemon) => {
+        // Local fork (2026-11-20), F1 Q1 (the user: "다이맥스한 포켓몬만 센다"): the candy says why on a Pokémon that
+        // is not Dynamaxed
+        const block = getConversionPartyBlock(pokemon, conversionItem);
+        if (block === "notDynamaxed") {
+          return i18next.t("modifierType:ModifierType.DYNAMAX_CANDY.notDynamaxed");
+        }
+        return block ? PartyUiHandler.NoEffectMessage : null;
+      },
       (pokemonMove: PokemonMove) =>
         canSlotTakeConversion(pokemonMove, conversionItem) ? null : PartyUiHandler.NoEffectMessage,
       group,
@@ -1537,7 +1551,12 @@ export class FormChangeItemModifierType extends PokemonModifierType implements G
     // Local fork (2026-11-19): Max Mushrooms have their own text. Since 11-18 they give any Pokémon the Dynamax state
     // (pokemon-forms-dynamax.ts), so the vanilla "Causes certain Pokémon to change form." no longer fits
     if (this.formChangeItem === FormChangeItem.MAX_MUSHROOMS) {
-      return i18next.t("modifierType:ModifierType.FormChangeItemModifierType.maxMushroomsDescription");
+      // Local fork (2026-11-20), F1 Q6: before the first Classic clear only a G-Max species can use them (fork-unlock.ts)
+      return i18next.t(
+        isForkContentUnlocked()
+          ? "modifierType:ModifierType.FormChangeItemModifierType.maxMushroomsDescription"
+          : "modifierType:ModifierType.FormChangeItemModifierType.maxMushroomsLockedDescription",
+      );
     }
     return i18next.t("modifierType:ModifierType.FormChangeItemModifierType.description");
   }
@@ -1895,6 +1914,120 @@ class EvolutionItemModifierTypeGenerator extends ModifierTypeGenerator {
   }
 }
 
+/**
+ * Local fork (2026-11-20): the items a form change item generator chooses from for `party` (no roll), moved out of
+ * {@linkcode FormChangeItemModifierTypeGenerator} so the rare slot's weight can read it too (F1 Q5,
+ * {@linkcode getRareFormChangeItemWeight}). The code is the generator's as it was, but for the Q6 lock below.
+ * @param party - The party the items are for
+ * @param isRareFormChangeItem - The rare generator's items (below 150) or the common one's
+ */
+export function getFormChangeItemPool(party: readonly Pokemon[], isRareFormChangeItem: boolean): FormChangeItem[] {
+  const formChangeItemPool = [
+    ...new Set(
+      party
+        .filter(p => speciesDataRegistry.hasFormChanges(p.species.speciesId))
+        .flatMap(p => {
+          const formChanges = speciesDataRegistry.getFormChanges(p.species.speciesId);
+          let formChangeItemTriggers = formChanges
+            .filter(
+              fc =>
+                ((fc.formKey.indexOf(SpeciesFormKey.MEGA) === -1 && fc.formKey.indexOf(SpeciesFormKey.PRIMAL) === -1)
+                  || globalScene.getModifiers(MegaEvolutionAccessModifier).length > 0)
+                && ((fc.formKey.indexOf(SpeciesFormKey.GIGANTAMAX) === -1
+                  && fc.formKey.indexOf(SpeciesFormKey.ETERNAMAX) === -1)
+                  || globalScene.getModifiers(GigantamaxAccessModifier).length > 0)
+                && (fc.conditions.length === 0
+                  || fc.conditions.filter(cond => cond instanceof SpeciesFormChangeCondition && cond.predicate(p))
+                    .length > 0)
+                && fc.preFormKey === p.getFormKey(),
+            )
+            .map(fc => fc.findTrigger(SpeciesFormChangeItemTrigger) as SpeciesFormChangeItemTrigger)
+            .filter(
+              t =>
+                t?.active
+                && !globalScene.findModifier(
+                  m =>
+                    m instanceof PokemonFormChangeItemModifier && m.pokemonId === p.id && m.formChangeItem === t.item,
+                ),
+            );
+
+          if (p.species.speciesId === SpeciesId.NECROZMA) {
+            // technically we could use a simplified version and check for formChanges.length > 3, but in case any code changes later, this might break...
+            let foundULTRA_Z = false;
+            let foundN_LUNA = false;
+            let foundN_SOLAR = false;
+            formChangeItemTriggers.forEach((fc, _i) => {
+              console.log("Checking ", fc.item);
+              switch (fc.item) {
+                case FormChangeItem.ULTRANECROZIUM_Z:
+                  foundULTRA_Z = true;
+                  break;
+                case FormChangeItem.N_LUNARIZER:
+                  foundN_LUNA = true;
+                  break;
+                case FormChangeItem.N_SOLARIZER:
+                  foundN_SOLAR = true;
+                  break;
+              }
+            });
+            if (foundULTRA_Z && foundN_LUNA && foundN_SOLAR) {
+              // all three items are present -> user hasn't acquired any of the N_*ARIZERs -> block ULTRANECROZIUM_Z acquisition.
+              formChangeItemTriggers = formChangeItemTriggers.filter(fc => fc.item !== FormChangeItem.ULTRANECROZIUM_Z);
+            } else {
+              console.log("DID NOT FIND ");
+            }
+          }
+          return formChangeItemTriggers;
+        }),
+    ),
+  ]
+    .flat()
+    .flatMap(fc => fc.item)
+    .filter(i => (i && i < 150) === isRareFormChangeItem)
+    // Local fork (2026-11-12): our own Mega Stones only after the first Classic clear (fork-unlock.ts; the user:
+    // "저희 대부분의 커스텀 아이템과 커스텀 패시브는 클래식 클리어 후 해금으로 하죠")
+    .filter(i => !isForkFormChangeItemLocked(i));
+  // convert it into a set to remove duplicate values, which can appear when the same species with a potential form change is in the party.
+
+  // Local fork (2026-11-18): with the Dynamax Band, Max Mushrooms for any of the player's Pokémon holding none, not
+  // only a G-Max species in its base form: any other one (a Mega form's included) gets the Dynamax state
+  // (pokemon-forms-dynamax.ts; the user: "거다이맥스 아니어도 다이맥스 가능하게"). One entry at most, a G-Max species'
+  // own entry counting as it, so a full party does not crowd the other rare form-change items out
+  if (
+    isRareFormChangeItem
+    && !formChangeItemPool.includes(FormChangeItem.MAX_MUSHROOMS)
+    && globalScene.getModifiers(GigantamaxAccessModifier).length > 0
+    // Local fork (2026-11-20), F1 Q6 (the user: "추천대로"): only after the first Classic clear, as the other fork items
+    // (fork-unlock.ts). The old check asked for MAX_MUSHROOMS in the gated list, where it never was, so it always
+    // passed; before the clear only a G-Max species' own entry above offers them, as in the original game
+    && isForkContentUnlocked()
+    && party.some(
+      p =>
+        p.isPlayer()
+        && !p
+          .getHeldItems()
+          .some(m => m instanceof PokemonFormChangeItemModifier && m.formChangeItem === FormChangeItem.MAX_MUSHROOMS),
+    )
+  ) {
+    formChangeItemPool.push(FormChangeItem.MAX_MUSHROOMS);
+  }
+
+  return formChangeItemPool;
+}
+
+/**
+ * Local fork (2026-11-20), F1 Q5 (the user: "거다이가 있을 경우 24, 없을 경우 4"): the rare form change slot's ROGUE
+ * weight (init-modifier-pools.ts): its wave weight as before (24 from wave 151), or 4 when Max Mushrooms are all it
+ * could give and no party member that can Gigantamax is without them (max-mushroom-offer.ts)
+ */
+export function getRareFormChangeItemWeight(party: readonly Pokemon[]): number {
+  return getRareFormChangeWeightForPool(
+    party,
+    getFormChangeItemPool(party, true),
+    getRareFormChangeSlotWeight(globalScene.currentBattle.waveIndex),
+  );
+}
+
 export class FormChangeItemModifierTypeGenerator extends ModifierTypeGenerator {
   constructor(isRareFormChangeItem: boolean) {
     super((party: readonly Pokemon[], pregenArgs?: any[]) => {
@@ -1902,106 +2035,22 @@ export class FormChangeItemModifierTypeGenerator extends ModifierTypeGenerator {
         return new FormChangeItemModifierType(pregenArgs[0] as FormChangeItem);
       }
 
-      const formChangeItemPool = [
-        ...new Set(
-          party
-            .filter(p => speciesDataRegistry.hasFormChanges(p.species.speciesId))
-            .flatMap(p => {
-              const formChanges = speciesDataRegistry.getFormChanges(p.species.speciesId);
-              let formChangeItemTriggers = formChanges
-                .filter(
-                  fc =>
-                    ((fc.formKey.indexOf(SpeciesFormKey.MEGA) === -1
-                      && fc.formKey.indexOf(SpeciesFormKey.PRIMAL) === -1)
-                      || globalScene.getModifiers(MegaEvolutionAccessModifier).length > 0)
-                    && ((fc.formKey.indexOf(SpeciesFormKey.GIGANTAMAX) === -1
-                      && fc.formKey.indexOf(SpeciesFormKey.ETERNAMAX) === -1)
-                      || globalScene.getModifiers(GigantamaxAccessModifier).length > 0)
-                    && (fc.conditions.length === 0
-                      || fc.conditions.filter(cond => cond instanceof SpeciesFormChangeCondition && cond.predicate(p))
-                        .length > 0)
-                    && fc.preFormKey === p.getFormKey(),
-                )
-                .map(fc => fc.findTrigger(SpeciesFormChangeItemTrigger) as SpeciesFormChangeItemTrigger)
-                .filter(
-                  t =>
-                    t?.active
-                    && !globalScene.findModifier(
-                      m =>
-                        m instanceof PokemonFormChangeItemModifier
-                        && m.pokemonId === p.id
-                        && m.formChangeItem === t.item,
-                    ),
-                );
-
-              if (p.species.speciesId === SpeciesId.NECROZMA) {
-                // technically we could use a simplified version and check for formChanges.length > 3, but in case any code changes later, this might break...
-                let foundULTRA_Z = false;
-                let foundN_LUNA = false;
-                let foundN_SOLAR = false;
-                formChangeItemTriggers.forEach((fc, _i) => {
-                  console.log("Checking ", fc.item);
-                  switch (fc.item) {
-                    case FormChangeItem.ULTRANECROZIUM_Z:
-                      foundULTRA_Z = true;
-                      break;
-                    case FormChangeItem.N_LUNARIZER:
-                      foundN_LUNA = true;
-                      break;
-                    case FormChangeItem.N_SOLARIZER:
-                      foundN_SOLAR = true;
-                      break;
-                  }
-                });
-                if (foundULTRA_Z && foundN_LUNA && foundN_SOLAR) {
-                  // all three items are present -> user hasn't acquired any of the N_*ARIZERs -> block ULTRANECROZIUM_Z acquisition.
-                  formChangeItemTriggers = formChangeItemTriggers.filter(
-                    fc => fc.item !== FormChangeItem.ULTRANECROZIUM_Z,
-                  );
-                } else {
-                  console.log("DID NOT FIND ");
-                }
-              }
-              return formChangeItemTriggers;
-            }),
-        ),
-      ]
-        .flat()
-        .flatMap(fc => fc.item)
-        .filter(i => (i && i < 150) === isRareFormChangeItem)
-        // Local fork (2026-11-12): our own Mega Stones only after the first Classic clear (fork-unlock.ts; the user:
-        // "저희 대부분의 커스텀 아이템과 커스텀 패시브는 클래식 클리어 후 해금으로 하죠")
-        .filter(i => !isForkFormChangeItemLocked(i));
-      // convert it into a set to remove duplicate values, which can appear when the same species with a potential form change is in the party.
-
-      // Local fork (2026-11-18): with the Dynamax Band, Max Mushrooms for any of the player's Pokémon holding none, not
-      // only a G-Max species in its base form: any other one (a Mega form's included) gets the Dynamax state
-      // (pokemon-forms-dynamax.ts; the user: "거다이맥스 아니어도 다이맥스 가능하게"). One entry at most, a G-Max species'
-      // own entry counting as it, so a full party does not crowd the other rare form-change items out
-      if (
-        isRareFormChangeItem
-        && !formChangeItemPool.includes(FormChangeItem.MAX_MUSHROOMS)
-        && globalScene.getModifiers(GigantamaxAccessModifier).length > 0
-        && !isForkFormChangeItemLocked(FormChangeItem.MAX_MUSHROOMS)
-        && party.some(
-          p =>
-            p.isPlayer()
-            && !p
-              .getHeldItems()
-              .some(
-                m => m instanceof PokemonFormChangeItemModifier && m.formChangeItem === FormChangeItem.MAX_MUSHROOMS,
-              ),
-        )
-      ) {
-        formChangeItemPool.push(FormChangeItem.MAX_MUSHROOMS);
-      }
-
+      // Local fork (2026-11-20): the pool is getFormChangeItemPool's (F1 Q5 reads it for the slot's weight)
+      const formChangeItemPool = getFormChangeItemPool(party, isRareFormChangeItem);
       if (formChangeItemPool.length === 0) {
         return null;
       }
 
       // TODO: should this use `randSeedItem`?
-      return new FormChangeItemModifierType(formChangeItemPool[randSeedInt(formChangeItemPool.length)]);
+      // Local fork (2026-11-20), F1 Q5: an even draw (one roll) as before, except Max Mushrooms beside other items while
+      // no party member that can Gigantamax is without them: their share is 4 of the slot's weight (max-mushroom-offer.ts)
+      return new FormChangeItemModifierType(
+        pickFormChangeItem(
+          party,
+          formChangeItemPool,
+          getRareFormChangeSlotWeight(globalScene.currentBattle?.waveIndex ?? 1),
+        ),
+      );
     });
   }
 }

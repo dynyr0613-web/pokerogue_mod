@@ -55,6 +55,15 @@
   "prevoMovePrompt": "{{pokemonName}} got the idea for a\nnew relearn move: {{moveName}}!",
   "countdownPoof": "@d{32}1, @d{15}2, and@d{15}… @d{15}… @d{15}… @d{15}@s{se/pb_bounce_1}Poof!",
   "learnMoveAnd": "And…",
+  "convertedMoveForgetWarning": "{{moveName}} was made {{kindName}}. Forgetting it loses the conversion.",
+  "convertedMoveForgetConfirm": "Forget {{moveName}}\nanyway?",
+  "convertedMoveKind": {
+    "max": "a Max Move",
+    "gmax": "a G-Max Move",
+    "z": "a Z-Move",
+    "zExclusive": "an exclusive Z-Move",
+    "zMax": "a Z-Max Move"
+  },
   "levelCapUp": "The level cap\nhas increased to {{levelCap}}!",
   "levelCapLifted": "The level cap\nhas been lifted!",
   "moveNotImplemented": "{{moveName}} is not yet implemented and cannot be selected.",

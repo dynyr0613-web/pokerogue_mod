@@ -114,7 +114,10 @@ interface AceSpec {
   species: SpeciesId;
   formKey: string;
   fusion?: { species: SpeciesId; formKey: string };
-  /** The best nature for Soul Dew x10 (the lowered stat drops to 1, so one attacking category is chosen) */
+  /**
+   * The best nature for Soul Dew x10 (the lowered stat drops to about 31%, x0.9 x 0.9^10, so one attacking category is
+   * chosen; it dropped to 1 until 2026-11-19, A4)
+   */
   nature: Nature;
   category: Category;
   moves: MoveId[];

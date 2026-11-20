@@ -5,6 +5,7 @@
 // Do not import init-abilities.ts from this file.
 import { globalScene } from "#app/global-scene";
 import { getPokemonNameWithAffix } from "#app/messages";
+import { getWonderRoomStat } from "#data/arena-tag"; // Local fork (2026-11-20): Beast Boost under Wonder Room
 import { allAbilities, allMoves } from "#data/data-lists";
 import type { TerrainType } from "#data/terrain";
 import { AbilityId } from "#enums/ability-id";
@@ -148,12 +149,15 @@ export function droughtAiMovegenEffect({ move, powerMult, accMult, instantCharge
  * and {@link https://bulbapedia.bulbagarden.net/wiki/Eelevate_(Ability) | Beast Boost}
  *
  * @param pokemon - The Pokémon under consideration
+ * Local fork (2026-11-20): the plain stats as Wonder Room has them (its Defense and Sp. Def swapped while it is up), as
+ * in the main series (Bulbapedia: Beast Boost considers Wonder Room, though not stat stages; the user: "원더룸 - 본가
+ * 규칙 따르기")
  */
 export function beastBoostHighestStatCalc(pokemon: Pokemon) {
   let highestStat: EffectiveStat;
   let highestValue = 0;
   for (const s of EFFECTIVE_STATS) {
-    const value = pokemon.getStat(s, false);
+    const value = pokemon.getStat(getWonderRoomStat(s), false);
     if (value > highestValue) {
       highestStat = s;
       highestValue = value;

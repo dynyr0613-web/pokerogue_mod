@@ -70,7 +70,13 @@ import {
 } from "#modifiers/modifier-pools";
 import type { initModifierTypes } from "#modifiers/modifier-type";
 // Local fork (2026-11-11): getPartyLuckValue for the luck clovers' weight
-import { getOfferableIvCandyStats, getPartyLuckValue, WeightedModifierType } from "#modifiers/modifier-type";
+// Local fork (2026-11-20): getRareFormChangeItemWeight, F1 Q5
+import {
+  getOfferableIvCandyStats,
+  getPartyLuckValue,
+  getRareFormChangeItemWeight,
+  WeightedModifierType,
+} from "#modifiers/modifier-type";
 // Local fork (2026-11-16): the Z-Ring, Dynamax Candy and Z crystal weights
 import {
   getDynamaxCandyWeight,
@@ -936,7 +942,8 @@ function initUltraModifierPool() {
     new WeightedModifierType(modifierTypes.WEIGHT_BAND, hpBeltWeight("WEIGHT_BAND"), HP_BELTS.WEIGHT_BAND.poolWeight),
     // Local fork (2026-11-16): 다이사탕 (Dynamax Candy), 6 like the Punching Glove while a party member is Dynamaxed and
     // some party move can take it (getDynamaxCandyWeight; the user: "다이맥스한 포켓몬이 있을 경우 다이사탕(하이퍼)이 보상
-    // 테이블에서 나올 수 있음"); 0 otherwise, so a pick never fails
+    // 테이블에서 나올 수 있음"); 0 otherwise, so a pick never fails. Local fork (2026-11-20), F1 Q1 (the user: "다이맥스한
+    // 포켓몬만 센다"): only a Dynamaxed party member's own moves count
     new WeightedModifierType(modifierTypes.DYNAMAX_CANDY, getDynamaxCandyWeight, ZMAX_REWARD_RULES.dynamaxCandy.weight),
     // Local fork (2026-11-16): Z크리스탈 (Z crystal), 8 while the Z-Ring is owned and some party move can take a crystal
     // (getZCrystalWeight, 0 exactly when the generator has nothing to give; the user: "z링 보유 시 + 해당 타입 기술 보유
@@ -1018,11 +1025,10 @@ function initRogueModifierPool() {
       ENEMY_DAMAGE_TOKEN_RULES.piercingWeight,
     ),
     new WeightedModifierType(modifierTypes.SUPER_EXP_CHARM, skipInLastClassicWaveOrDefault(8)),
-    new WeightedModifierType(
-      modifierTypes.RARE_FORM_CHANGE_ITEM,
-      () => Math.min(Math.ceil(globalScene.currentBattle.waveIndex / 50), 4) * 6,
-      24,
-    ),
+    // Local fork (2026-11-20), F1 Q5 (the user: "거다이가 있을 경우 24, 없을 경우 4"): the wave weight as before, or 4
+    // when Max Mushrooms are all the slot could give and no party member that can Gigantamax is without them
+    // (getRareFormChangeItemWeight, max-mushroom-offer.ts)
+    new WeightedModifierType(modifierTypes.RARE_FORM_CHANGE_ITEM, getRareFormChangeItemWeight, 24),
     new WeightedModifierType(
       modifierTypes.MEGA_BRACELET,
       () => Math.min(Math.ceil(globalScene.currentBattle.waveIndex / 50), 4) * 9,

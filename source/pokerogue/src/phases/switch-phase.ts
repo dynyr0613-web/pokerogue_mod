@@ -2,6 +2,7 @@ import { globalScene } from "#app/global-scene";
 import { PartyUiMode } from "#enums/party-ui-mode";
 import { SwitchType } from "#enums/switch-type";
 import { UiMode } from "#enums/ui-mode";
+import { clearPursuitIntercepts, queuePursuitBeforeSwitch } from "#moves/custom-pursuit"; // Local fork (2026-11-20)
 import { BattlePhase } from "#phases/battle-phase";
 import { PartyOption, PartyUiHandler } from "#ui/party-ui-handler";
 
@@ -15,6 +16,13 @@ export class SwitchPhase extends BattlePhase {
   private readonly switchType: SwitchType;
   private readonly isModal: boolean;
   private readonly doReturn: boolean;
+  /**
+   * Local fork (2026-11-20): Pursuit (따라가때리기) (the user: "따라가때리기 - 본가 그대로"). `"check"` for the switch of
+   * the player's switching move (U-turn, Volt Switch ...; `ForceSwitchOutAttr`) while a foe's Pursuit waits: the
+   * Pokémon is still on the field, and the Pursuit hits it first (custom-pursuit.ts); `"resume"` for that switch put
+   * back in the queue behind the Pursuit; `"none"` for every other switch.
+   */
+  private readonly pursuitStage: "check" | "resume" | "none";
 
   /**
    * Creates a new SwitchPhase
@@ -25,18 +33,50 @@ export class SwitchPhase extends BattlePhase {
    * @param doReturn Indicates if the party member on the field should be
    * recalled to ball or has already left the field. Passed to {@linkcode SwitchSummonPhase},
    * and is (ostensibly) only set to `false` from `FaintPhase`.
+   * @param pursuitStage - Local fork (2026-11-20): see {@linkcode SwitchPhase.pursuitStage}; default `"none"`
    */
-  constructor(switchType: SwitchType, fieldIndex: number, isModal: boolean, doReturn: boolean) {
+  constructor(
+    switchType: SwitchType,
+    fieldIndex: number,
+    isModal: boolean,
+    doReturn: boolean,
+    pursuitStage: "check" | "resume" | "none" = "none",
+  ) {
     super();
 
     this.switchType = switchType;
     this.fieldIndex = fieldIndex;
     this.isModal = isModal;
     this.doReturn = doReturn;
+    this.pursuitStage = pursuitStage;
   }
 
   start() {
     super.start();
+
+    // Local fork (2026-11-20): Pursuit. A foe that chose Pursuit this turn and has not moved yet hits the Pokémon before
+    // it leaves: its move goes first and this switch comes back right after it. Knocked out by it, the Pokémon does not
+    // switch and is replaced like any fainted Pokémon (FaintPhase); otherwise it leaves the field now, as the switching
+    // move does when no Pursuit waits (`ForceSwitchOutAttr.apply`)
+    if (this.pursuitStage !== "none") {
+      const pokemon = globalScene.getPlayerParty()[this.fieldIndex];
+      if (this.pursuitStage === "check" && pokemon != null && queuePursuitBeforeSwitch(pokemon)) {
+        globalScene.phaseManager.unshiftNew(
+          "SwitchPhase",
+          this.switchType,
+          this.fieldIndex,
+          this.isModal,
+          this.doReturn,
+          "resume",
+        );
+        return super.end();
+      }
+      clearPursuitIntercepts();
+      if (!pokemon?.isActive(true)) {
+        return super.end();
+      }
+      pokemon.leaveField(this.switchType === SwitchType.SWITCH);
+    }
 
     // Skip modal switch if impossible (no remaining party members that aren't already in battle)
     if (this.isModal && globalScene.getPokemonAllowedInBattle().every(p => p.isOnField())) {
@@ -74,7 +114,17 @@ export class SwitchPhase extends BattlePhase {
       (slotIndex: number, option: PartyOption) => {
         if (slotIndex >= globalScene.currentBattle.getBattlerCount() && slotIndex < 6) {
           const switchType = option === PartyOption.PASS_BATON ? SwitchType.BATON_PASS : this.switchType;
-          globalScene.phaseManager.unshiftNew("SwitchSummonPhase", switchType, fieldIndex, slotIndex, this.doReturn);
+          // Local fork (2026-11-20): a switching move's switch that waited for a Pursuit tells the summon so (moveSwitch)
+          globalScene.phaseManager.unshiftNew(
+            "SwitchSummonPhase",
+            switchType,
+            fieldIndex,
+            slotIndex,
+            this.doReturn,
+            true,
+            "none",
+            this.pursuitStage !== "none",
+          );
         }
         globalScene.ui.setMode(UiMode.MESSAGE).then(() => super.end());
       },

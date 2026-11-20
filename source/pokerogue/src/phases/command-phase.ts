@@ -6,6 +6,7 @@ import { getPokemonNameWithAffix } from "#app/messages";
 import { TrappedTag } from "#data/battler-tags";
 import { getDailyEventSeedBoss } from "#data/daily-run";
 import { isDailyFinalBoss } from "#data/daily-seed-utils";
+import { allAbilities } from "#data/data-lists";
 import { isEndlessRaidWave } from "#data/endless-raid";
 import { AbilityId } from "#enums/ability-id";
 import { ArenaTagSide } from "#enums/arena-tag-side";
@@ -521,10 +522,41 @@ export class CommandPhase extends FieldPhase {
         this.showNoEscapeText(trapTag, false);
       } else if (fairyLockTag) {
         this.showNoEscapeText(fairyLockTag, false);
+      } else if (playerPokemon.hasAbility(AbilityId.LAST_STAND)) {
+        // Local fork (2026-11-20): Last Stand (결사항전) traps its own holder (`Pokemon.isTrapped`) with no tag and no
+        // ability message, so Run left the same empty message box as Sky Drop did and Switch did nothing (the user:
+        // "결사항전 관련 실행")
+        this.showLastStandNoEscapeText(isSwitch);
+      } else {
+        // Local fork (2026-11-20): a trap with no message of its own goes back to the command menu instead of hanging
+        globalScene.ui.setMode(UiMode.COMMAND, this.fieldIndex);
       }
     }
 
     return true;
+  }
+
+  /**
+   * Local fork (2026-11-20): the usual can't-escape message for a holder trapped by its own Last Stand (결사항전), as
+   * "<holder>'s Last Stand prevents fleeing/switching!", then back to the command menu, from Run or from Switch (the
+   * user: "결사항전 관련 실행").
+   * @param isSwitch - Whether the player tried to switch out (else to flee)
+   */
+  private showLastStandNoEscapeText(isSwitch: boolean): void {
+    globalScene.ui.showText(
+      i18next.t("battle:noEscapePokemon", {
+        pokemonName: getPokemonNameWithAffix(this.getPokemon()),
+        moveName: allAbilities[AbilityId.LAST_STAND].name,
+        escapeVerb: i18next.t(isSwitch ? "battle:escapeVerbSwitch" : "battle:escapeVerbFlee"),
+      }),
+      null,
+      () => {
+        globalScene.ui.showText("", 0);
+        globalScene.ui.setMode(UiMode.COMMAND, this.fieldIndex);
+      },
+      null,
+      true,
+    );
   }
 
   /**

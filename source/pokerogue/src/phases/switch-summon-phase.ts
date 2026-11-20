@@ -39,6 +39,12 @@ export class SwitchSummonPhase extends SummonPhase {
    * queue behind the Pursuit; `"none"` for every other switch.
    */
   private readonly pursuitStage: "check" | "resume" | "none";
+  /**
+   * Local fork (2026-11-20): Pursuit (the user: "따라가때리기 - 본가 그대로"). Set for the switch of a switching move
+   * (U-turn, Volt Switch ...) that waited for a foe's Pursuit: the battle's last move is Pursuit by then, so
+   * {@linkcode onEnd} is told here that this switch was a move's, for the turn counters
+   */
+  private readonly moveSwitch: boolean;
   /** Local fork (2026-11-19): set when this phase ends without switching (see {@linkcode start}), to skip {@linkcode onEnd} */
   private switchSkipped = false;
 
@@ -49,7 +55,9 @@ export class SwitchSummonPhase extends SummonPhase {
    * @param slotIndex - The index of pokemon (in party of 6) to switch into
    * @param doReturn - Whether to render "comeback" dialogue
    * @param player - Whether the switch came from the player or enemy; default `true`
-   * @param pursuitStage - Local fork (2026-11-19): see {@linkcode SwitchSummonPhase.pursuitStage}; default `"none"`
+   * @param pursuitStage - Local fork (2026-11-19): see {@linkcode SwitchSummonPhase.pursuitStage}; default `"none"`.
+   * Since 2026-11-20 also `"check"` for an enemy trainer's switching move that a waiting Pursuit catches.
+   * @param moveSwitch - Local fork (2026-11-20): see {@linkcode SwitchSummonPhase.moveSwitch}; default `false`
    */
   constructor(
     switchType: SwitchType,
@@ -58,6 +66,7 @@ export class SwitchSummonPhase extends SummonPhase {
     doReturn: boolean,
     player = true,
     pursuitStage: "check" | "resume" | "none" = "none",
+    moveSwitch = false,
   ) {
     super(fieldIndex, player);
 
@@ -65,6 +74,7 @@ export class SwitchSummonPhase extends SummonPhase {
     this.slotIndex = slotIndex;
     this.doReturn = doReturn;
     this.pursuitStage = pursuitStage;
+    this.moveSwitch = moveSwitch;
   }
 
   start(): void {
@@ -79,6 +89,7 @@ export class SwitchSummonPhase extends SummonPhase {
         this.doReturn,
         this.player,
         "resume",
+        this.moveSwitch,
       );
       this.switchSkipped = true;
       this.end();
@@ -294,8 +305,10 @@ export class SwitchSummonPhase extends SummonPhase {
     const lastUsedMove = moveId ? allMoves[moveId] : undefined;
 
     const currentCommand = globalScene.currentBattle.turnCommands[this.fieldIndex]?.command;
+    // Local fork (2026-11-20): or a switching move's switch that waited for a Pursuit (`moveSwitch`)
     const lastPokemonIsForceSwitchedAndNotFainted =
-      SELF_SWITCH_MOVE_ATTRS.some(attr => lastUsedMove?.hasAttr(attr)) && !this.lastPokemon.isFainted();
+      (this.moveSwitch || SELF_SWITCH_MOVE_ATTRS.some(attr => lastUsedMove?.hasAttr(attr)))
+      && !this.lastPokemon.isFainted();
     const lastPokemonHasForceSwitchAbAttr =
       this.lastPokemon.hasAbilityWithAttr("PostDamageForceSwitchAbAttr") && !this.lastPokemon.isFainted();
 

@@ -22,6 +22,12 @@ import { PokemonPhase } from "#phases/pokemon-phase";
 import { inSpeedOrder } from "#utils/speed-order-generator";
 import i18next from "i18next";
 
+/**
+ * Local fork (2026-11-20): how long a fainting Illusion holder's true look stays on screen before it faints, in ms at
+ * 1x game speed ({@linkcode FaintPhase.revealIllusion})
+ */
+const ILLUSION_REVEAL_DELAY = 500;
+
 export class FaintPhase extends PokemonPhase {
   public readonly phaseName = "FaintPhase";
   /**
@@ -58,6 +64,11 @@ export class FaintPhase extends PokemonPhase {
       faintPokemon.getTag(BattlerTagType.GRUDGE)?.lapse(faintPokemon, BattlerTagLapseType.CUSTOM, this.source);
     }
 
+    // Local fork (2026-11-20): a disguised Illusion (일루전) holder shows its true look before it faints (the user:
+    // "일루전 - 사망 전 잠시 변신 해제"). The summon data reset below drops the illusion but kept the ally's sprite, so
+    // "<holder> fainted!" came with the ally's picture after poison, weather, recoil or any other damage
+    const illusionRevealed = this.revealIllusion(faintPokemon);
+
     faintPokemon.resetSummonData();
 
     if (!this.preventInstantRevive) {
@@ -87,11 +98,37 @@ export class FaintPhase extends PokemonPhase {
       }
     }
 
-    if (globalScene.currentBattle.isClassicFinalBoss && !this.player) {
-      this.handleFinalBossFaint();
+    const faint = (): void => {
+      if (globalScene.currentBattle.isClassicFinalBoss && !this.player) {
+        this.handleFinalBossFaint();
+      } else {
+        this.doFaint();
+      }
+    };
+    if (illusionRevealed == null) {
+      faint();
     } else {
-      this.doFaint();
+      illusionRevealed.then(faint);
     }
+  }
+
+  /**
+   * Local fork (2026-11-20): end a fainting Illusion (일루전) holder's illusion so that its true sprite, name and battle
+   * info show for a moment before the faint cry and the "<holder> fainted!" message (the user: "일루전 - 사망 전 잠시
+   * 변신 해제"). The illusion is not spent: the post-faint reset gives it back for a later entry this battle, as before.
+   * @param pokemon - The fainting Pokémon
+   * @returns A promise resolved once its true look has loaded and stayed on screen briefly; `undefined` without an
+   * illusion up (nothing to wait for)
+   */
+  private revealIllusion(pokemon: Pokemon): Promise<void> | undefined {
+    if (pokemon.summonData.illusion == null) {
+      return;
+    }
+    pokemon.breakIllusion();
+    const showBriefly = () =>
+      new Promise<void>(resolve => globalScene.time.delayedCall(ILLUSION_REVEAL_DELAY, () => resolve()));
+    // The faint goes on even if a sprite failed to load
+    return pokemon.loadAssets(false).then(showBriefly, showBriefly);
   }
 
   private doFaint(): void {
